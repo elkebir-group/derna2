@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "packages/rna-mfe",
+    "packages/derna-codon-dp",
 ]
 
 [workspace.package]

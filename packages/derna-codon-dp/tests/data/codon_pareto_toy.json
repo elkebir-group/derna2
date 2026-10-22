@@ -1,0 +1,130 @@
+{
+  "fronts": [
+    {
+      "dangling_5_prime": false,
+      "front": [
+        {
+          "cai": 0.8008073558142849,
+          "mfe_kcal_mol": -8.2,
+          "rna_seq": "GGGCUCGCCGGGCCCCGG",
+          "structure": "((((((...))))))..."
+        },
+        {
+          "cai": 0.9025827529890561,
+          "mfe_kcal_mol": -7.5,
+          "rna_seq": "GGGCUGGCCGGGCCCCGG",
+          "structure": "(((((.....)))))..."
+        },
+        {
+          "cai": 0.9500435532064075,
+          "mfe_kcal_mol": -6.8,
+          "rna_seq": "GGCCUGGCCGGGCCCCGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9500435532064075,
+          "mfe_kcal_mol": -6.8,
+          "rna_seq": "GGGCUGGCCGGCCCCCGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9919012787602388,
+          "mfe_kcal_mol": -6.1,
+          "rna_seq": "GGCCUGGCCGGCCCCAGG",
+          "structure": "..(((((......)))))"
+        },
+        {
+          "cai": 1.0,
+          "mfe_kcal_mol": -5.7,
+          "rna_seq": "GGCCUGGCCGGCCCCCGG",
+          "structure": "((((.....))))....."
+        }
+      ]
+    },
+    {
+      "dangling_5_prime": true,
+      "front": [
+        {
+          "cai": 0.7943218402727947,
+          "mfe_kcal_mol": -9.9,
+          "rna_seq": "GGGCUCGCCGGGCCCAGA",
+          "structure": "((((((...))))))..."
+        },
+        {
+          "cai": 0.7943218402727947,
+          "mfe_kcal_mol": -9.9,
+          "rna_seq": "GGGCUCGCCGGGCCCAGG",
+          "structure": "((((((...))))))..."
+        },
+        {
+          "cai": 0.8952729868767816,
+          "mfe_kcal_mol": -9.2,
+          "rna_seq": "GGGCUGGCCGGGCCCAGA",
+          "structure": "(((((.....)))))..."
+        },
+        {
+          "cai": 0.8952729868767816,
+          "mfe_kcal_mol": -9.2,
+          "rna_seq": "GGGCUGGCCGGGCCCAGG",
+          "structure": "(((((.....)))))..."
+        },
+        {
+          "cai": 0.9187947098394055,
+          "mfe_kcal_mol": -8.5,
+          "rna_seq": "GGCCUGGCCGGGCCACGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9187947098394055,
+          "mfe_kcal_mol": -8.5,
+          "rna_seq": "GGGCUGGCCGGCCCACGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9243806883228638,
+          "mfe_kcal_mol": -8.0,
+          "rna_seq": "GGCCUGGCCGGGCCUCGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9243806883228638,
+          "mfe_kcal_mol": -8.0,
+          "rna_seq": "GGGCUGGCCGGCCCUCGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9500435532064075,
+          "mfe_kcal_mol": -7.6,
+          "rna_seq": "GGCCUGGCCGGGCCCCGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 0.9500435532064075,
+          "mfe_kcal_mol": -7.6,
+          "rna_seq": "GGGCUGGCCGGCCCCCGG",
+          "structure": "(((((....)))))...."
+        },
+        {
+          "cai": 1.0,
+          "mfe_kcal_mol": -6.5,
+          "rna_seq": "GGCCUGGCCGGCCCCCGG",
+          "structure": "((((.....))))....."
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "cai_tolerance": "exact float64 equality (see script comment for rationale)",
+    "codon_usage_file": "packages/derna-core/data/codon_usage_human.csv",
+    "codon_usage_sha256": "f1df2640cbb9fde4273f1a7ffe2c4a173ac4abfe2cff96607c1fbff9a8a50d56",
+    "front_size_d0": 6,
+    "front_size_d2": 11,
+    "front_sort": "mfe_kcal_mol asc, cai desc, rna_seq asc",
+    "generator_command": "uv run --directory packages/derna-core python scripts/generate_toy_pareto_fixtures.py",
+    "n_codon_combinations": 9216,
+    "param_file": "packages/derna-core/data/rna_turner2004.par",
+    "param_file_sha256": "0c671a7455f5686bc160fc655194b11888594ab7d506626cdad1470bcadd17d9",
+    "vienna_version": "2.7.2"
+  },
+  "protein": "GLAGPR"
+}

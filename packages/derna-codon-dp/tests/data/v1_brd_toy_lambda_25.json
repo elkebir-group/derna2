@@ -1,0 +1,1 @@
+{"protein": "GLAGPR", "dangling_5_prime": false, "lambda_": 0.25, "rna_seq": "GGCCUGGCCGGCCCCAGG", "structure": "..(((((......)))))", "mfe_kcal_mol": -6.1, "mfe_kcal_mol_bits": 13841926044713903718, "cai": 0.9919012787602388, "cai_bits": 4607109472004102276, "brd_value_kcal_mol": -1.49, "brd_value_kcal_mol_bits": 13832761219472204759}

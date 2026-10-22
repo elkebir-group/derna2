@@ -1,0 +1,127 @@
+{
+  "fronts": [
+    {
+      "dangling_5_prime": false,
+      "front": [
+        {
+          "cai": 0.9610990699820225,
+          "mfe_kcal_mol": -14.7,
+          "rna_seq": "AUGUACGGAAAGAUCAUUUUCGUGCUGCUGCUGAGCGGCAUCGUG",
+          "structure": "..(((((((((.....)))))))))((((((...))))))....."
+        },
+        {
+          "cai": 0.9797096957943596,
+          "mfe_kcal_mol": -11.5,
+          "rna_seq": "AUGUACGGAAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUG",
+          "structure": "..(((((((.........)))))))((((((...))))))....."
+        },
+        {
+          "cai": 1.0,
+          "mfe_kcal_mol": -11.3,
+          "rna_seq": "AUGUACGGCAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUG",
+          "structure": ".....................((((((((....))))))))...."
+        }
+      ]
+    },
+    {
+      "dangling_5_prime": true,
+      "front": [
+        {
+          "cai": 0.9610990699820225,
+          "mfe_kcal_mol": -16.7,
+          "rna_seq": "AUGUACGGAAAGAUCAUUUUCGUGCUGCUGCUGAGCGGCAUCGUG",
+          "structure": "..(((((((((.....)))))))))((((((...))))))....."
+        },
+        {
+          "cai": 0.9797096957943596,
+          "mfe_kcal_mol": -13.5,
+          "rna_seq": "AUGUACGGAAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUG",
+          "structure": "..(((((((.........)))))))((((((...))))))....."
+        },
+        {
+          "cai": 1.0,
+          "mfe_kcal_mol": -12.9,
+          "rna_seq": "AUGUACGGCAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUG",
+          "structure": "..((((((..(((...)))))))))((((((...))))))....."
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "cai_tolerance": "exact float64 equality (see script comment for rationale)",
+    "codon_mask": [
+      [
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        3
+      ]
+    ],
+    "codon_mask_rule": "top-2 by Kazusa fraction, lexicographic tie-break on codon string",
+    "codon_usage_file": "packages/derna-core/data/codon_usage_human.csv",
+    "codon_usage_sha256": "f1df2640cbb9fde4273f1a7ffe2c4a173ac4abfe2cff96607c1fbff9a8a50d56",
+    "front_size_d0": 3,
+    "front_size_d2": 3,
+    "front_size_note": "Small fronts (d0=3, d2=3) are expected: the top-2 codon mask quantizes MFE into a small number of tiers, with one max-CAI survivor per tier. Verified against rungs 1 and 2 (2 + 2 points) \u2014 sub-linear growth is consistent.",
+    "front_sort": "mfe_kcal_mol asc, cai desc, rna_seq asc",
+    "generator_command": "uv run --directory packages/derna-core python scripts/generate_reduced_pareto_fixtures.py",
+    "n_codon_combinations": 16384,
+    "param_file": "packages/derna-core/data/rna_turner2004.par",
+    "param_file_sha256": "0c671a7455f5686bc160fc655194b11888594ab7d506626cdad1470bcadd17d9",
+    "vienna_version": "2.7.2"
+  },
+  "protein": "MYGKIIFVLLLSGIV"
+}
