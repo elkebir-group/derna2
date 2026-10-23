@@ -1,0 +1,854 @@
+{
+  "fixtures": [
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -1.2,
+      "length_nt": 9,
+      "motif": "hairpin",
+      "seq": "GGGAAACCC",
+      "structure": "(((...)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -1.2,
+      "length_nt": 9,
+      "motif": "hairpin",
+      "seq": "GGGAAACCC",
+      "structure": "(((...)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.4,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGGAAAACCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.4,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGGAAAACCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.8,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGGGAAACCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.8,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGGGAAACCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.4,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGGCUUGCCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.4,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGGCUUGCCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -9.2,
+      "length_nt": 14,
+      "motif": "hairpin",
+      "seq": "GGGGCAAAUGCCCC",
+      "structure": "(((((....)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -9.2,
+      "length_nt": 14,
+      "motif": "hairpin",
+      "seq": "GGGGCAAAUGCCCC",
+      "structure": "(((((....)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.9,
+      "length_nt": 14,
+      "motif": "hairpin",
+      "seq": "GGCGGAAAACCGCC",
+      "structure": "(((((....)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.9,
+      "length_nt": 14,
+      "motif": "hairpin",
+      "seq": "GGCGGAAAACCGCC",
+      "structure": "(((((....)))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.1,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "AGGGGAAACCCCU",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.1,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "AGGGGAAACCCCU",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.3,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "AGUGCGAAACGCACU",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.3,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "AGUGCGAAACGCACU",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.2,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "AAGCGGAAACCGCUU",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.2,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "AAGCGGAAACCGCUU",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.4,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "GGCGCAAAGCGCU",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.4,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "GGCGCAAAGCGCU",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -10.4,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "GGCGGCAAAGCCGCC",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -10.4,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "GGCGGCAAAGCCGCC",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.3,
+      "length_nt": 16,
+      "motif": "bulge",
+      "seq": "GGGAGGGAAACCCCCC",
+      "structure": "(((.(((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.3,
+      "length_nt": 16,
+      "motif": "bulge",
+      "seq": "GGGAGGGAAACCCCCC",
+      "structure": "(((.(((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -9.6,
+      "length_nt": 17,
+      "motif": "bulge",
+      "seq": "GGGAGGGGAAACCCCCC",
+      "structure": "(((.(((....))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -9.6,
+      "length_nt": 17,
+      "motif": "bulge",
+      "seq": "GGGAGGGGAAACCCCCC",
+      "structure": "(((.(((....))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.3,
+      "length_nt": 15,
+      "motif": "bulge",
+      "seq": "GGGGGAAACCCACCC",
+      "structure": "(((((....)).)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.3,
+      "length_nt": 15,
+      "motif": "bulge",
+      "seq": "GGGGGAAACCCACCC",
+      "structure": "(((((....)).)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -8.6,
+      "length_nt": 17,
+      "motif": "bulge",
+      "seq": "GGGGGGAAACCCCACCC",
+      "structure": "((((((....))).)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -8.6,
+      "length_nt": 17,
+      "motif": "bulge",
+      "seq": "GGGGGGAAACCCCACCC",
+      "structure": "((((((....))).)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -8.3,
+      "length_nt": 19,
+      "motif": "bulge",
+      "seq": "GGGAAGGGGAAACCCCCCC",
+      "structure": "(((..((((...)))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -8.3,
+      "length_nt": 19,
+      "motif": "bulge",
+      "seq": "GGGAAGGGGAAACCCCCCC",
+      "structure": "(((..((((...)))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.9,
+      "length_nt": 20,
+      "motif": "bulge",
+      "seq": "GGGGAAAGGGAAACCCCCCC",
+      "structure": "((((...(((...)))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.9,
+      "length_nt": 20,
+      "motif": "bulge",
+      "seq": "GGGGAAAGGGAAACCCCCCC",
+      "structure": "((((...(((...)))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -3.8,
+      "length_nt": 20,
+      "motif": "bulge",
+      "seq": "GGGAGAGAGGGAAACCCCCC",
+      "structure": "(((.....(((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -3.8,
+      "length_nt": 20,
+      "motif": "bulge",
+      "seq": "GGGAGAGAGGGAAACCCCCC",
+      "structure": "(((.....(((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.6,
+      "length_nt": 16,
+      "motif": "bulge",
+      "seq": "AGGAGGGAAACCCCCU",
+      "structure": "(((.(((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.6,
+      "length_nt": 16,
+      "motif": "bulge",
+      "seq": "AGGAGGGAAACCCCCU",
+      "structure": "(((.(((...))))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.1,
+      "length_nt": 17,
+      "motif": "bulge",
+      "seq": "GGCGAGGGAAACCCGCU",
+      "structure": "((((.((....))))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.1,
+      "length_nt": 17,
+      "motif": "bulge",
+      "seq": "GGCGAGGGAAACCCGCU",
+      "structure": "((((.((....))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.9,
+      "length_nt": 17,
+      "motif": "internal_loop",
+      "seq": "GGGAGGGAAACCCACCC",
+      "structure": "(((.(((...))).)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.9,
+      "length_nt": 17,
+      "motif": "internal_loop",
+      "seq": "GGGAGGGAAACCCACCC",
+      "structure": "(((.(((...))).)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.5,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GGGAAGGGAAACCCAACCC",
+      "structure": "(((..(((...)))..)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.5,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GGGAAGGGAAACCCAACCC",
+      "structure": "(((..(((...)))..)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.5,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GGGAGGGAAACCCAAACCC",
+      "structure": "(((.(((...)))...)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.5,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GGGAGGGAAACCCAAACCC",
+      "structure": "(((.(((...)))...)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -4.6,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GGGCAGGGAAACCCAUUACCC",
+      "structure": "(((..(((...)))....)))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -4.6,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GGGCAGGGAAACCCAUUACCC",
+      "structure": "(((..(((...)))....)))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.7,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "AGCGAGGGAAACCCACGCU",
+      "structure": "((((.(((...))).))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.7,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "AGCGAGGGAAACCCACGCU",
+      "structure": "((((.(((...))).))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.7,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GGCGAGGGAAACCCACGCU",
+      "structure": "((((.(((...))).))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.7,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GGCGAGGGAAACCCACGCU",
+      "structure": "((((.(((...))).))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -14.0,
+      "length_nt": 35,
+      "motif": "multi_loop",
+      "seq": "GCGCGGGGGAAACCCCAAACCCCAAAGGGGCGCGC",
+      "structure": "(((((((((...))))...((((...)))))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -18.0,
+      "length_nt": 35,
+      "motif": "multi_loop",
+      "seq": "GCGCGGGGGAAACCCCAAACCCCAAAGGGGCGCGC",
+      "structure": "((((((((....))))...((((...)))).))))"
+    },
+    {
+      "closure": "mixed",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -12.3,
+      "length_nt": 35,
+      "motif": "multi_loop",
+      "seq": "GCGCGAGGGAAACCCUAAACCCCAAAGGGGCGCGC",
+      "structure": "(((((((((...))))...((((...)))))))))"
+    },
+    {
+      "closure": "mixed",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -15.8,
+      "length_nt": 35,
+      "motif": "multi_loop",
+      "seq": "GCGCGAGGGAAACCCUAAACCCCAAAGGGGCGCGC",
+      "structure": "(((((((((...))))...((((...)))))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -89.4,
+      "length_nt": 234,
+      "motif": "long_form",
+      "seq": "AUGUACGGCAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUGAGCAUCAGCGCCAGCAGCACCACCGGCGUGGCCAUGCACACCAGCACCAGCAGCAGCGUGACCAAGAGCUACAUCAGCAGCCAGACCAACGGCAUCACCCUGAUCAACUGGUGGGCCAUGGCCCGCGUGAUCUUCGAGGUGAUGCUGGUGGUGGUGGGCAUGAUCAUCCUGAUCAGCUACUGCAUCCGC",
+      "structure": "(((((.(((..((((((((((((((((((((((.(..((...(((.((((..(((((.(........).)))))....)))).)))..)).)))))))))))))))...))).....((((((.(((..((((.(((((((((((.(((((.(..((((((....))))))))))))...).)))))))))).)))))))..)).)))).....))))).)))..)))))...."
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -93.6,
+      "length_nt": 234,
+      "motif": "long_form",
+      "seq": "AUGUACGGCAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUGAGCAUCAGCGCCAGCAGCACCACCGGCGUGGCCAUGCACACCAGCACCAGCAGCAGCGUGACCAAGAGCUACAUCAGCAGCCAGACCAACGGCAUCACCCUGAUCAACUGGUGGGCCAUGGCCCGCGUGAUCUUCGAGGUGAUGCUGGUGGUGGUGGGCAUGAUCAUCCUGAUCAGCUACUGCAUCCGC",
+      "structure": "(((((.(((..(((((.....(((((((((((((((..........)).)))))...))))))))....((.((((.(((((.(((((.(((((((...(((..........))).........(((........)))(((((((.(((((.(..((((((....))))))))))))...).))))))))))))).))))).))))).))))))))))).)))..)))))...."
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -3.2,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "UGUGCAAAGCACG",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -3.8,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "UGUGCAAAGCACG",
+      "structure": ".((((...))))."
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -5.3,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "GUGUGCAAAGCACAU",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "GU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -5.3,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "GUGUGCAAAGCACAU",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -4.4,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "UAUGCGAAACGCAUA",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "AU",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -4.4,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "UAUGCGAAACGCAUA",
+      "structure": "((((((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -3.7,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GCCAAAACUGGC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -3.7,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GCCAAAACUGGC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -3.7,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GCCUAAAAAGGC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -3.7,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GCCUAAAAAGGC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.4,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GCGAAGGGAAACCCAAAUCGC",
+      "structure": "((((.(((...)))...))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.4,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GCGAAGGGAAACCCAAAUCGC",
+      "structure": "((((.(((...)))...))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.4,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GCGAAAGGGAAACCCAAUCGC",
+      "structure": "((((..(((...)))..))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.4,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GCGAAAGGGAAACCCAAUCGC",
+      "structure": "((((..(((...)))..))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.5,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "GGGGCAACGCCCC",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.5,
+      "length_nt": 13,
+      "motif": "hairpin",
+      "seq": "GGGGCAACGCCCC",
+      "structure": "(((((...)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.7,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGCCAAGGCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.7,
+      "length_nt": 12,
+      "motif": "hairpin",
+      "seq": "GGGCCAAGGCCC",
+      "structure": "((((....))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.2,
+      "length_nt": 14,
+      "motif": "hairpin",
+      "seq": "GGGACAGUACUCCC",
+      "structure": "((((......))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.2,
+      "length_nt": 14,
+      "motif": "hairpin",
+      "seq": "GGGACAGUACUCCC",
+      "structure": "((((......))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.9,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GCGGAGGGAAACCCAUCGC",
+      "structure": "((((.(((...))).))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.9,
+      "length_nt": 19,
+      "motif": "internal_loop",
+      "seq": "GCGGAGGGAAACCCAUCGC",
+      "structure": "((((.(((...))).))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -6.4,
+      "length_nt": 20,
+      "motif": "internal_loop",
+      "seq": "GCGAAGGGAAACCCAAUCGC",
+      "structure": "((((.(((...)))..))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -6.4,
+      "length_nt": 20,
+      "motif": "internal_loop",
+      "seq": "GCGAAGGGAAACCCAAUCGC",
+      "structure": "((((.(((...)))..))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -8.4,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GCGCACGGGAAACCCACGCGC",
+      "structure": "((((..(((...)))..))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -8.4,
+      "length_nt": 21,
+      "motif": "internal_loop",
+      "seq": "GCGCACGGGAAACCCACGCGC",
+      "structure": "((((..(((...)))..))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.8,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "GGGCGAAAAACGCCC",
+      "structure": "(((((.....)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.8,
+      "length_nt": 15,
+      "motif": "hairpin",
+      "seq": "GGGCGAAAAACGCCC",
+      "structure": "(((((.....)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -7.5,
+      "length_nt": 17,
+      "motif": "hairpin",
+      "seq": "GGGCGAAAAAAACGCCC",
+      "structure": "(((((.......)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -7.5,
+      "length_nt": 17,
+      "motif": "hairpin",
+      "seq": "GGGCGAAAAAAACGCCC",
+      "structure": "(((((.......)))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -15.4,
+      "length_nt": 49,
+      "motif": "multi_loop",
+      "seq": "GCGCGGGGGAAACCCCAAAGAUCAAAGAUCAAACCCCAAAGGGGCGCGC",
+      "structure": "(((((((((...))))...((((...))))...((((...)))))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -20.9,
+      "length_nt": 49,
+      "motif": "multi_loop",
+      "seq": "GCGCGGGGGAAACCCCAAAGAUCAAAGAUCAAACCCCAAAGGGGCGCGC",
+      "structure": "((((((((....))))...((((...))))...((((...)))).))))"
+    },
+    {
+      "closure": "mixed",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -16.3,
+      "length_nt": 63,
+      "motif": "multi_loop",
+      "seq": "GCGCGGGGGAAACCCCAAAGAUCAAAGAUCAAAUACGAAACGUAAAACCCCAAAGGGGCGCGC",
+      "structure": "(((((((((...))))...((((...))))...((((...))))...((((...)))))))))"
+    },
+    {
+      "closure": "mixed",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -22.6,
+      "length_nt": 63,
+      "motif": "multi_loop",
+      "seq": "GCGCGGGGGAAACCCCAAAGAUCAAAGAUCAAAUACGAAACGUAAAACCCCAAAGGGGCGCGC",
+      "structure": "((((((((....))))...((((...))))...((((...))))...((((...)))).))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": false,
+      "energy_kcal_mol": -2.8,
+      "length_nt": 16,
+      "motif": "bulge",
+      "seq": "GGAAAGGAAACCUUCC",
+      "structure": "((((.((...))))))"
+    },
+    {
+      "closure": "GC",
+      "dangling_5_prime": true,
+      "energy_kcal_mol": -2.8,
+      "length_nt": 16,
+      "motif": "bulge",
+      "seq": "GGAAAGGAAACCUUCC",
+      "structure": "((((.((...))))))"
+    }
+  ],
+  "generator_command": "uv run --directory packages/derna-core python scripts/generate_fixtures.py",
+  "param_file": "packages/derna-core/data/rna_turner2004.par",
+  "param_file_sha256": "0c671a7455f5686bc160fc655194b11888594ab7d506626cdad1470bcadd17d9",
+  "vienna_version": "2.7.0"
+}

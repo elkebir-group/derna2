@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "packages/rna-mfe",
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.95"
+authors = ["Xinyu Gu", "Max Leiserson", "Mohammed El-Kebir"]
+repository = "https://github.com/elkebir-group/derna2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"

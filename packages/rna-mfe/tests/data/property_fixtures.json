@@ -1,0 +1,3652 @@
+{
+  "generator": "scripts/generate_property_fixtures.py",
+  "seed": 3235836334,
+  "param_file_sha256_pinned": "see packages/derna-core/data/README.md",
+  "fixture_count": 500,
+  "fixtures": [
+    {
+      "seq": "AGUUACUGGAUGCUUACGUUCUGGG",
+      "structure": ".....(((((.((....))))))).",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.4
+    },
+    {
+      "seq": "UGGUCGGUGUGCCAGCCUUCAAAUC",
+      "structure": ".(((.((....)).)))........",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.3
+    },
+    {
+      "seq": "CUCACCCGCGCCGAUUGAACAAGCGAUGGAGCUUUCUUCACUAGUGGAAA",
+      "structure": ".....((((......((((.((((......))))..))))...))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.3
+    },
+    {
+      "seq": "AAUACCAUCAGAAAGAGAUAUAGCCUAGCAUUAGGGCUUUACGUAACAAACCUUGCGGUCAGGCGAUGACGCAUUCGUAAAGAACUACUGCAAUGAGAGG",
+      "structure": ".......................(((..((((((..(((((((..........((((.(((.....)))))))..)))))))..))).....)))..)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.0
+    },
+    {
+      "seq": "UAGUAAAGGGCGGCGAUUUCGUGAAAUAGCCUUCCAAUCCCUGAUGGUUCGUACAUGGUAACCGGCUUUGCAUGUCAAGAACGUACUUGAAUGCAGGAUA",
+      "structure": "......(((.(((.....(((((....((((.((........)).))))....)))))...))).)))(((((.(((((......)))))))))).....",
+      "length_nt": 100,
+      "energy_kcal_mol": -21.8
+    },
+    {
+      "seq": "GGUUCUAAGAGGGUUUUACC",
+      "structure": "..........((......))",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.4
+    },
+    {
+      "seq": "AUAGUCAUUCCCAGCGUACGACCCUGGGCAGGCAACUCUACAAGUCAGCA",
+      "structure": "...(((...(((((.((...)).)))))..))).................",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.0
+    },
+    {
+      "seq": "CGUCCAUACACCUCACGGUCUCCUG",
+      "structure": ".........(((....)))......",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "CGCAAGUUUGUGGGAAUUAUGCCCAUGCAACCGCUUACCCUUGCCGACUUUUUCGGCUUCCCUAGAAUUC",
+      "structure": "....(((((..(((((..........................(((((.....))))))))))..))))).",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.3
+    },
+    {
+      "seq": "GACGUGGGAGACGCAGUGAGUGGCAAAAUACCUCAAGCGUUGUAUUGAUC",
+      "structure": ".........(((((..((((.(........))))).))))).........",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.9
+    },
+    {
+      "seq": "UGGUGAGGAUGCUACCAAACCGGGAAGACGGGCAUCCUACAAAGCCUUGU",
+      "structure": ".(((((((((((.......(((......)))))))))).)...)))....",
+      "length_nt": 50,
+      "energy_kcal_mol": -13.3
+    },
+    {
+      "seq": "CACGAUUGGCCGUUAC",
+      "structure": ".(((......)))...",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.2
+    },
+    {
+      "seq": "GCGGCAGAGAUCACAAUGGUGAACCGUGCA",
+      "structure": "...(((..(.((((....)))).)..))).",
+      "length_nt": 30,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "UAUACGUAUAGUUCGCCACACGGUCUCACUGUGUAUACGGCUAGUACCGC",
+      "structure": ".....((((((((....(((((((...)))))))....)))).))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.8
+    },
+    {
+      "seq": "UGAGCAGCGUUUCGCGGCCAUUCCAUUGUGGGACCAAAAGUUGUACGUCACACCUGGUCUGGAUAUCAAU",
+      "structure": "...........((..(((((......((((.(((.....))).)))).......)))))..)).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -11.4
+    },
+    {
+      "seq": "GGAGCCAAGCACCCUAAGACAUCCACAACCGCCGCGGGGUUGCUAUUGAAGCCGGGGGGGACAGCAGUGG",
+      "structure": "((.((...)).)).........((((..((.((.(((..............))).)).))......))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.3
+    },
+    {
+      "seq": "GGAACUUCAACGGAACUCUCCUCUAACCUG",
+      "structure": "...........(((....))).........",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.6
+    },
+    {
+      "seq": "AGGUAUAAUCUCCUGU",
+      "structure": "(((........)))..",
+      "length_nt": 16,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "UGUCGGGCCCGAACUCUUGACAGACGUAUCAUAUACUAGGUCAGCGAACA",
+      "structure": "(((((((........)))))))(((.((........)).)))........",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.3
+    },
+    {
+      "seq": "UUCGCGAAUAGCCGGCAAAUUAUGUAAUGGGUGACCAGGUGGGUGCUUUG",
+      "structure": "....((((..(((.((...((((.......))))....)).)))..))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.7
+    },
+    {
+      "seq": "CCACUCGUCACAUUGCGAUG",
+      "structure": "....((((......))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.4
+    },
+    {
+      "seq": "GUUGGAUCGGCCGAUUCCUGCCAGGUUAGUUGACAUCUUC",
+      "structure": "....(((((((.(....).))).)))).............",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.4
+    },
+    {
+      "seq": "CUGAUCUCGAAGGUUA",
+      "structure": ".((((((...))))))",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GUAGGAACUUAUCUACGAGGCGUCCACCAAAAUCCCAUCGAUAUUGGCUCGACAUUUACAGGCUCUGCAA",
+      "structure": "(((((..((((....((((.......((((.(((.....))).)))))))).....)).))..)))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.7
+    },
+    {
+      "seq": "CACAUCGGCUAAUCAACUGCCACGG",
+      "structure": "......(((.........)))....",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "UUCUUCAACUUCUGAGGAACCGAGGGACGUACGCGGGUUGAGGAUUGACU",
+      "structure": ".((((((((((.(((.(..(....)..).).)).))))))))))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -11.3
+    },
+    {
+      "seq": "GGAAGGCGGCCAUUGUCUGCGAAGAUCCGUCGGCCACCACUACUACAGUAACGUAGUUAACACAUCCUUGUCUCCCUGCGCUGCAAUCGUUUCCGUCCGC",
+      "structure": "(((.((.(((.(((((..(((..((..((..((........(((((......)))))........)).))..))....))).))))).))).)).)))..",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.2
+    },
+    {
+      "seq": "GUCGUUUGCCCCCUAGUUCGACAUCUAAUCCUGGGACGUUUCUAAGCUGAUCAUGAUAGUUGUAAUCCCC",
+      "structure": "((((...((......)).))))..........((((........(((((.......)))))....)))).",
+      "length_nt": 70,
+      "energy_kcal_mol": -5.6
+    },
+    {
+      "seq": "UCUAUAUGAGUUACAUGGGCCUUAAGGGCGUGACCUUUUAGCACAGGCGAUGGAGGAGCAGUGGGUGGGU",
+      "structure": "......(.(.((((.((..((((....((.((..((...))..)).))....))))..)))))).).)..",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.6
+    },
+    {
+      "seq": "ACGCAGUACUAUAAUCUCCUGACGAUUCUAAUCAAGCGGCAACCAAUUCACCUUAAAAAGUCGAUCGUUGGACGAACCUGACGACCUUAUUACUACAACC",
+      "structure": ".(((((........(((((.((((((..........((((...................))))))))))))).))..))).)).................",
+      "length_nt": 100,
+      "energy_kcal_mol": -8.7
+    },
+    {
+      "seq": "CGUGUAUAUAGUUCGAGAGAUUGCACUAGAUGUGAACGUU",
+      "structure": "(((.((((((((.(((....))).))))..)))).)))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.0
+    },
+    {
+      "seq": "UCAGGUUAAUCAGUGCAAAUGAAUAAGGUCAUGAUGAUGU",
+      "structure": "........((((......((((......))))..))))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -1.5
+    },
+    {
+      "seq": "GUACAUGGAGAGAAUCUAGUGUAUCAUCGA",
+      "structure": "(((((((((.....)))).)))))......",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.8
+    },
+    {
+      "seq": "UUACAGCUUUUCCGGCCUGAGUAACAUCACAGUUCGUGAC",
+      "structure": "..........(((((.(((.(......).))).))).)).",
+      "length_nt": 40,
+      "energy_kcal_mol": -3.6
+    },
+    {
+      "seq": "GGUCAGAAAGGUGCCGACUUUUAACGGUUGACAUGUCGGC",
+      "structure": "............((((((................))))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.8
+    },
+    {
+      "seq": "CCAUAUUACAGGGAAACCAUUGGAAUCGUU",
+      "structure": "..........((....))............",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.2
+    },
+    {
+      "seq": "GACAACCCUGUGAAGACUUGAAACGGUUCUCUUAUUGUCCAUGUCAUGGGGUAGAUUCGAACAUACAUGGGAUAAGACCCAUCGCCCAAGGAAGUGUUUA",
+      "structure": "..........((((.((((.....(((..(((((((..((((((.(((.............))))))))))))))))......))).....)))).))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.1
+    },
+    {
+      "seq": "AGAGCAGACCCGCGAUUCCACUGUUAUUGAAUGCAGGUGA",
+      "structure": ".......(((.((.((((..........)))))).)))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.9
+    },
+    {
+      "seq": "UACUUACUGUCGGACACCGCUUCUU",
+      "structure": "..........(((...)))......",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "GGUAGACUCUGUCCGAACAUCUCAUGCGACUACUACGGGGCGGGUACGAA",
+      "structure": ".....((.((((((.......((....))........)))))))).....",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "GAGCAUGGGAGUCAAUAGCAUUACCCUAACUACGCACGAAACAUUUGCAGUGUAGGAAACUUAGACGCGGGGACUUUACACAUGGAGGAUUAGUGGCCGC",
+      "structure": "...((((((((((....((..........((((((.((((...))))..))))))...........))...))))))...))))................",
+      "length_nt": 100,
+      "energy_kcal_mol": -14.6
+    },
+    {
+      "seq": "UUAUGUAUAAUGCCAAUCUGGUUAGUGCAUUCUCGGCCCG",
+      "structure": "..((((((...((((...))))..))))))..........",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "AGUAGUAAGUCAAAAGCGGUAAACGACCUU",
+      "structure": ".................(((.....)))..",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "UAAUUUGCUGCCUCAUCGCGCAGAGUGGACCCACCCCAGGGAGCUGGUGG",
+      "structure": "...(((((.((......))))))).........((((((....)))).))",
+      "length_nt": 50,
+      "energy_kcal_mol": -11.5
+    },
+    {
+      "seq": "CGCUAAUCAUGGCUCGCAUGGAUGAUGUACCCAGGAAUCUACAUCACAUCUUCCCUCGAUCUGAACACCG",
+      "structure": "......(((.((.(((.(.(((.(((((....((....)).....))))).))).)))))))))......",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.9
+    },
+    {
+      "seq": "UGCGCCGGGCCGCUCGCCGCGAACAGGACGGCCCUGAUCCCCGCCCGCAGAAUGCUCGAAAAAUACGUCU",
+      "structure": "((((.((((......(((((......).)))).......))))..)))).....................",
+      "length_nt": 70,
+      "energy_kcal_mol": -16.4
+    },
+    {
+      "seq": "GCCAUGGCCGGUUAUACUCAAGAUGCAGCAUCCCACCGAA",
+      "structure": "........((((.........((((...))))..))))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -1.8
+    },
+    {
+      "seq": "CUUCGAAAUAAUCCGGCGGUGGUGGCUGUAUAUGGUUAUU",
+      "structure": "......(((((((..(((((....)))))....)))))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.5
+    },
+    {
+      "seq": "UACAACCAAAUUUCGCACGAAGAUGGCGCUUUCCCGAACC",
+      "structure": "...........((((...((((......))))..))))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "CGAGGGUGAUAACAGACUAAUUCCAAUUCUAACCACAGGGAUGAGAUUCCGGUCAAACUCGAACGGCUAC",
+      "structure": "((((..((((......((.(((((.............))))).))......))))..)))).........",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.7
+    },
+    {
+      "seq": "CGGCCCUUGAACCUAAACACUUAACGCCUUUCGCCCCAAUUGCUCGGCGUUGGCUGAGAGAGAGGCGAAUAAAUGUCUAAAUAUAACGGGAUGACGUUCA",
+      "structure": "...((((((....((.(((.(((.((((((((..........((((((....)))))).))))))))..))).))).))....))).)))..........",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.2
+    },
+    {
+      "seq": "UUGGCAAUACAUGUCGUCCCUCAUGCUACGCGCACUCCGACAGUGAAACACAUUGAAGUAUUUAAUAUACCUGUUAGGGCUUAUUAUGGCUCCGCGUGAG",
+      "structure": ".(((((.....)))))...(((((((...((.(((((.(((((..............((((.....))))))))).))).......))))...)))))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.9
+    },
+    {
+      "seq": "AGUACAGCGGUUCCUGACGG",
+      "structure": ".((.(((......)))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "CGUGAACCCACAAAGCGCGA",
+      "structure": "((((...........)))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "CGGUGUUGCACCCCCUCUGGGAGAUCUACCGUAUUACUGUCGUCCAAUACGCAGAUCUAGACCACGGAUG",
+      "structure": ".((((...))))...((((((((((((..((((((((....))..)))))).))))))...)).))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.9
+    },
+    {
+      "seq": "AGGGUGUAAGGCCUGUGUUUCUAAAGACCUGCAAACGUUACAAUGCCCAC",
+      "structure": ".((((((((.(..(((((((....))))..)))..).))))...))))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.5
+    },
+    {
+      "seq": "UCAAAGUAAGCGGAGAUUCGCAUCA",
+      "structure": ".........((((....))))....",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.2
+    },
+    {
+      "seq": "CAGUCCAGCAACGAGGGAGACCUUGCCGAUUAUAUCAGUGAAACUGACGUUAUUAUACGACCGUCGGAUUAUUAGCGGGGCAUCUUAAUCACUCCAAUCU",
+      "structure": "..............((((..((((((.(((.((..........((((((............)))))))).))).))))))..))))..............",
+      "length_nt": 100,
+      "energy_kcal_mol": -14.6
+    },
+    {
+      "seq": "AUGGCCGCACAUAUAAGUGCUGGAACUGCCGGAUACGUCU",
+      "structure": ".((((.((((......)))).......)))).........",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.1
+    },
+    {
+      "seq": "GCGUGCCGACGUGACC",
+      "structure": "((((....))))....",
+      "length_nt": 16,
+      "energy_kcal_mol": -2.5
+    },
+    {
+      "seq": "CGGGUGCGGCGCAUAU",
+      "structure": "...((((...))))..",
+      "length_nt": 16,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "GGGUGUGUCUUCCCGAACAG",
+      "structure": "(((........)))......",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.7
+    },
+    {
+      "seq": "CGCAUGGAAUAGCCAUGACCUUACGGCUCAGUCCUUCUAGCUCGGUCCUGGGGAUUCCUCUCGACAUUCG",
+      "structure": "((...(((((..(((.((((....((((.((.....)))))).)))).)))..)))))...)).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -18.6
+    },
+    {
+      "seq": "AAUUCGUAAUCAAGAUACGAGCAGACGGGU",
+      "structure": "..((((((.......)))))).........",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.7
+    },
+    {
+      "seq": "GCAGAGUGUAUGGGCGUUUAGUUACGCCCGUCAAACACCACAAGAUGAUU",
+      "structure": ".....((((((((((((......))))))))...))))............",
+      "length_nt": 50,
+      "energy_kcal_mol": -15.2
+    },
+    {
+      "seq": "CAUCAAUGCCCUAAUGACGGUCGUAGACGG",
+      "structure": "..((.(((((........)).))).))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.0
+    },
+    {
+      "seq": "CGUGUCGUAAAGCCCCAGGACAAUAGCCCG",
+      "structure": "..((((.(........).))))........",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "GGACCCAAUUCCGGGGCGGUCACUA",
+      "structure": "...(((......)))..........",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.7
+    },
+    {
+      "seq": "AAGCCCGUUAAAGCCGGGACUACCGUUUGG",
+      "structure": ".((((((.......)))).)).........",
+      "length_nt": 30,
+      "energy_kcal_mol": -5.2
+    },
+    {
+      "seq": "GUGCUCAAAUGAGGAACGACGAGGAGUUACUUUACCAAGUUGUUAAACGAGGCGAAACGCCCUGUUGAGCCUAUAAUUACAUGUGUUUAGGACUGCCCGC",
+      "structure": ".(.(((....))).)....((.((((((.((..((((.((.((((....((((..(((.....)))..)))).)))).)).)).))..)))))).)))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -18.4
+    },
+    {
+      "seq": "UCACUACAUUUUAGAAGCCUGCCAUGCGGCUUGGAAUUAA",
+      "structure": ".......((((((..((((.((...))))))))))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "UUCAAUAUGGCUGUGGUAAGACGCCACGGCGAUGGCGAAC",
+      "structure": "(((..(((.((((((((.....)))))))).)))..))).",
+      "length_nt": 40,
+      "energy_kcal_mol": -16.0
+    },
+    {
+      "seq": "GUGGAAGCACUGAAGUGCCGGCCAACCUAGUCCCACGCUC",
+      "structure": ".(((..((((....))))...)))................",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.4
+    },
+    {
+      "seq": "UCGUUCGGUGUGGUGGGACGAGUCUCCCUCUUCACUGUAG",
+      "structure": ".....(((((.((.((((......)))).)).)))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -13.1
+    },
+    {
+      "seq": "GCCCCAACCGCGAAGAGAAGAGGGUAGGGCGGUCACCGAA",
+      "structure": "((((...((.(........).))...))))..........",
+      "length_nt": 40,
+      "energy_kcal_mol": -9.2
+    },
+    {
+      "seq": "AGGAGCUAAUUUACUGUCGAGUCCCGUCUCUCUCAACGGUGCAAGUCGUG",
+      "structure": "...........((((((.(((..........))).)))))).........",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.8
+    },
+    {
+      "seq": "ACUGUAACCGGGAGUGAUCCUUGCUGUGCCUGACGGAUAAGCAACGUCUA",
+      "structure": ".........((((....))))((((...((....))...)))).......",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.2
+    },
+    {
+      "seq": "AACAUUGAGUGUUCCG",
+      "structure": "(((((...)))))...",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.2
+    },
+    {
+      "seq": "UCUCAAUGGAACACUGGGUAGAUUCAAAUAGGGGGGGAAAUUCGGAAUCCGCGUACGGUCCUAGGCCGAAGUACUUCCGAUUGCUGCUAAUUGUUCAGAU",
+      "structure": "........(((((...(((((...(((....(((((....(((((...(((....))).......)))))...)))))..))))))))...)))))....",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.3
+    },
+    {
+      "seq": "GCAUCGAAUCUAUGUCAACGAGCUGCAGUC",
+      "structure": "((.(((............))))).......",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "CCUCUAAGCAAAAACUGUAUGAACACACCGGAGCCACGCUCCCUAGGUAA",
+      "structure": "..........................((((((((...)))))...)))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.6
+    },
+    {
+      "seq": "UGGUAAGACAGUGUGAGAUUGCUCGACCGAUGUACGUUGUUUAGCGGAAG",
+      "structure": "(.((.((((((((((..((((......)))).)))))))))).)).)...",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.1
+    },
+    {
+      "seq": "CCACGUCAAGCCGACA",
+      "structure": "....(((.....))).",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.4
+    },
+    {
+      "seq": "UCGAGCUGAACGACUGGUUC",
+      "structure": "..(((((........)))))",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "UCCAAGGUAGUGAGCUUAACUUACGGCCCCCUUUCAUACUAUAGACUGAU",
+      "structure": ".....(((.(((((.....))))).)))......................",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "UGUCCUUCAAAGGGCAACCAGGGCUGAGUGUGGUCUUACUGGAAAGAGAC",
+      "structure": "((((((....)))))).((((((((......))))...))))........",
+      "length_nt": 50,
+      "energy_kcal_mol": -10.9
+    },
+    {
+      "seq": "CCCCCAACUUUGGUUUCUCCUGUUUGCGCUUCGAUGCGUCUCGGAAUGCG",
+      "structure": "...(((....)))...........((((.(((((......))))).))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "GUAUCGGCUCUUGAAUCCGCUCCCACGCCGAUUACCCGCUUCGGCUAAUACUUUUUUAACAUAAUGUGAG",
+      "structure": "((((((((....((......))....))))).)))(((...)))..........................",
+      "length_nt": 70,
+      "energy_kcal_mol": -7.8
+    },
+    {
+      "seq": "GCUCAUAGAUGCGACGGCAAGUAAUCUCCC",
+      "structure": ".....((..(((....)))..)).......",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "AGCUUUACUCGCGAAUUCCCCUGGAGCGUGUGAUAGACGCUGUGCUGUGA",
+      "structure": "(((((((.(((((..((((...))))..))))))))).))).........",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.4
+    },
+    {
+      "seq": "GUGAGGUGUCAUCCACACCCAUGAUUCAGUCCAGCUUCAAAAACCGAUGG",
+      "structure": "(((.(((((.....))))))))............................",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "ACCAGUACACUUGAAAUACCGUUGGGCGGUGUUCGGCGAG",
+      "structure": ".........((((.((((((((...))))))))...))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -9.6
+    },
+    {
+      "seq": "GGUAUACAGAGGCCCGUGCU",
+      "structure": "(((........)))......",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "UUGCAAGUGUGUACUUCUACCCCCAGUAAAGAGUGUGUAGAGAUUAUUCAGAGCCGCCUUAAAGUACCCUUCAAAUAUUGUCCAAAUGGCAAGAUGGGGG",
+      "structure": "..((...((.(((.((((((...((........)).))))))..))).))..)).............((((((....(((((.....)))))..))))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -13.2
+    },
+    {
+      "seq": "AUGGGAAUUACCGCCCGCGUAGCUACGUGAGGAGAAUUACACCGUAUAGAACACUUUAUUGGAAGUUACGGACCCGAGCUGCGAGGACUUUCGAGGCAUG",
+      "structure": ".(((......))).((.(((((((.((...((.........(((((......(((((....)))))))))).))))))))))).))..............",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.1
+    },
+    {
+      "seq": "AGAAUACCCCCCCGACGUGGUCCAAGGUCCUCGAGAUUGAUAGGUGCGGU",
+      "structure": ".....((((((.(((((.((.(....).)).))...)))...)).).)))",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "UCGAUGACCGCCGUUACUCGCUGUUCCUGCCGCAUAUCAGUGGCGCAAGA",
+      "structure": ".(((((((....)))).))).......((((((......)))))).....",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.7
+    },
+    {
+      "seq": "GGCUGUAAUGGAAUGGCUAG",
+      "structure": "((((((......))))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -3.3
+    },
+    {
+      "seq": "AGCCUGCUUUCCUCUGAUGGGGGUCGUCCAGAGGCCGUCGAAUCCUUUGUGGUGAUGUCUUCAUACAACU",
+      "structure": "..............(((.(((.((((((((((((.........)))))).)))))).)))))).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.5
+    },
+    {
+      "seq": "GAUAGGUUCGUUCAUCCUCAUUCAUUGGGUCCAAAACUUU",
+      "structure": "...(((((.....((((.........))))....))))).",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.8
+    },
+    {
+      "seq": "GGGCAAAUCACCAAAAUACCUGCCCCAUGACUGCUUGUAAUGGAAUCUCA",
+      "structure": "(((((...............))))).........................",
+      "length_nt": 50,
+      "energy_kcal_mol": -5.7
+    },
+    {
+      "seq": "GGCAUCGCGUGGUGGUCUGACGAUG",
+      "structure": "..(((((((........)).)))))",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.8
+    },
+    {
+      "seq": "AGGUAGUAACGCCAUGUAAU",
+      "structure": ".(((......))).......",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.7
+    },
+    {
+      "seq": "ACAAUGGCGCUGACACAACGUUGCUGUCUGAAAGGAGCCA",
+      "structure": "....((((.((((((((....)).)))).....)).))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.1
+    },
+    {
+      "seq": "AGUAAAACUCUUACAAAGCACGGCUGAGACAUACAUUCAG",
+      "structure": ".......................(((((.......)))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "GCAGAACUCGCCCGACGUUU",
+      "structure": "...((((((....)).))))",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.5
+    },
+    {
+      "seq": "GUUUAAUUAUAGCUUGGGCAGGCCC",
+      "structure": "...............(((....)))",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "GUGUAUACAGAUCGCGUAGGAGUGUCACCG",
+      "structure": "(((.((((...((......)))))))))..",
+      "length_nt": 30,
+      "energy_kcal_mol": -3.2
+    },
+    {
+      "seq": "CGCCCGGGUACUGAGCCAGU",
+      "structure": ".((.(((...))).))....",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.2
+    },
+    {
+      "seq": "AGUCCGAGUAUCAACGCUUUGAAGC",
+      "structure": "..((.((((......)))).))...",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.5
+    },
+    {
+      "seq": "AACCUGGGGCCCCUAAAAUUCUCGCUCAAAAGAUCCUGAUUACGGUUCUAUUACCCAGCACUCUUUUCACCCACGGCCUAAUGCAAAGCCAGACUUUUGG",
+      "structure": "...((((((((................((((((..(((.....(((......))))))...)))))).......))))..........))))........",
+      "length_nt": 100,
+      "energy_kcal_mol": -10.6
+    },
+    {
+      "seq": "AUUUUUUCCUCCGAGUUACAGACGCGAACAGGAGGACUUC",
+      "structure": "......((((((..(((.(......)))).))))))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -9.7
+    },
+    {
+      "seq": "UGAGCCUCUCUGGAUGCAAGUUUCCCACGGAGCAUCGUCUAAUGCGUUAC",
+      "structure": "(((..((((.(((...........))).))))..))).............",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "CACUGAAUGUAUUUCGUGGG",
+      "structure": "(((.(((.....))))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.7
+    },
+    {
+      "seq": "CCUAACCGCCACGGCAAUAGGAAAGAUUAAAAUUCCUAGCAAUGCCGACA",
+      "structure": "...........(((((.((((((.........))))))....)))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.9
+    },
+    {
+      "seq": "ACAUAUCUCCAAGUUCUCUCUGCCUGCGCUAUAACACCCAUGUUAUGAUC",
+      "structure": ".............................(((((((....)))))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -2.6
+    },
+    {
+      "seq": "GUCAAGGGGACU",
+      "structure": "(((.....))).",
+      "length_nt": 12,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "CUGGAAUCUGACGUCAGUUUACUGCCUUCCUCUUGCCCCCCUCAUGUGGCCAGAUUUCUUUUUGACCAUGAAGAACGCCGGGGAGCCCGAUACACCAACA",
+      "structure": "..((.....(((....))).....))....((..((.((((((.(((((.((((......)))).)))))..)).....)))).))..))..........",
+      "length_nt": 100,
+      "energy_kcal_mol": -15.9
+    },
+    {
+      "seq": "GUCGCCUACUUAUACACAGCUUGGAACGCUGCUGCACCGAAAGUGCGUAAUCCGGAUGUCCUCCCCACGU",
+      "structure": "...............(((..(((((((((.(((........)))))))..))))).)))...........",
+      "length_nt": 70,
+      "energy_kcal_mol": -11.2
+    },
+    {
+      "seq": "CAUCAAACGUAUUUACGUCGUUCACGAGCGCUCGCCAUAAUGUCAACGUCGGUUCACGUCAUGGGCCUAUAGGUCAAUACUCAUAUAUGCUUGGCAGCUC",
+      "structure": "......((((....)))).......(((((((...(((((((...((.(.((((((.....))))))...).)).......))).))))...))).))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -15.0
+    },
+    {
+      "seq": "UCGGGGAUUAAGACAUCGAGAAGAUCUUCCGAGGGAACCG",
+      "structure": "(((((((((.............)))).)))))........",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "GGAAUCUCCAAGAUUGGAAGGAAAGACCAUGUCAUGUCGGCUUAUCCGUUGUAUUUUUGUAAGCUCGAUA",
+      "structure": "......((((....))))................(((((((((((.............)))))).)))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -10.7
+    },
+    {
+      "seq": "CGUUUUGCCGUGCACCUAUCGUAAUCGCUGCGACACCAUUUAACUGCGGCGGGGCUCCGAAGUUCACUGC",
+      "structure": "......((.(((.((...(((...((((((((............)))))))).....))).)).))).))",
+      "length_nt": 70,
+      "energy_kcal_mol": -16.2
+    },
+    {
+      "seq": "GUGCUGUUCUACCUACCACCGGCUACUCUUAUGCUCCGUGUACCUGAGACGGUAAAUAAUAGACCUUACA",
+      "structure": ".((((((.((......(((.(((.........)))..)))......))))))))................",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.3
+    },
+    {
+      "seq": "AUAUGGAGCAUCAUACCAGAUCGCAGACUCUUUGGCCCCG",
+      "structure": ".......(((((......))).))................",
+      "length_nt": 40,
+      "energy_kcal_mol": -1.3
+    },
+    {
+      "seq": "GUGAAAAGUCUGGCAGACGAUAGUAAUAAAUCGUGCUUAC",
+      "structure": "...........(((..(((((........))))))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.8
+    },
+    {
+      "seq": "UCUUACAAUAACACUUCGUCGCAUCUAGAC",
+      "structure": ".................(((.......)))",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GGCCUUUCUACGGGCA",
+      "structure": ".((((......)))).",
+      "length_nt": 16,
+      "energy_kcal_mol": -3.5
+    },
+    {
+      "seq": "CGUCCGCCGCGGGCCAGGUA",
+      "structure": ".(((((...)))))......",
+      "length_nt": 20,
+      "energy_kcal_mol": -4.3
+    },
+    {
+      "seq": "AAUGUGAAGCGUGGGGCAUAAUCCCACGUGCUUGAUGAUAUAAUUCUUGU",
+      "structure": "...((.((((((((((.....))))))..)))).))..............",
+      "length_nt": 50,
+      "energy_kcal_mol": -12.0
+    },
+    {
+      "seq": "AAGGCGUGUUAUGUGCCAAGAUAUG",
+      "structure": "..((((.......))))........",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.2
+    },
+    {
+      "seq": "GACCGGUUCCGGGCUCGCACCCUAGUGAGAGCCGGACCGU",
+      "structure": "...((((.((((.(((.(((....))).))))))))))).",
+      "length_nt": 40,
+      "energy_kcal_mol": -19.4
+    },
+    {
+      "seq": "CAUGUUCUAGUGAAGGAUACCGGGUAAAUCAGCGCUGCGUGGUUCACUUU",
+      "structure": "........(((((.....((((.(((.........))).)))))))))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.2
+    },
+    {
+      "seq": "GUGGAUAGGGGGGUCGCAUU",
+      "structure": "((((((......))).))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.5
+    },
+    {
+      "seq": "UAUAACGCCGCUGGCG",
+      "structure": ".....((((...))))",
+      "length_nt": 16,
+      "energy_kcal_mol": -3.7
+    },
+    {
+      "seq": "GCUCGCAGACACGCGUCCUCAAGGGUUGUGGGCUCGAAAA",
+      "structure": "(((((((...((.(........).))))))))).......",
+      "length_nt": 40,
+      "energy_kcal_mol": -10.0
+    },
+    {
+      "seq": "UGGGUUCAACUAUACUACAACCUAU",
+      "structure": "((((((............)))))).",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "AUUCUAAAGUUUAGCCUAUGGCUGAUACUC",
+      "structure": ".......(((((((((...)))))).))).",
+      "length_nt": 30,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "AGAUAGCUUAAGUCUCAGAACUGCCCGGGUCACCACAUUGAGGAAUCUUUUAUGCCUGAUUAGUCACAUCGGAAGGAAUCAAGGCCCGUCUCGUAAAAUA",
+      "structure": ".........................((((((......((((....(((((((((..(((....)))))).))))))..))))))))))............",
+      "length_nt": 100,
+      "energy_kcal_mol": -12.3
+    },
+    {
+      "seq": "CAGGAACAAGUGCCUUAAAAUCAGA",
+      "structure": ".(((........)))..........",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.7
+    },
+    {
+      "seq": "UGGGUGGAAGGAAUGCUUCGUAAAGUAGGC",
+      "structure": "......((((.....))))...........",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.9
+    },
+    {
+      "seq": "GCUAUAAGCCUGGAGCCGACGGUGUCUAGGGGUGGGGCUC",
+      "structure": "(((.....(((((((((...))).)))))).....)))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -12.2
+    },
+    {
+      "seq": "UGACGACCAAUAUACGUCAUACUUA",
+      "structure": "(((((.........)))))......",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.3
+    },
+    {
+      "seq": "AUUGGACCAGUUAUGCCGUAUGCAGGGACUCCAGUACAACUACGACACACUUGUCCACCAGGGAUACCUC",
+      "structure": "..(((((.(((..((.(((((((.((....)).)))....)))).)).))).)))))..(((....))).",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.4
+    },
+    {
+      "seq": "GAGUGGAACUCAUUUA",
+      "structure": "((((...)))).....",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "CCCUGACGCCCACCCAAGUAAAACUCUUCUGAGAUCGCGAAAUAUCAUGUAAUUCCCCAAGAUUGGAAGG",
+      "structure": "........................((((((..((((..(((.(((...))).))).....))))))))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -4.8
+    },
+    {
+      "seq": "GCGGAUAGCUCUGAGGAUUC",
+      "structure": ".((((....)))).......",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.6
+    },
+    {
+      "seq": "UAUCGGCAACGUUAAUGAGUAGUUUCUUCC",
+      "structure": "....(((.((........)).)))......",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "UUCCCAGCUGUACACAUCCACGGAGGUUAG",
+      "structure": "...((..((((........)))).))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.7
+    },
+    {
+      "seq": "GGGUACAGCCAU",
+      "structure": "((......))..",
+      "length_nt": 12,
+      "energy_kcal_mol": -0.1
+    },
+    {
+      "seq": "AUGGAACAUCCAGUUCUUAAGUGGACCUGGUUCUCCCUGA",
+      "structure": "..(((....((((.(((.....))).))))...)))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.9
+    },
+    {
+      "seq": "CUGUCCACCGCAGUACACGUCACUUCGACG",
+      "structure": "((((.....))))....((((.....))))",
+      "length_nt": 30,
+      "energy_kcal_mol": -3.9
+    },
+    {
+      "seq": "UGAGCUCCCGAAUACAUGAAGCGCCUCGCGAUCUCGCAACCUCACAGCGC",
+      "structure": "....................((((...(((....))).........))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -5.2
+    },
+    {
+      "seq": "GGCCCGAAGUUAUGCCGCGAUUGUCUGACC",
+      "structure": "(((..........)))..............",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "GCGCUAAUCUAAUAUGGGUUGCCAAAGCGAGUUGCGUACAAGCAGCUGGAUUUAACGUCUCCCCCUUGUAGCAUGGGCCACUAUUACUUCGUCGUAGCUG",
+      "structure": "((.(((..(((....(((..((.(((.(.((((((......)))))).).)))...))..))).....)))..)))))((((((.((...)).)))).))",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.4
+    },
+    {
+      "seq": "GACUGCUAGUAGUAGUGGGCCCACAUUCUUCAAGCCACUGCAGCUAGCUU",
+      "structure": "....((((((.(((((((................))))))).))))))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -17.6
+    },
+    {
+      "seq": "UCUAAAUGAAUGCCUUCAAGGGUAGCACCCAUAGAUCCAGGACCGGAUGAGCACUCACUGUCGCAGGUGGCGAAAUCCGUCACCGAAUAACUGUGGGAGC",
+      "structure": "..........(((((....)))))((.(((((((.....((..(((((..((...((((......))))))...)))))...))......))))))).))",
+      "length_nt": 100,
+      "energy_kcal_mol": -27.4
+    },
+    {
+      "seq": "GAUGUGAAUUCGUAUUUAAGUGCUGUUAAAUGCACACACUUUCUAGUCAUUUACUUCGCGCUCUACUUGC",
+      "structure": "...........(((..(((((((...((((((.((..........))))))))....))))).))..)))",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.5
+    },
+    {
+      "seq": "GCUGCUUGGAUCAUCAGCUC",
+      "structure": "((((..((...)).))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "GUAGGUGUUCUUUCGAAUACCCAACAAGAUGUUCGCAGGGUAAUCUCGCGACAUUACGCCUUAGUUGGGGCAGGUCCGCAGACGUAGUUGAAACUUGACA",
+      "structure": "...(((((((....)))))))......(((((.(((.(((....))))))))))).......((((..((((.(((....))).).)))..)))).....",
+      "length_nt": 100,
+      "energy_kcal_mol": -21.5
+    },
+    {
+      "seq": "CUCGGACCAACCCCAUAUGCACGUACACGUUAAUUAGUGGUGCAUAACCA",
+      "structure": "...............(((((((...(((........))))))))))....",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.6
+    },
+    {
+      "seq": "GUCCGAAACCUACAUAUCGAAAACUCGGACCUACGCAGUGUCGCAAACGAGUGUACCUGCGAACCUGCAUCAAAAUGCAUGGUGGAUGAAAUUAUACGAG",
+      "structure": "((((((..................))))))...(((((.(((((......))).))))))).((((((((....))))).))).................",
+      "length_nt": 100,
+      "energy_kcal_mol": -23.0
+    },
+    {
+      "seq": "CAAGUAGCUUAAUAAAUUAGAUGAGUAGGCAAAUCCCAAAUCGGGGCCCGUAGUCCAGCAUGGCGCUAAAGGCAGUAAUUGUCGGUCCACCGUCAGGUAC",
+      "structure": "......(((((..............)))))....(((.....)))(((..(((((((...))).))))..))).(((.(((.(((....))).))).)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -17.7
+    },
+    {
+      "seq": "UCAACCUAGCCAAAUCCCGAAUAGCCCUUUUAAGGUACGC",
+      "structure": ".......................(((.......)))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "ACGGAAGCCAUCCCGGCUGUAUCCCUGCGAGCUCUCAAGCAACUAAGCCUCCACGUAGAUGUGGGCAUGUGGGUAGCGUUAGUCUCGUCUCGGUCCUCUU",
+      "structure": "..(((((((.....))))...)))..(((((..((...((.(((..((.(((((......)))))...)).))).))...)).)))))............",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.5
+    },
+    {
+      "seq": "GCCUAAUGGAAACGGCCCGU",
+      "structure": "(((..........)))....",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.6
+    },
+    {
+      "seq": "CACUCAAGAUUAAUUCGUGGGUAUCAUGCG",
+      "structure": ".(((((.((.....)).)))))........",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.1
+    },
+    {
+      "seq": "CCAUCUAGUCUGAUAACUUGGCCGGUGAUG",
+      "structure": ".((((..(((.........)))....))))",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.7
+    },
+    {
+      "seq": "AUUCUUUUCGUCUGUCCUGCGUCCUUGGAUAGCGUACCGA",
+      "structure": "..((....((.((((((.........))))))))....))",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.1
+    },
+    {
+      "seq": "CCGAUCACACAUACAGCCUGUCGGCGCGUACACAAGAAUCGCAGUACCCUUUCUCUUUAUAUACCACACUUUUGAGGUAUUUAUGACGGCGGAUUAGGGA",
+      "structure": ".(((((.....(((.(((....)))..))).....).)))).....((((.((((((((((((((.((....)).))))..))))).)).)))..)))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.5
+    },
+    {
+      "seq": "UUGUACGUAAGCACUGGAGGGACGCGCAGA",
+      "structure": "((((.(((...(......)..))).)))).",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "AUUCAAGUUACAUUUGUCCUUCCUUUACCUUGACGGUGUCCCUACUCACUCACAUAUUUCGAGGAACUCCCUUGGGGAACAAUCGUUAAAGUAGGAUCUA",
+      "structure": "....................((((..((.(((((((((((((.................(((((.....)))))))).)).)))))))).))))))....",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.3
+    },
+    {
+      "seq": "CGUCGUGCCGCUGAGAGGAUCCUUAGUCCCUGAGCGGCUUGAGGUAUCCUGUAGUUGCAACCUUAGCAUC",
+      "structure": "......((((((.((.((((.....)))))).))))))(((((((....(((....))))))))))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -23.2
+    },
+    {
+      "seq": "AGAGCCUCUCUCGCUACUCAUGCUGAACUGAAGUACCAAGCUAAGCCUGU",
+      "structure": "((.((....((.(.((((((........)).)))).).))....))))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -3.0
+    },
+    {
+      "seq": "CUAAUACAUGCGUUAUCGCUAUCCGACUCUCUCAUCUUAGCUAAUUUACCUUAGACUUUCUUUUCCGGGAAGUUUUGCAGCGACACCAGUAUUCUUGACA",
+      "structure": "..(((((.((.((..(((((....(((((((.......((((((......)))).)).........))).))))....))))).))))))))).......",
+      "length_nt": 100,
+      "energy_kcal_mol": -14.4
+    },
+    {
+      "seq": "AUGUCCACGGAGGAUGACCGGGUUCCUGCCGGUGUUCCGAAGUAAUUGACACGCAAUUAGCACCUGAUCC",
+      "structure": ".((((.((...(((..(((((.......)))))..)))...))....))))...................",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.6
+    },
+    {
+      "seq": "ACGUGCAGUAGGCCUCAAGGCAACA",
+      "structure": ".......((..(((....))).)).",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "UGAGAGCUAAUUUCGCUUGU",
+      "structure": "...((((.......))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.7
+    },
+    {
+      "seq": "UCUACUUCCUGCAGGAAGAUACUUUAUGCGGGUCAGGCAGUGGCUGUGAAUGUAGUGCACAUUCACUAACACCGGGCCGGAAAUGCCUACCGUGUCUUAU",
+      "structure": "...............(((((((..((.(((..((.(((.(((...((((((((.....))))))))...)))...))).))..))).))..)))))))..",
+      "length_nt": 100,
+      "energy_kcal_mol": -28.6
+    },
+    {
+      "seq": "AUCGGGAGAAGGACGGCUUGUCUUGAUGCC",
+      "structure": "(((((((.(((.....))).)))))))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -9.6
+    },
+    {
+      "seq": "CAUAGACUCCAUAGUGAUUUUAGGCUUUUUCCGAACCCAGGGGUAUUCAG",
+      "structure": ".....(((((....((..(((.((......)))))..)))))))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -3.2
+    },
+    {
+      "seq": "GGUGGGACUUUAAGUUAUAGCACAU",
+      "structure": "(.((.((((...)))).)).)....",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.2
+    },
+    {
+      "seq": "ACCACGGGCUUGUGGUCUGACUAUGCGCGUGGGUUACUGG",
+      "structure": ".(((((.((..(((((...))))))).)))))........",
+      "length_nt": 40,
+      "energy_kcal_mol": -13.1
+    },
+    {
+      "seq": "CUCGAAAGGGUGAACAUAAA",
+      "structure": "(((....)))..........",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "GACUCCUUGAGGAUUUCCACUCUUCUAUAGGUGGCAAGUU",
+      "structure": "...........((((((((((........))))).)))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "CUAUAGUACGGUGCGCCACGUAUUAGAUAGAUCCUCUGUGGUCCCUACAAGCGCUUGUCUGGUGAUCGGUUCUCAAGGAUAAUGCGAGAAUAAAGCCACU",
+      "structure": "((((((((((........)))))))..))).......(((((.........(((((((((..(((.......))).)))))).)))........))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.4
+    },
+    {
+      "seq": "AAUAUAAAACCAAAAUAUUGGCAGUCCGGCGAUACCGGAUGAUCUAAGAU",
+      "structure": ".................((((..((((((.....))))))...))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.5
+    },
+    {
+      "seq": "UUGGGACCGUGCGGGAUAGCGGAACGUUCC",
+      "structure": "..(((((..(((......)))....)))))",
+      "length_nt": 30,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "CUGGGGAUUGUAUAAGAGGGCGGCACUCAAGUGUUUGCUAGAGAUUAGUC",
+      "structure": ".....(((((........((((((((....))).)))))......)))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "CUCGCGUAGUGCGCCACUGAGGAUC",
+      "structure": ".((.(.(((((...))))).)))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.6
+    },
+    {
+      "seq": "AGGCUAAGAGCGGCAAGGAGGAGUCCGGUACGUGAUCCAAAAAGCCGGGCUCAGCAAAUAUGGCGCUUAUAUUCUGUGGAUGUUGUGGUAAUUGAUUGCU",
+      "structure": "(((.((.(((((.((..(..(((((((((..............)))))))))..).....)).))))).)).)))...........(((((....)))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -25.2
+    },
+    {
+      "seq": "ACGCUCCGGCGCGCACCCUAUUCGGCAUAG",
+      "structure": ".(((....)))...................",
+      "length_nt": 30,
+      "energy_kcal_mol": -3.1
+    },
+    {
+      "seq": "UGAACCCUCUCACUGCUUAUGUGCAUCUGAUCACGUCUCCCGUCCUCAGAUAUCACGCUUAUCCAAUUCC",
+      "structure": "...................((((.((((((..(((.....)))..))))))..)))).............",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.6
+    },
+    {
+      "seq": "UUCAUUGUCGCACCCAGGUACCCUCAUGCGCCGGGACGCG",
+      "structure": "........(((.(((.(((.(......).))))))..)))",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.7
+    },
+    {
+      "seq": "UAAUACGUGCGUGUCAUGGACAUGAUAAAUGAGGUCGGGGGGCGAUCGCAGCGCGGGGUCCGGUGGGGCG",
+      "structure": ".........(((.((((((((........((.(((((.....))))).)).......)))).)))).)))",
+      "length_nt": 70,
+      "energy_kcal_mol": -20.1
+    },
+    {
+      "seq": "GAAACCUCGGUGAUCUAAGGGGUAUAUCCCAGUCACUAAAACCGCCUGGAUUGGAUUGGGCGAACCUACAGUAUGAUUGCGCCCUUCCCUGCACGCCCAC",
+      "structure": "........(((((.((..(((......))))))))))......((.((.(..(((..(((((((.(........).)).))))).))).).)).))....",
+      "length_nt": 100,
+      "energy_kcal_mol": -21.7
+    },
+    {
+      "seq": "CAGGCCGUUUCGCCGGAACCUAUACCGCAGGAAUCACGUACAAAUAAAACAGCCGCCGCAGUCUACAUUCCAGUAUUAUUUCACACAAAUUACGUUUGAC",
+      "structure": "..(((......)))((((..((.((.((.((........................)))).)).))..)))).............................",
+      "length_nt": 100,
+      "energy_kcal_mol": -7.0
+    },
+    {
+      "seq": "AAGCUUUCCACUCAGCCUGAUUCGAGCUAUUGCUCUUUGGCAGAAUCGACGGAAAAGUACAUGUAGGUUG",
+      "structure": "............(((((((((((..((((........)))).))))).................))))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.5
+    },
+    {
+      "seq": "GGCGGUGGAGUCGGAUAACCAGGCCGCCUAAAUACCGGGC",
+      "structure": "((((((...((......))...))))))............",
+      "length_nt": 40,
+      "energy_kcal_mol": -10.2
+    },
+    {
+      "seq": "CACAUUCCGUGGCGGCAGAUGGGAUAGGGGGUUAAAACGCAAGCUUCAUGAAUAAUGUUCCGCAGUACUU",
+      "structure": "(((.....)))((((.(.((.......((((((........)))))).......)).).)))).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -10.2
+    },
+    {
+      "seq": "CGCGUCAUGCGA",
+      "structure": "(((.....))).",
+      "length_nt": 12,
+      "energy_kcal_mol": -1.6
+    },
+    {
+      "seq": "UAUCCUAGUGAUUACCUCAGGAGCCUAAGG",
+      "structure": "..((((((.......)).))))........",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.9
+    },
+    {
+      "seq": "AUUACCGUGUUACCGAAGCUUCGGCAGAUGCAACGGGACUGACCGUGCUUUUGUAUCGUAGGGGACAGGC",
+      "structure": "....((.(((..((...((....(((((.(((.(((......)))))).)))))...)).))..))))).",
+      "length_nt": 70,
+      "energy_kcal_mol": -18.8
+    },
+    {
+      "seq": "UGUGGUCCGAAAACAAUGACGAAAAUUAAUCACACUGAUCAAGUGGCAAGCCGGCUACAAGCGACGACGA",
+      "structure": "(((((.(((.......................((((.....))))......))))))))...........",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.7
+    },
+    {
+      "seq": "UUCGACAUUCUCAGUGCGUCUGCUUGCUCG",
+      "structure": "..(((((....(((.....)))..)).)))",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "UAAUCCCAUAGUCCUCUCUGUGUGUCCAAACCUUACCAUCGACACACACGAUACGCUAUGCUCUUAGAUGUCGUUCUCAAACGUCAACUAGUCAGAAUAA",
+      "structure": "......((((((....((((((((((..............)))))))).))...))))))...((((.((.((((....)))).)).)))).........",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.3
+    },
+    {
+      "seq": "AGCGAAUCUGAUGCCUCCAAGAUAGGAGUA",
+      "structure": "..............((((......))))..",
+      "length_nt": 30,
+      "energy_kcal_mol": -3.9
+    },
+    {
+      "seq": "GCUCAACGGUUACGUC",
+      "structure": ".....(((....))).",
+      "length_nt": 16,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "GGACGGAAUUAAGUAUUCAAGCUAC",
+      "structure": "((...((((.....))))...))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "GUUCAGGAAUGAAGGCCCAAAGUACACCUAAGCCCGAAGA",
+      "structure": ".(((.((.....(((...........)))...)).)))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "CCGAGGGGGAUAGGAAGGCCGACUACAACUAUGGUGCGGAAAUGCCCGCCUGAACUUAGAAGACGGGGUGUUGGACCUCAGCUGCGACGAAUGCAAUGUU",
+      "structure": ".((..(.((....((.(((((((.((..(...((.((((......)))))).............)..))))))).))))..)).)..))...........",
+      "length_nt": 100,
+      "energy_kcal_mol": -18.4
+    },
+    {
+      "seq": "UGCGCGAGGUUCUGCAAGGUCUACGGAGAGACUUUGAGUCCGAGCCGCUA",
+      "structure": ".((((..((..((.((((((((......)))))))))).))..).)))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -16.1
+    },
+    {
+      "seq": "ACCACCCCACUAUGGGUGUCCGAAGCGUGCGAUUACGUAAACCCCGAAAU",
+      "structure": "..(((((......)))))......(((((....)))))............",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.5
+    },
+    {
+      "seq": "GGCAGGGCAGGUUCAUCUGCAGUAUCCACGGUCGUAAGGC",
+      "structure": "((....((((......)))).....))...(((....)))",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.5
+    },
+    {
+      "seq": "GAGCAAAUGAAUACAUGUGAGUUGGUAGCCGCCGUAACGUUGAUGAGGUACCCGAUUUCCGUGGGUACAAGAACGUGGCCACGCGUUCCGUCGGAUCCGC",
+      "structure": "..................(((((((..(((..(((.......))).)))..)))))))..((((((....(((((((....)))))))......))))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -24.5
+    },
+    {
+      "seq": "GGGGAGCCACCCCUCCCCAGUAGUAACACAAAAGGGAGCGCGUGGAAAGUCGAGAACAGGUUACGCACGCGGAACCCUCAUGCUUGUGACUGUAGUUUAG",
+      "structure": "((((((......))))))..((((.(((((..((((..((((((.....((.......)).....))))))...))))..))..))).))))........",
+      "length_nt": 100,
+      "energy_kcal_mol": -28.3
+    },
+    {
+      "seq": "ACGUAUUACUUAAGGAUUUUCCGUUCGUAUAACCGAGGGCUAGCGGCCUU",
+      "structure": "..((..(((....(((...)))....)))..))..((((((...))))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.0
+    },
+    {
+      "seq": "CGACACACAUCUGGUCAAGUAAUCG",
+      "structure": ".(((.((....))))).........",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "ACGAGCCGUUUUACGCCAUCUCCGGUCAGAGUAGGUGCAC",
+      "structure": ".............((((..(((......)))..))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.8
+    },
+    {
+      "seq": "UGCUGUUUCGUACCCUCCUCGAGGCGUUUUAUCCGAAAUGUUGUGAAAUGAAAUACGAUUCAGGUGCGCG",
+      "structure": "..(((..(((((...((.(((.((((((((....)))))))).)))...))..)))))..))).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.4
+    },
+    {
+      "seq": "AUAGGAAUUGCUCCAA",
+      "structure": "...(((.....)))..",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.5
+    },
+    {
+      "seq": "ACUUCGAGACUACCUACCCUAGAUUUGCUUAGCUGAGGCCGUCAACGCCU",
+      "structure": ".......(((..(((...((((......))))...)))..))).......",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.0
+    },
+    {
+      "seq": "CACCGCAGCUAUUUUAAUACACUAUGUGGGCGCAAACAAAUCGUAAAUCGUCGCGCUCUGAGGAAGGGAA",
+      "structure": "...........................((((((...................))))))............",
+      "length_nt": 70,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "CCAAUCUCGAAACCGAUUCUCGGGCUGAAA",
+      "structure": "......(((...((((...))))..)))..",
+      "length_nt": 30,
+      "energy_kcal_mol": -3.4
+    },
+    {
+      "seq": "ACCGCCUCACUUUGUCUUGAGGGGUGCAGC",
+      "structure": "(((.(((((........)))))))).....",
+      "length_nt": 30,
+      "energy_kcal_mol": -9.1
+    },
+    {
+      "seq": "GCCUAAAAAUAUGUAUUACUAACGCUGCCGACGACGUCCACAACAAAGACCUCAUGGCUUACUCCCACCCCCAGCCUAAUCGAACGGCCCGACCAAAACG",
+      "structure": "..........................((((..((.(((.........))).)).))))...............(((.........)))............",
+      "length_nt": 100,
+      "energy_kcal_mol": -7.2
+    },
+    {
+      "seq": "GGACGCCGAGCAUGAGAUGGGAUAUCGCUUGUGAAAGUCGUUUCUCCGGAAUUGUAGGUUUGACCAGUUGUAAUAAUCUGCACGCAAGUACGCCGACGAU",
+      "structure": "(((((.(...((((((.(((....)))))))))...).))))).......(((((.(((...((..((((((......)))).))..))..))).)))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.5
+    },
+    {
+      "seq": "AUUGCAGGUACCGAGCUAAUCUAAAUCGCC",
+      "structure": "...((.(((...((.....))...))))).",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.1
+    },
+    {
+      "seq": "GCUUCUCAUUGCGUGCGCACUCUCUUGUCC",
+      "structure": ".........(((....)))...........",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GAAGGCUGAUAUAAAAGUCGAACCGUGUGUGAUGUGUGAG",
+      "structure": "...((((........)))).....................",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "GGCUCUCGGGAAGCGGGCUUAGACG",
+      "structure": "(((((.(.....).)))))......",
+      "length_nt": 25,
+      "energy_kcal_mol": -5.2
+    },
+    {
+      "seq": "CCUGAGCUGUGCUAUUCAGG",
+      "structure": "((((((........))))))",
+      "length_nt": 20,
+      "energy_kcal_mol": -5.1
+    },
+    {
+      "seq": "UGCUGACUCGCAAGACUUGU",
+      "structure": "(((......)))........",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "UUCUGGCCUUCGUAAAACAAUGCGG",
+      "structure": ".........(((((......)))))",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.8
+    },
+    {
+      "seq": "GAGGACACGCGAUUAGCCGACUCCGCAGUCUACAUGGGAG",
+      "structure": "....................((((.((.......))))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.6
+    },
+    {
+      "seq": "CAAAUAGGAACCCGUGCAGUGGCUCGUGUCGUCAUGAAAU",
+      "structure": "...(((.((.(((.....).)).)).)))...........",
+      "length_nt": 40,
+      "energy_kcal_mol": -3.9
+    },
+    {
+      "seq": "GAAGAACUCAACAGGGAUUC",
+      "structure": "...((((((....))).)))",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.2
+    },
+    {
+      "seq": "UCCAGUUUGUAGAUACCCAGGGUGCGAAAAUUCCUAUAGACCAUCAAUAUUUGUUAUGUCUUCCUCAGUG",
+      "structure": "....((((((((.......((((......)))))))))))).............................",
+      "length_nt": 70,
+      "energy_kcal_mol": -4.8
+    },
+    {
+      "seq": "CACGCCAGCCGGAGAAACUCGUUGCUCAAUCGUCUUGGCG",
+      "structure": "..((((((.(((((..........)))...)).).)))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.5
+    },
+    {
+      "seq": "AAAACUACUAGGAGCCGGGGGUCACUAUUAUGUAAUUGCUCUGUGACCAGCACCGCUAGAAGGACCGAGUGCAGGUCUCUCGAGCGCAGACAAGUUGGCC",
+      "structure": "...................(((((((....(((...(((((.(.((((.((((((..........)).)))).)))).)..)))))...))))).)))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -25.7
+    },
+    {
+      "seq": "AAGUAGCCCCUGCCCCAUACAGGCU",
+      "structure": "........((((.......))))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.6
+    },
+    {
+      "seq": "GCGGCACAACAUCGAAAUUAUAGUAAACCUGUUCGGGUGG",
+      "structure": "..........................((((....))))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -1.8
+    },
+    {
+      "seq": "UAGAUACAAUAGUCGGGAUAACUAAACGUGCCUAUAAGAUAUGGCGGAUGCCCGGCAUAUGUAACCGAUA",
+      "structure": "....((((...((((((...........((((..........))))....))))))...)))).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -14.3
+    },
+    {
+      "seq": "CUUCGGUAUAUAGAGUAUCCUUUUCAGUUCAUUUCGUGCCAGAUUGGGCCAUCUCGCCUCCAUGUCCUCA",
+      "structure": "....((.((((.(((...........(((((..((......)).)))))........))).))))))...",
+      "length_nt": 70,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "CUCUCCUCUAAGAGGAGCCGAUGUA",
+      "structure": "..((((((...))))))........",
+      "length_nt": 25,
+      "energy_kcal_mol": -6.9
+    },
+    {
+      "seq": "UAGCGACAGGAAGCAUGCCAAUCCUCUCGAUCCGGCCGGAAGAUGUCCCGGGCAUUCGGUGCCUCGGGACAUGCAAUUGCUAGCGUACCGGUUGACGUGC",
+      "structure": "............(((((.(((((....((....(((......(((((((((((((...))))).))))))))......)))..))....))))).)))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -35.0
+    },
+    {
+      "seq": "CAGUAAAAUUGUAUCCUCCGUUCUCAGAGGAGCGUAGUCU",
+      "structure": ".........(((.(((((........))))))))......",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "CACACUCAAGGGAGUGAUACUACAGUAUUCAACAAGGGAUUACAAAGCUAAAAGACGCGGAGUGACUAUAGUCGCCUACUAGCGUCUAGGGCCCCCGAUU",
+      "structure": "..(((((....)))))...................(((........(((...((((((((.(((((....)))))))....))))))..)))))).....",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.4
+    },
+    {
+      "seq": "UGUUUUCGAUUGCUUCUGUGAACAAUAAUGCACGUGAAAAGAUCAGGAGU",
+      "structure": "...((((((((..(((((((..........)))).)))..)))).)))).",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "UUUUAUGCGCCAUUCUUUCUGUGUG",
+      "structure": "......((((..........)))).",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.2
+    },
+    {
+      "seq": "AGAUGGCCCGCAGAGAUCACAAGUGAUCGAUAGGUUGUGGUCAAAGUCCCCAUAUGUUUGUAGGGAAAGA",
+      "structure": "...((((((((...(((((....))))).....).)).)))))...((((.(((....))).))))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -14.6
+    },
+    {
+      "seq": "GCCUGUGCCGGACCGUCUCGCGGGGGCAAG",
+      "structure": "((((.(((.(((...))).))).))))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -11.2
+    },
+    {
+      "seq": "ACUACAUUCUAUGUACAUAAGCCUAUCGCAAAACUCCAGAUGCAAUAGCU",
+      "structure": "..(((((...)))))....(((.(((.(((..........))).))))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -4.1
+    },
+    {
+      "seq": "GCCGCGGCCCCUAGGAUUAACCCGCCGUAUGCUUCCGCUA",
+      "structure": "((.(((((.....((......)))))))..))........",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.4
+    },
+    {
+      "seq": "GCGGUGGAGAGAUGGUGUGACACGUGCCUGCUGCUAGUGC",
+      "structure": "(((((((..(..((......))..)..)))))))......",
+      "length_nt": 40,
+      "energy_kcal_mol": -9.3
+    },
+    {
+      "seq": "UAGGACACCCGCUUUUCGGUUGACC",
+      "structure": "..((.((.(((.....))).)).))",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.9
+    },
+    {
+      "seq": "UAUUGGCGGGGCGAUUGGGGUAUUGGGGUC",
+      "structure": "....(((....((((......))))..)))",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "UCUACAGCAGCCAGGGCCUGACCUCAUCACGAUUCCGAAGAUAAUCGCUGUAAUGUACGCAAAUCGCACC",
+      "structure": "..(((((((((.(((......)))......................)))))..)))).............",
+      "length_nt": 70,
+      "energy_kcal_mol": -6.8
+    },
+    {
+      "seq": "GGGAGAGGAUCC",
+      "structure": ".(((.....)))",
+      "length_nt": 12,
+      "energy_kcal_mol": -1.2
+    },
+    {
+      "seq": "CUGUUCUUGACAUUCAUCGUUGCCCGGCGCCAUCAAUUCG",
+      "structure": "......((((....(.(((.....))).)...))))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -0.2
+    },
+    {
+      "seq": "GAGCCGUGUCGCUAAUACGUGGUGCGAUGAUGUGGGCGCC",
+      "structure": "....(((((.....))))).(((((..........)))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.0
+    },
+    {
+      "seq": "AUCCGACUUCCGAGCUGUGUCGAGGCCCUUUUAUCAUACCGAUGCUCGGGCUUCGAUGAUCAGUGGACCC",
+      "structure": "........(((..((((.((((((((((...((((.....))))...))))))))))...)))))))...",
+      "length_nt": 70,
+      "energy_kcal_mol": -24.5
+    },
+    {
+      "seq": "GGUUUCAGCCAGUUCA",
+      "structure": "(((....)))......",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.4
+    },
+    {
+      "seq": "UGGUGCGGGAAACGUGACUCUUGGUUACCUAUGGGUCAUUAGUAUCGCACCACUAAGAUAAUCAGCUUCAGGGUGGCCGCAUUAGGCAGUCUAGUCUGGG",
+      "structure": "((((((((.....(((((((.(((....))).))))))).....)))))))).........((((((..(((.((.((......)))).))))).)))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -32.3
+    },
+    {
+      "seq": "UGUUAACUGCGCAUCCCGUGCACCUUACCGCCAGCCGUCUGUAUUUACGCGGAUCCGAUCACUCGACCAAAUCAAGCCUGUUCCAUGCAUUAGAGAGGGC",
+      "structure": ".......(((((.....)))))...........(((.(((.((....((.(((............................))).))...)).))).)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.7
+    },
+    {
+      "seq": "GCCUGCCGUGAAAGGUGGGG",
+      "structure": ".((((((......)))))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -7.8
+    },
+    {
+      "seq": "CAGCAAUGAUGUGCUCACAAUGUUAAGCCCGACCUUCAACUGUAUGUGAACUCAACAACACUUACGGUACGUAUCACACCGCUUUCCGGUCUACACAUGG",
+      "structure": "......(.(((((.......((..((((..........((((((.(((..........))).))))))............))))..)).....))))).)",
+      "length_nt": 100,
+      "energy_kcal_mol": -12.9
+    },
+    {
+      "seq": "GUCAUCCGGAUAUGUUCCUGUGCGGAAUUUUUCAUGGGAUCAUACCGUUACAAUCGCAAAAGUAUUAGAGAGCGUCUGGAGAAUUGUCUCCGAAAUGUAG",
+      "structure": "......(((.((((.(((((((.((....)).))))))).)))))))........................((((.((((((....))))))..))))..",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.4
+    },
+    {
+      "seq": "CGCCUGUAGUCCAACGUUACGUAACAUAGCGUAGAGUCGG",
+      "structure": "..........((.((.((((((......)))))).)).))",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.6
+    },
+    {
+      "seq": "GUGAUCUAGUUACAAGGCUUUUCGGUGUGUCGCCAUGAUGUUUCCGGGUGAGCCGGCCACUCAUGUUGUA",
+      "structure": "..........((((((((....((((...(((((..((....))..)))))))))))).......)))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -14.7
+    },
+    {
+      "seq": "AAACACUGACGAUACCUGUGCCCAUUCGUUGGAAGAUUUUCUCCGUUACG",
+      "structure": ".....(((((((.............)))))))..................",
+      "length_nt": 50,
+      "energy_kcal_mol": -4.5
+    },
+    {
+      "seq": "CCGUUAGUCACCUAUUAGUCUCUGACCAUUCCGGACUCCAUCGGUGGUAA",
+      "structure": ".......(((((....(((((..((....)).))))).....)))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.7
+    },
+    {
+      "seq": "CUUACCCUGUAGAUGACGGAAGGGCAGUGCUCUACACUCC",
+      "structure": ".......((((((..((.........))..))))))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "CGGGGCGUCCCAUCGUGGCGCCAAGAAUUUCCACGCAGGCUCGUGUGUGC",
+      "structure": "(..(((((((....).))))))..)......((((((......)))))).",
+      "length_nt": 50,
+      "energy_kcal_mol": -14.8
+    },
+    {
+      "seq": "CUCUAGUCCCACCGACACUUGAGAUCUGACUCCACAUGUACCACCUUCGGAUUAAGUACCCCACGCUGUG",
+      "structure": "................((((..(((((((.................))))))))))).............",
+      "length_nt": 70,
+      "energy_kcal_mol": -4.7
+    },
+    {
+      "seq": "AUAUAUCACGGCGCUAAGCAUCCGACGUGCCAAAGUACCC",
+      "structure": ".........(((((............))))).........",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.3
+    },
+    {
+      "seq": "UCUUCCAAGCGGCUUUCGACGAUUCAUAGG",
+      "structure": "(((......((........))......)))",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.5
+    },
+    {
+      "seq": "GUAGUGGCAAAAGCACGCAUUCAAAAGGGG",
+      "structure": "...(((((....)).)))............",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.7
+    },
+    {
+      "seq": "AUAUUCGUACCUGGCGAACGUCCGCGUAGAAAUGGAACAC",
+      "structure": "...(((((..((((((......))).)))..)))))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "UACUGAUUGCGCUCUUUUGUUCACGUGACUCGUCUUUAAAAAGGACCUGA",
+      "structure": "............((((((....(((.....))).....))))))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -2.9
+    },
+    {
+      "seq": "UGCCUGACGGAUCUUGGUCCUCUAGGUGUC",
+      "structure": ".((((((.((((....)))))).))))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -8.1
+    },
+    {
+      "seq": "AGCUCACAGAGAGAACCAAAUUGCC",
+      "structure": "..(((.....)))............",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "UCCAACCUGGGACUUUUCGGUGACACCCAAGCCCACAAGUUCAUUAUCCACAGGAUGACUGCGGUGUCCA",
+      "structure": "...(((.((((.(((...(((...))).)))))))...)))......((.(((.....))).))......",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.2
+    },
+    {
+      "seq": "GCCCAUCGCCGAGCGACGAAAUCGUUUUGACCUUCUGCGCCGACAGGUGGAGGUCUAAUUGUAAGGGUACCGUGCGUCGAUCUCGGCCUCCAAGUGUCCG",
+      "structure": ".......(((((((((((....((.....(((((((.((((....)))).)))...........))))..))..)))))..)))))).............",
+      "length_nt": 100,
+      "energy_kcal_mol": -27.5
+    },
+    {
+      "seq": "AUUUGUCUCCGACUGGCGACACUAUGUGUA",
+      "structure": "...((((.((....)).)))).........",
+      "length_nt": 30,
+      "energy_kcal_mol": -5.4
+    },
+    {
+      "seq": "AUGUGGACACACAUCAGAACAGAUAACUCGUCGGACGUUCGAGCGCGUUGCGGUCGGCUCUCUUAGCGGC",
+      "structure": "(((((....))))).............((((.(((...((((.(((...))).))))...)))..)))).",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.3
+    },
+    {
+      "seq": "GACCACCUUCGAAUUCCGCAGAACUCCCGUCCCGGUGAGAGCGUUGUUCAUCUCCUUACGCUCCCGUAUA",
+      "structure": "..........((((..(((....((((((...))).))).)))..)))).......((((....))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.6
+    },
+    {
+      "seq": "AGGUGAUAUCGCACCUUCAAUCCGACGUCGACGGACAGUAUGCACAAUCA",
+      "structure": "(((((......)))))....((((.......))))...............",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.8
+    },
+    {
+      "seq": "AUUUCCGGGUCAAGGGGGCCUUCUUAACGUCAUAAUUCCUGCAUGGGGAUCUUCAGGAACGUGCUGUAGGUAAUAAUUGCUUUGUACUCCCCGGGUCUAG",
+      "structure": "...((((((.(((((.(((((.(...((((......(((((...((....)).)))))))))...).))))......).))))).....)))))).....",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.5
+    },
+    {
+      "seq": "GAUGUCGCAACGAGGGAGGUGAAGUGAGUA",
+      "structure": "....((((..(....)..))))........",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.6
+    },
+    {
+      "seq": "CCUGGAUUAGACCAUACGUCACGGA",
+      "structure": "..(((......)))...........",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.6
+    },
+    {
+      "seq": "AUAGUAAUCCAUUCAUUAUUUGAACAUUAAGGUACGACCCGGAUGGUGGA",
+      "structure": ".......(((((.((((..(((.((......)).)))....)))))))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.8
+    },
+    {
+      "seq": "AUCAAUGCAGCAUGAAGCAAGACCUAGGCAGACCCUUGCAAUGCGCCGAGACUCUAUCAAUUAGGGCAUCGCCGAGCGGUCCCAUCCUGAACACGCCUAU",
+      "structure": ".....(((........))).....(((((.(((((((((.((((.((................)))))).).)))).)))).............))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.0
+    },
+    {
+      "seq": "UGUUACCAUUGGCCUCCUUGACUGGCGCACCAAGCACGCGCACCGUCCUG",
+      "structure": "...................(((.(((((.........)))).).)))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.9
+    },
+    {
+      "seq": "GCAUUCCAGAGUGGUCCUCUAGCUCGACGC",
+      "structure": "((......((((((....))).)))...))",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.2
+    },
+    {
+      "seq": "GCACGGAGAAAAUCGGUUUU",
+      "structure": "..((.((.....)).))...",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "CCCGAGCUUACUUGCAAGGGAGUCC",
+      "structure": "(((..((......))..))).....",
+      "length_nt": 25,
+      "energy_kcal_mol": -6.5
+    },
+    {
+      "seq": "UGAGGUGUAGCGUUAGGGGAAACAUUUAGACAGCAGCGGA",
+      "structure": "((..((.(((.(((......)))..))).))..)).....",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.3
+    },
+    {
+      "seq": "UAGUUGGCACAGCCCCCGCCAUCUCACUAAGCGGAUGCCGAAGCACCACUACUCCAAGCAUCGGCAGUCAUGGGAAGACAGGACCAAGCGGUAGGGCUUC",
+      "structure": "..........(((((((((..(((..(((...((.((((((.((.............)).)))))).)).)))..))).........))))..)))))..",
+      "length_nt": 100,
+      "energy_kcal_mol": -26.6
+    },
+    {
+      "seq": "AAAGAUUUGGUGUAGAGAUCGCGAUACAUGCCCAAAUCUA",
+      "structure": "..((((((((((((..(....)..))))...)))))))).",
+      "length_nt": 40,
+      "energy_kcal_mol": -10.1
+    },
+    {
+      "seq": "AUCCAUUCAGCCACAGGGUG",
+      "structure": ".......((.((...)).))",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.4
+    },
+    {
+      "seq": "UCAGAAUGUAUCAGUUCGUCAACCGCUGCAAUUUUGAUCCCUGCGAUAGGCGUCUCUAUUGGUGUCGUUG",
+      "structure": "...((((......))))..((((.((..((((...(((.((((...)))).)))...))))..)).))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -11.2
+    },
+    {
+      "seq": "AGAGAAACUAGCGGCUGUCUGGCCUGUAUU",
+      "structure": "..........((((((....)))).))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.1
+    },
+    {
+      "seq": "UUAUGUGCAGAUAACCCGCGUGAGAGUGGUUGGUACCCUUGUCCUGACAUGGCCAGUUUAUUCACAUAGUCCUCUAAAAGGACUCCAUCUACUCUUUGGA",
+      "structure": "...............(((...((((((((.(((...((((.....((((((.............))).)))......))))...))).))))))))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.1
+    },
+    {
+      "seq": "CAGGCAUGUCAAAUCCUAUGUAUGG",
+      "structure": "((.(((((........))))).)).",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.7
+    },
+    {
+      "seq": "CCCCAGAAUAAGUUGCUAGGGAGCAGGACAGGGUAACCAC",
+      "structure": ".(((........(((((....)))))....))).......",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.9
+    },
+    {
+      "seq": "GCAAGAGUGUGGGGGAGCGCGUCUCAAUCUCGACACAAAACGGCGUUGAACGGGAGUAGCAUAUUCAGUG",
+      "structure": "....(((((((......(.(((.(((((.(((........))).)))))))).).....)))))))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.8
+    },
+    {
+      "seq": "GCUGCAGGAUAUGAGAACGACCGUUCUAGGCCAAUAAAAGACACCACUCC",
+      "structure": "......((.....(((((....)))))...))..................",
+      "length_nt": 50,
+      "energy_kcal_mol": -4.2
+    },
+    {
+      "seq": "GAACAUAGCACCAUGAUUUACCCCAGAGCUUAUGACGAGAUUGGUGCGACCAGCUUAGUUCAUAACCUUUAAGACAGAGCGACAGAACCUCGAGGUCGGU",
+      "structure": ".......((((((..((((....((.......))...)))))))))).((((.(((.((((.....((((.....)))).....))))...))).).)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -13.7
+    },
+    {
+      "seq": "UGGAUCUGUUGAACUGUAGGACCGCCACAGUCCGUAAAUCAUCCUUACGC",
+      "structure": ".((((....((.(((((.((....))))))).))......))))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.4
+    },
+    {
+      "seq": "GCAUCAAGCAUUGGGGAGUGUAGCA",
+      "structure": ".......(((((....)))))....",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.0
+    },
+    {
+      "seq": "UUAGGUGUUACUUGGGUUAGUACUC",
+      "structure": ".............((((....))))",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.1
+    },
+    {
+      "seq": "CUCAAAUUCAUCCGAAGGCGGUACUGCGUAAUCGGCCUUG",
+      "structure": "...........((((..(((......)))..)))).....",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "UUGGAUCCUCACUUUGCGAUUCCGUAAGAUAGGGCGCUUACGUGCUUGUUAUCCAGUGAACGCGGUAAGCUGGAAGGCCGGCGAUGCCCUGGCGCCCGCG",
+      "structure": "............((((((....))))))...(((((((..((((((.(((.((((((..((...))..)))))).))).))).)))....)))))))...",
+      "length_nt": 100,
+      "energy_kcal_mol": -31.7
+    },
+    {
+      "seq": "GUCCAUUGAACCAUACAAGAGUGGUAAUGGCUAACACCCG",
+      "structure": "..(((((..(((((......))))))))))..........",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.7
+    },
+    {
+      "seq": "CGCGGCACGCGGAUUGUUUAUGCAGGGUUUUGGUUCAGUGGUCUCUCGCGCAAACACAUUAUUACCGCGGUCGCCCAUUGAUGCAAGAGCAUGAGGACCU",
+      "structure": ".(((((.(((((..(((((.(((((((...............)))).))).)))))........))))))))))...((.((((....)))).)).....",
+      "length_nt": 100,
+      "energy_kcal_mol": -25.6
+    },
+    {
+      "seq": "CUUGAAAGUAAGAGACAGCACCCGCUACGC",
+      "structure": "................(((....)))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GACCGGCAUGCCUACCGAAGGGCUUGUACAUCUGGUCCUC",
+      "structure": "((((((((.((((......)))).)).....))))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -12.6
+    },
+    {
+      "seq": "UAGAUAGCGGAUCGACGUUGCUGAAGUAGUGGGUUGUUGCCACCUGUAGG",
+      "structure": "(((.(((((......)))))))).....((((.......)))).......",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.7
+    },
+    {
+      "seq": "ACAUAUUGGUUUCAAGGGAUGUUAC",
+      "structure": "((((.(((....)))...))))...",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.1
+    },
+    {
+      "seq": "UGUCGCCAGCACGGUAAGCUUACACUGGCAUGAUAUCCGCGUGUUUAAUAGAUCUCUAUCAGUUGCACAU",
+      "structure": "(((((((((....(((....))).)))))..)))).....((((...((((....)))).....))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.9
+    },
+    {
+      "seq": "UUACUCUCGGACGACAGGUUUGAAA",
+      "structure": "......((((((.....))))))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -4.0
+    },
+    {
+      "seq": "UAGCUGGAGUUGACAG",
+      "structure": "...(((.......)))",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.7
+    },
+    {
+      "seq": "UGCCUCAGUUCGUGUAGUCUGGGGCAAUAA",
+      "structure": "((((((((..........))))))))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -11.2
+    },
+    {
+      "seq": "UCUUGAGAGCGAGUGUAUCGGUACG",
+      "structure": ".......(.(((.....))).)...",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.2
+    },
+    {
+      "seq": "UACGGUGCUGUGUAGGGAACGAUGUUGCAACAAGUCGGUA",
+      "structure": "(((.(.(((.(((..(.(((...))).).))))))).)))",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.3
+    },
+    {
+      "seq": "CGUGUUGCAUCUAAGUCGGUGGCGUAGGCUCUACGGAAUUCAACUCCAUG",
+      "structure": "((((..((..(((.(((...))).)))))..))))...............",
+      "length_nt": 50,
+      "energy_kcal_mol": -5.5
+    },
+    {
+      "seq": "UUGACACCAACUUGAAAGUCGGAGAUAACC",
+      "structure": "......((.(((....))).))........",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "GUGUCGACACGGAACCAGGUGCUGAUUUGG",
+      "structure": "..((((.(((........))).))))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.7
+    },
+    {
+      "seq": "CCGGGGGCGCGACUCU",
+      "structure": "..((((......))))",
+      "length_nt": 16,
+      "energy_kcal_mol": -2.3
+    },
+    {
+      "seq": "UCAUGGCAUUGACCCUCGUUUACACUCGUAGUAGGGCCGA",
+      "structure": "........(((.((((...((((....)))).)))).)))",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "GCAGCUCAGAUGUCGCUCUCGUUCUCGUCGACUAUCAUGGGGUGAACGAGUUCAUAGAAUAACGUAUCGCGAAGUAUACCCCAGCAGGGGAAGAUAUAGU",
+      "structure": "............((((...(((((((((..(((.......)))..)))))..........))))....)))).((((.((((....))))...))))...",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.0
+    },
+    {
+      "seq": "GUAGGUCUCAACUACCAGAAAAUCGAGAACAUAACCAGAGCAAAGUAUGCGUCAACUGGAAAGAAGUCUU",
+      "structure": "((((.......)))).........((((......((((.(((.....))).....)))).......))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -7.3
+    },
+    {
+      "seq": "GAGUCUCCCUAAACUGGAAAUAAAUAAGUGGCGAACCUCAGUAUUCAUCC",
+      "structure": "(((..((((...(((...........))))).))..)))...........",
+      "length_nt": 50,
+      "energy_kcal_mol": -3.5
+    },
+    {
+      "seq": "GCAUUUAUGCGCGUUAGACCCCCAAUGGAACCCCAGCCUCCGGGAGAACC",
+      "structure": "............(((...(((....(((....)))......)))..))).",
+      "length_nt": 50,
+      "energy_kcal_mol": -4.8
+    },
+    {
+      "seq": "UUGUACAUUGAGUCAUAGUCCGGUGCGUAGUGGGUGCUUCUGGGGAAAGAGCCCAAGACCGUGAUCUUUC",
+      "structure": ".................(((((((......(((((...(((......))))))))..)))).))).....",
+      "length_nt": 70,
+      "energy_kcal_mol": -14.0
+    },
+    {
+      "seq": "UUGACACUUAUUCAAGUACGUCUCGUAUAACCCCGGAGGUGGUAUAUGAAGAUGGCAAAGCCGAGGGAUUAGAUUCAGAUUCAACCAGCUUCUGGCUGCG",
+      "structure": "..................(((((((((((.((((...)).)))))))).)))))(((..(((((((.....((.......))......)))).)))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.5
+    },
+    {
+      "seq": "GAACCGAGAUGACACGUAUAUCAACGAAGCCGAAUCUGCC",
+      "structure": "......((((....(((......))).......))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -0.7
+    },
+    {
+      "seq": "UUGUUGAAUCAGACGAGUUCACGCCUCCGAAGGAGGUCCUAAGUUGCGUCUCGGCAAAGUGUAGUGGCCUGGUCUCAUUGACGUGAUGCAAUACGUGUGG",
+      "structure": "........(((.(((.(((((((.(...((...((((((((..((((......))))....))).)))))....))...).))))).))....))).)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -23.1
+    },
+    {
+      "seq": "AGCAACACUUCCUCUGUGAACAUCG",
+      "structure": ".....(((.......))).......",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.4
+    },
+    {
+      "seq": "CGAACGGCUUGUCUUUUAUUCGCUCGUCUU",
+      "structure": "...(((((.............)).)))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.6
+    },
+    {
+      "seq": "CUCCUACCACGCCCGAUCCCCAUCCUCGGA",
+      "structure": "............((((.........)))).",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.0
+    },
+    {
+      "seq": "CGAUCUAUAUUCCGUACUAUUAGCAGAACCGAUGGAAAUA",
+      "structure": ".........((((((................))))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "GAAGCUUAUUGUAAGAAGUU",
+      "structure": "..(((((........)))))",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.6
+    },
+    {
+      "seq": "CGGCUACCGUCACUGGGCACGUGAGGGCUACGCUAUGGUCUGCGGACGUU",
+      "structure": ".(((((((.((((.(....))))).)).)).)))...(((....)))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -11.7
+    },
+    {
+      "seq": "CGUUGGACUUCAAGGGAACCGUCGUCGACA",
+      "structure": ".((((((((((....)))..)))..)))).",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.5
+    },
+    {
+      "seq": "GUUGACCCAGGGACGAGCCAAGAGCCGUUAAAAGGCAAAG",
+      "structure": ".(((.((....((((.((.....))))))....)))))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.3
+    },
+    {
+      "seq": "GUAUCAGUGAUCGGGGUCUUCUUACACAGCACUUUCCUAAAUUACCGCUACGACACUCUACGUCUAGCUU",
+      "structure": "......(((((..(((...................)))..))))).((((.(((.......)))))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.0
+    },
+    {
+      "seq": "AAUGACGUGUGCCUCGCACCUCAAACGUACAUUUGCUUCCUUCCGUAGAAUGAUAAGCCCGUUGUUUUGGUGUGGACAAGUCUCACAGAUAAUAGAAGGU",
+      "structure": "...(((.(((...(((((((..(((((.((....(((((.(((....))).))..)))..))))))).)))))))))).)))..................",
+      "length_nt": 100,
+      "energy_kcal_mol": -17.8
+    },
+    {
+      "seq": "CAAAUCGCCACGAGCCGCUCGAGCUCCAUAGAUAGGGACA",
+      "structure": "...(((.....(((((....).))))....))).......",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.3
+    },
+    {
+      "seq": "UACAGGUAGUACGUUAGCCUCUCCAUCCCGUAUUAACUUCGAGUGACGUCCAUAGGUGCGCUUAGGUGUC",
+      "structure": "...((((((((((...............)))))).)))).....((((.((.((((....))))))))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.7
+    },
+    {
+      "seq": "AGCCAUUGCAAACUUCCCUCAUGGUCAAUGGCUGAGCACUAGACAUUCAG",
+      "structure": "((((((((...(((........))))))))))).................",
+      "length_nt": 50,
+      "energy_kcal_mol": -10.5
+    },
+    {
+      "seq": "UCGGUCCGGCUUCGAUAGUGAGACUAGUUCUAGAUGACAA",
+      "structure": "..((((..(((.....)))..))))...............",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.4
+    },
+    {
+      "seq": "GUCUCUUUUUGACCACAAAGCGCAGGAUCCCUGUCGAGACGCCGAGCCCA",
+      "structure": "(((((................(((((...))))).)))))..........",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.9
+    },
+    {
+      "seq": "AAUACAAGCACCAUAUUCGUUCUACGCGGCGAGCACUCCUCUUCGAACUGCAUGGAAACCCUUCUCCGAG",
+      "structure": "...............(((((((((.((((((((........))))..)))).))))).........))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -9.0
+    },
+    {
+      "seq": "UUGAUUACCUAAGUAGCCACUCCUACCCUA",
+      "structure": "............((((......))))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "AUUAGCAUUUAGUCAUAAUCAGUGCCUAUCACGCCGCAUAGAAUUACGGG",
+      "structure": "....((...(((.(((.....))).)))....))................",
+      "length_nt": 50,
+      "energy_kcal_mol": -1.8
+    },
+    {
+      "seq": "CAAACACUCAUCCCCCUAGAUUAUCGGCCCUCGCCGUCGC",
+      "structure": "........................((((....))))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.6
+    },
+    {
+      "seq": "UCUGUGAACACUGACUUAGGGAGUU",
+      "structure": "(((.(((........))).)))...",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.0
+    },
+    {
+      "seq": "GCAAGGUCGCAUUAUACGCAUACGUAGUACGAUUACCAUAUCCUUUGCAAUUCCCGUUAGCAGCUAUAGGUAACCUUAAUGUAGCCAGAGAAUUGCGGAC",
+      "structure": "....(((((.(((((........))))).))))).........((((((((((.(.......((((((...........))))))..).)))))))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -17.1
+    },
+    {
+      "seq": "ACCUGUUUUACGGUGU",
+      "structure": "((((((...)))).))",
+      "length_nt": 16,
+      "energy_kcal_mol": -1.0
+    },
+    {
+      "seq": "CUACUCACCGUUGCUAGUUGUCAUGCCAUAGAAGGAGGCG",
+      "structure": ".......................((((.........))))",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.7
+    },
+    {
+      "seq": "CAAGCCCGCCCUACUCGGGG",
+      "structure": "....((((.......)))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -3.5
+    },
+    {
+      "seq": "UCGUACAUUCUCAGGGCUUCCGUAUACUUUUGCGCUCGGC",
+      "structure": "...............(((..((((......))))...)))",
+      "length_nt": 40,
+      "energy_kcal_mol": -3.9
+    },
+    {
+      "seq": "CGGGUCCCUGAUCAGGACUACCCUGGAACG",
+      "structure": ".((((.(((....)))...)))).......",
+      "length_nt": 30,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "GUAGGCAACCGCGUCCGUUUGGAGUCUUCC",
+      "structure": "..((((..(((........))).))))...",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.5
+    },
+    {
+      "seq": "GAUCAGAUUGAGCUAUCGAUUAGCUGUCGCAUAUUAAUGAUUAUCAGUCCAAACCCGGUCGCGCUUGUGAAUUCUGCUCUGCAGGGGUUCAUACGUAACG",
+      "structure": ".....((((((...(((.((((((....))....)))))))..))))))........((.(((..((((((((((((...))).)))))))))))).)).",
+      "length_nt": 100,
+      "energy_kcal_mol": -18.0
+    },
+    {
+      "seq": "CAGUUACUUGCUGCGUAAUUAGGUGCUCAUGGCGACGUAUAGCCGUAGGGUAACGAUUAAAUGACUUCUG",
+      "structure": "((((.....))))..(((((.(..(((((((((........))))).))))..))))))...........",
+      "length_nt": 70,
+      "energy_kcal_mol": -14.2
+    },
+    {
+      "seq": "GACUAUGCGGCAUUGGUAGCCCUCCUAUGGCGUAGCUAGCACACCUGGCC",
+      "structure": ".....((((.(((.((.......)).))).))))(((((.....))))).",
+      "length_nt": 50,
+      "energy_kcal_mol": -12.2
+    },
+    {
+      "seq": "AACUUCGUAUGUCCCUUGAAGUACCACGGUGGGUAUGUGCGGCCUAUGCGCUUCACUUGAGGGUGAGUCU",
+      "structure": "...........((((((.((((....((((((((.......)))))).))....)))).)))).))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -15.3
+    },
+    {
+      "seq": "ACCAUUCGGGUUUCCUCGGUGGAGAGUUACUGGUGUGCUCGACUACGGCAAUACAACCGCCAGAGCUGUU",
+      "structure": ".((((.((((....))))))))(.((((.(((((((((.((....))))).......)))))))))).).",
+      "length_nt": 70,
+      "energy_kcal_mol": -19.1
+    },
+    {
+      "seq": "UUGUUCCACGUUCAUGUUUCGUGUUGUCGCACGUCUAACGCUAGGCGUCCCAGAAUAUGUGCUCGAGAUCAGGGUCGUCCACACGGGAAUUGAGUGGAGU",
+      "structure": "...((((((..(((..((((((((.(.((.(((((((....)))))))(((.((...((....))...)).))).)).).))))))))..))))))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -26.1
+    },
+    {
+      "seq": "CAGGCCCUUUGAUUUGGAGCCGAAACUUUUUCCUUCCACACGAUUCUAGAGUGGAGUCUGACGCAUCGGGGGUGGGCCAAAGCUUCUCAGUCGUUUCCCG",
+      "structure": "..(((((........)).)))(((.((((..(((.((...((((.(((((......))))..).))))..)).)))..)))).)))..............",
+      "length_nt": 100,
+      "energy_kcal_mol": -19.9
+    },
+    {
+      "seq": "GUUGUACCAUCUGACAGUUGAGUGUCGCUUGGAGCUCCUCUGUCUUCCAU",
+      "structure": "............(((((..((((.((.....))))))..)))))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -11.5
+    },
+    {
+      "seq": "ACGCCUCAGAAAUUGUUCAAUGUCGCUCACACUUCAUACGUUCGCGAGUUUACACCAUGGAGCCAUCAUA",
+      "structure": "..((.(((.....(((......((((..((.........))..))))....)))...))).)).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -6.1
+    },
+    {
+      "seq": "CUAUCGUCCGCCUAGUCGUGAUAAUCCAAAAAUCUGACGAAACCUCCACAAGAUUACGUCAAGAUUGAUA",
+      "structure": ".....(((((......)).)))........(((((((((.((.((.....)).)).)))).)))))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "GAAAGCCUUAUUGUAUGGGU",
+      "structure": "....((((........))))",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.8
+    },
+    {
+      "seq": "CUUGACCGACGGCCCCCGCAGCGAUCGAUGAGCUUUUCAACGAUCUUCUGGUAUAAUACUCUUUGAAUGG",
+      "structure": ".........(((...)))(((.(((((.(((.....))).)))))..)))....................",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.6
+    },
+    {
+      "seq": "AGGACUGCUUGUAGGC",
+      "structure": "......(((....)))",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.1
+    },
+    {
+      "seq": "CGAUAAUCAUGUCCCGUCUGGUGGAAGAUUUUCCCAGUACUUGGACCAUAAGUUUUUCGACAAAGUUGAG",
+      "structure": "..........((((.((((((.((((...)))))))).))..)))).........((((((...))))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.2
+    },
+    {
+      "seq": "ACCGUCGGUUGGUUAC",
+      "structure": "((((.....))))...",
+      "length_nt": 16,
+      "energy_kcal_mol": -1.7
+    },
+    {
+      "seq": "GACACCUGUACGUUAUGCCUACAGUCCCUGCGUAAGAUAGCGGGCUGUCCCACUUAGGGAAUGGUCCGAAUGGCGGCCCGCUCUAGCCGCAGGAGAUACC",
+      "structure": ".....(((((.((...)).)))))((((((((......(((((((((((........(((....)))....))))))))))).....)))))).))....",
+      "length_nt": 100,
+      "energy_kcal_mol": -35.6
+    },
+    {
+      "seq": "UUCGGCCCGAGUUAUCAUUAAGUGCAUUUUCCCCAUAGACUAGAUCGGGAGCGAGCACAAGAUAGAAGAGCCCGACAAUUGCCGGCUAAGCUCUAAUGAU",
+      "structure": ".(((((.((.(((.(((((..((((.(.(((((.((.......)).))))).).))))..))).))..))).))......)))))...............",
+      "length_nt": 100,
+      "energy_kcal_mol": -18.3
+    },
+    {
+      "seq": "UAGAGUGUAGGGGGGGGUUGUCUGCAAACG",
+      "structure": ".....((((((.(.....).))))))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.2
+    },
+    {
+      "seq": "AUCAUGGUUUAAAAAUAAAUGAUGAUCCUCGGAAAAAUUAGCUACAGUUUGUACCGUAAUGCAUAAGUUA",
+      "structure": "(((((.(((((....))))).)))))...(((..(((((......)))))...)))..............",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.3
+    },
+    {
+      "seq": "GGCUCCUCCGGCUGGAUUCCGCGCCGUCCCGCUCGGUUCGCCCGUCAGGCGCGAAUGGCCGUCUCAUUAAACACUACUUGACAAAGCCGCAUACUCAUGG",
+      "structure": ".......(((((.((((........)))).)).)))(((((((....)).)))))((((.(((................)))...))))...........",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.9
+    },
+    {
+      "seq": "UACACUUGAAAACCGCGCGCGACCAAUUUGCACGUCAGCGCACGUAGCAG",
+      "structure": ".............((.(((((((..........))).)))).))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.8
+    },
+    {
+      "seq": "CGUUCUUGUUCCAUUGGUCAGGUCG",
+      "structure": "((..((((..((...)).)))).))",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "GCCGGCUCCCUGAGUGGGCUAGACGGCGUACACGGCUUUU",
+      "structure": "(((.((((...)))).))).....(((.......)))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -11.1
+    },
+    {
+      "seq": "CUAGAACAUCCAUAGCCGUACAGAUGUCUAGUGCAACAUU",
+      "structure": "(((((.((((..((....))..))))))))).........",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.0
+    },
+    {
+      "seq": "GGCAGACGGUAUCAGGCUGCAAUGGAUGUUAUCCCCCUAUUUGUCUCGUA",
+      "structure": ".((((((((.((.(((.......((((...)))).))))))))))).)).",
+      "length_nt": 50,
+      "energy_kcal_mol": -6.0
+    },
+    {
+      "seq": "UAUUCGACAGGGGAGACGUAACCCCUGGCGACCAUAAACGGGCAUAUGGUUUAUCGAAAACCCUCCGAAGUUCCGAAUAGUAGGAAACUGUUUACAGUAU",
+      "structure": "...(((.((((((........)))))).))).......((((.....(((((.....))))).))))...((((........))))((((....))))..",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.0
+    },
+    {
+      "seq": "CUCUCAAGAGGGCCUGAAUUGCGAG",
+      "structure": "(((.(((...........))).)))",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.1
+    },
+    {
+      "seq": "CGUGUGGAUACACACC",
+      "structure": ".(((((....))))).",
+      "length_nt": 16,
+      "energy_kcal_mol": -5.5
+    },
+    {
+      "seq": "CACUGAGGUACUAUCGAACCAUGCUUCAGACGCACGUAAAAGCGAAACCGGUAUCGUAUGUACCGAUAAG",
+      "structure": "..((..(((((...((((((.(((((...((....))..))))).....))).)))...)))))....))",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.1
+    },
+    {
+      "seq": "GGUAUGUGGCGAGGGUAUCCCUCAUCGAGCUGAAAUCCAAUGCCGUUAUGUUUCAUACAGCCGUGUGCUAAGGCGGGGGUAAAACUUUUGUGACCCUACU",
+      "structure": "((((.((.((((((((..(((((.((.(((...........((((...(((.....)))..)).)))))..)).)))))....)))))))).))..))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -23.3
+    },
+    {
+      "seq": "CAUUCCCGAGCGUUUGAAACCACACCUAUGAUAUUUUUUUGUUCCUGACA",
+      "structure": "...((..(((((...((((...((....))...))))..)))))..))..",
+      "length_nt": 50,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GACACGGUCACGUUGACCAUACUGACGAACUCUGAGGGGCCUCUCACUGAGAGCGAAGCGGUAGAGUCUUCUGCUAGUUCGAGGUGAUCAGCAAUUACCA",
+      "structure": ".....(((...(((((...((((..((((((...(((((.((((.((((.........)))))))).)))))...)))))).)))).)))))....))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -28.1
+    },
+    {
+      "seq": "UGUGAUAAUUUGGCUAGAACCAUCUCAGAGUAUCUGCGGGAUCGGGCACU",
+      "structure": "............(((.((.((....((((...))))..)).)).)))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "UGCUACACGUUCAGGAGGUGUCGGGGAUAGGGACUUAGGGCCCCUCUUGAUGAUAGCCAGGAGCUUUCAA",
+      "structure": ".((((((...((((((((.((((((........)))..))).)))))))))).)))).............",
+      "length_nt": 70,
+      "energy_kcal_mol": -17.8
+    },
+    {
+      "seq": "CAUUCCGAGGUGGUCCGCCAGUUGCAAAAUCCGAUUCCGGGGCCUACUCGGCGCGGACGGGAUGUUAAUCAUGUAAUUGGAGAAGGUAAACCCAUUUUAC",
+      "structure": "........(((...((.(((((((((..((((...((((..(((.....))).))))..))))........)))))))))....))...)))........",
+      "length_nt": 100,
+      "energy_kcal_mol": -25.5
+    },
+    {
+      "seq": "CACAAUGGGAGUCUCAUCCGCUCAUAAUUGAUCGCGUGAUAAGGAACUGGGCCGACGACAGAUAUGCCUAGACGCGUUUGUUUAAAAAUGUGAGCGUCGC",
+      "structure": "....(((((...))))).((((((((.((((.(((((.........((((((.............))))))))))).....))))...))))))))....",
+      "length_nt": 100,
+      "energy_kcal_mol": -21.1
+    },
+    {
+      "seq": "AAGCCAACGGACGUAUUCGGCGCUCCACUAAAUGAGGUAGCCACGGUAACUCGUCUCGAGCUGCUCCCCACGGUUCCGCGCUAACUUGUGAAUAAGUUCA",
+      "structure": "........((((.((((((((((...(((......(((((((((((....))))...).))))))......)))...))))).......))))).)))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -20.9
+    },
+    {
+      "seq": "GAGAAUCCCGAUGGGAUCUUGGACGCGCAUUUUCCACCUUCGCAGCAGGCGGGGAAUGAGGGCCCAAUCG",
+      "structure": "....(((((...))))).((((.(.(.((((((((.(((.......))).)))))))).).).))))...",
+      "length_nt": 70,
+      "energy_kcal_mol": -22.4
+    },
+    {
+      "seq": "AUCUACCUCUUUCCCUCAUUGCAUGUUAUGACUAUGAACCUAAACGAUUU",
+      "structure": "...............((((.((((...))).).)))).............",
+      "length_nt": 50,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "GCCUACACCUUUACGAUUGUUAGACGUGAGCCGGCCUACUACCUGGCCCGUCGCUACAGGUUGUCGCAGG",
+      "structure": ".......(((..((((((((..((((.(.(((((........))))))))))...))).)))))...)))",
+      "length_nt": 70,
+      "energy_kcal_mol": -18.3
+    },
+    {
+      "seq": "GAUGCUGGGAGGGCUG",
+      "structure": "...(((.....)))..",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GUUCUACACCAGACGCGUUUUACCCGGAGCCGUGGUGUAGUAUGUUGUGUCGCUUCUCCAGGUCUCGCUUGUUAUAAACUCUUCAUGCGUCCCUCUUAGG",
+      "structure": "...(((((((..(((.(((((....)))))))))))))))...................(((...(((.((............)).)))..)))......",
+      "length_nt": 100,
+      "energy_kcal_mol": -18.2
+    },
+    {
+      "seq": "UUGCAUACAAAAAUCUCAACAUACGGUUGA",
+      "structure": "...............(((((.....)))))",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.8
+    },
+    {
+      "seq": "AUUCAGAGAUCCAACGUAGCUAAUCUAAGGUGGACUCGUA",
+      "structure": ".....(((.((((...(((.....)))...)))))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "GGUUCCUUAUUUCCUAGCCUACAUCGGCCGUACCCGACAACUCUCCCGUCCCGAGGGCUCGGUAUGACGUAGUAAAUCAACUCAUCCACCCAAACAAUCA",
+      "structure": "(((...............((((.(((((((..((((((.........)))....)))..)))).))).))))...............)))..........",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.7
+    },
+    {
+      "seq": "UGAGGCCUCCUCAUGGAGCCACUUGUCCCGUGGUAUGUCUGUUCUAAGUGAUACCAGGCCUCAUACGUCC",
+      "structure": "((((((((..((((((((((((.......)))))........)))..))))....)))))))).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -20.0
+    },
+    {
+      "seq": "GGACGAGUCGUUAGGGCCGG",
+      "structure": "...((.(((.....))))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.6
+    },
+    {
+      "seq": "GCGAGUAACGCUAAAAAGAGUUUAUCGGUACAACCCUCGU",
+      "structure": ".(((..(((.((....)).)))..))).............",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.3
+    },
+    {
+      "seq": "GCCACUCGAAAGGUCUCCCA",
+      "structure": "(((........)))......",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.3
+    },
+    {
+      "seq": "GGCGACUAUCCGAGUCCGGUGCUAA",
+      "structure": "((((.....(((....)))))))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.5
+    },
+    {
+      "seq": "GGGAAACGCACCUGGGCCCCGGUCUCCUAC",
+      "structure": "((((...(.(((.((...))))))))))..",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.2
+    },
+    {
+      "seq": "UAGAGUUGCCCCUGUUUGAUGAGCAAGCCUAACAAUUGGA",
+      "structure": "(((..((((.(.(.....).).))))..))).........",
+      "length_nt": 40,
+      "energy_kcal_mol": -3.5
+    },
+    {
+      "seq": "CGUUAAAUUCCGCGAACAACUCGCGUUAGCAUCCCCUCGA",
+      "structure": ".(((((....(((((.....))))))))))..........",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "CACCGGGACGCCUCAGGCCUCGUAUAGCUC",
+      "structure": "...((((..(((...)))))))........",
+      "length_nt": 30,
+      "energy_kcal_mol": -4.5
+    },
+    {
+      "seq": "CAGUCGCGCCCGGACACCUAAGGGCAGAAAGAAUUGAAAGUACCCGACUUAAGCUCGGUACAGGGGCUCUAGCAGGCUGUACUUUAGCCCCUACGUUAGG",
+      "structure": "..(((.......))).(((((((((...........(((((((((..((..(((((.......)))))..))..))..))))))).)))).....)))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -24.3
+    },
+    {
+      "seq": "GGGGUCUCCACAAACACGGUACGCC",
+      "structure": "((.((..((........)).)).))",
+      "length_nt": 25,
+      "energy_kcal_mol": -4.8
+    },
+    {
+      "seq": "GACUUAACCCAGUAUGGGUCCGAUA",
+      "structure": "......(((((...)))))......",
+      "length_nt": 25,
+      "energy_kcal_mol": -4.5
+    },
+    {
+      "seq": "AAUGCGGGGUUCAACGAGGGGGGGCCACUUACGUGGGACCUACCGUAGACUCCCAGCAAAUUCUGCGUCU",
+      "structure": "..(((((((.((.(((.(.(((..((((....))))..))).)))).)).)))).)))............",
+      "length_nt": 70,
+      "energy_kcal_mol": -23.6
+    },
+    {
+      "seq": "AUGGCGUCUGGGGAUACAUAUGAUUGGCCCAGAAGAUCCUAUGAAACAUG",
+      "structure": "..((..((((((...............))))))....))...........",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.7
+    },
+    {
+      "seq": "CGUACUGCGCGUGAGACGUGCCGGCGAGAA",
+      "structure": "(((.(.((((((...)))))).))))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -8.1
+    },
+    {
+      "seq": "AAUAUUUCUGUAUCAUAGUCUUCCUCCCCAGCAUUGAAGCCUCGAUUUCA",
+      "structure": "...........(((..((.((((............)))).)).)))....",
+      "length_nt": 50,
+      "energy_kcal_mol": -1.1
+    },
+    {
+      "seq": "CAGGGCAGGACACCCUAGUGUGUGUUCAGGGCCCGGCGCAGGGGACGGUUCUUCUGCACUCCUCUGCGAC",
+      "structure": "..((((.((((((.(....).))))))...))))..(((((((((..((......))..)))))))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -28.8
+    },
+    {
+      "seq": "UCCAUGUCUGACCCGGCCCAUAGGAGCGACGAGAGUAGAA",
+      "structure": "....((((.(..((........))..))))).........",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.4
+    },
+    {
+      "seq": "UACUCUAUCAAAGAGGUAGAGCAUGAUAAG",
+      "structure": "..(((((((.....))))))).........",
+      "length_nt": 30,
+      "energy_kcal_mol": -6.6
+    },
+    {
+      "seq": "AAAUACCUCUAAGACGGGAAUAAUGGUGAGAGACAUAAACUCACGGGGCCGGCGACAACGUUUGCUGCUU",
+      "structure": ".........................(((((.........)))))(.(((.((((....)))).))).)..",
+      "length_nt": 70,
+      "energy_kcal_mol": -10.1
+    },
+    {
+      "seq": "UCUACAGAAAGUUGUGCACU",
+      "structure": "..(((((....)))))....",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.1
+    },
+    {
+      "seq": "UUAAGGUAGAGCGCCG",
+      "structure": "....(((.....))).",
+      "length_nt": 16,
+      "energy_kcal_mol": -0.4
+    },
+    {
+      "seq": "UGAGCCGUCUAGCUGAGUUAAAACCAAUUACUCUGGGAACAUCAAUCUGAUGAGCACAGACCGAUGAUGUACCAAGCACGAUCGGAAGCACGUAUAUGUU",
+      "structure": "(.(((......))).)...............((((.(..(((((...)))))..).))))(((((..(((.....)))..)))))...............",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.2
+    },
+    {
+      "seq": "GGGGACCCAGGGAUUCCAGG",
+      "structure": ".((((((...)).))))...",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "GCACCGUGAUGGUGGAAACCAAGAAUGACGAAAACCCCAUAGUCGCGACU",
+      "structure": "....((((((.((((.....................)))).))))))...",
+      "length_nt": 50,
+      "energy_kcal_mol": -9.2
+    },
+    {
+      "seq": "CAUCAUGGUUGGGAAUCUGCACCCAGAUUUCGUGGGACAUGGCCUAUUUGAGCAAACGGUAUCUAUUCUAGUUUAGACAGGGUGAAGGCUAGUUACUUAA",
+      "structure": "..(((((((((((........)))))...))))))(((.((((((..............(((((..((((...))))..))))).)))))))))......",
+      "length_nt": 100,
+      "energy_kcal_mol": -17.7
+    },
+    {
+      "seq": "UAACGCGCACUUACUCGUCAACCUUAGUCAGUCUCCCCACCCGGCGCUAGAGUACUUUUGGUAGUCAAAA",
+      "structure": "....(((((((.(((..........))).)))...........))))..((.((((...)))).))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -6.7
+    },
+    {
+      "seq": "AGAACGGAAUGAUACACAUCGUGCUGAACCUGGUGUAAUA",
+      "structure": "............(((((...((.....))...)))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -4.1
+    },
+    {
+      "seq": "GAUGGGCCGGCCAAUGGACG",
+      "structure": "..(((.....))).......",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.4
+    },
+    {
+      "seq": "AUCCCCCUAUGCGCGGGAACAAGGGCUGCA",
+      "structure": ".(((((......).))))............",
+      "length_nt": 30,
+      "energy_kcal_mol": -3.7
+    },
+    {
+      "seq": "CGGUCAGAGAGUCGAGGUCUACUGGGUCCUUUACACUCAA",
+      "structure": "......(((.((.((((.((....)).)))).)).)))..",
+      "length_nt": 40,
+      "energy_kcal_mol": -8.3
+    },
+    {
+      "seq": "CUAUAAGUAGUUUCGUUGAGUCGACUAGUCAGCGUGCUAGCUCACGCUUCCGUGAAUCAUCUCCUAAGACUACCGAGCGGGCCCUUUAGACUCCCGCGAU",
+      "structure": "......(((((((....(((..(((..(..((((((......))))))..)..)..))..)))...)))))))...(((((...........)))))...",
+      "length_nt": 100,
+      "energy_kcal_mol": -22.1
+    },
+    {
+      "seq": "AUCCCCCGGAGUCUAUUACUCGUUAGGGUAGUAUAGCGAC",
+      "structure": "..........(((((((((((....))))))))....)))",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.6
+    },
+    {
+      "seq": "UGUCUCAUCACAUGUGGCCAAAUCUAGAGACAUAUGUUCG",
+      "structure": "((((((....................))))))........",
+      "length_nt": 40,
+      "energy_kcal_mol": -5.0
+    },
+    {
+      "seq": "GGACGUGAUUUGGCGCGCUAUCCGGCUAACCCCGUUACUAUGUGUAGAUA",
+      "structure": ".((((.(..(((((.((.....)))))))..)))))..............",
+      "length_nt": 50,
+      "energy_kcal_mol": -7.6
+    },
+    {
+      "seq": "AUCGAGUGGCCCAAGGACUGCACUA",
+      "structure": ".....((((((...)).))))....",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.8
+    },
+    {
+      "seq": "AAAACCGCGAAUGCCAUCCGUCAAUAGGCAGAAGAAGUACCCAAAACGAGUUAGUAAUUGCAGGGCCACA",
+      "structure": "....((((((.(((...((((.....((...........))....))).)...))).)))).))......",
+      "length_nt": 70,
+      "energy_kcal_mol": -6.4
+    },
+    {
+      "seq": "AGUAGUCACUGCCACAGGUGCGAGGCCAUC",
+      "structure": "......((((......))))..........",
+      "length_nt": 30,
+      "energy_kcal_mol": -1.9
+    },
+    {
+      "seq": "ACAGUGAACGGCUGUAAUCCUAAGUGUCGCUAAUGAACCGAGUAGGCUACCGCAGAUAGCGCGAGCCUCC",
+      "structure": "..(((((...(((.........))).)))))............(((((..(((.....)))..)))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -14.4
+    },
+    {
+      "seq": "UGAGGAGACGACUUCCCCUG",
+      "structure": "..(((.((.....)).))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -1.5
+    },
+    {
+      "seq": "GUGAUUGCUGAUGGAUCCGCGAUCGUUUGCUACGCCCCGGUAUUACCGAUCCAAGUCAAACUCUCUGGUA",
+      "structure": "..((((((.((....)).))))))(((((((......((((...)))).....)).))))).........",
+      "length_nt": 70,
+      "energy_kcal_mol": -11.9
+    },
+    {
+      "seq": "CGUAUGUAGAGUUGAAAAGUCGUUGGCAUGAUGGGAACUUCUCACGACUAAGUCCCUCGUUAGAGUGCUUAGCGAUCUUCUAGUUGUAGCACUGAAUAAA",
+      "structure": "....(((.((.(.(((..(((((((((((((((((.((((.........)))).)).))))...)))).))))))).))).).))...))).........",
+      "length_nt": 100,
+      "energy_kcal_mol": -16.6
+    },
+    {
+      "seq": "UGGCGGACCUGUCCCUGUGCGGAUC",
+      "structure": "..........((((......)))).",
+      "length_nt": 25,
+      "energy_kcal_mol": -2.3
+    },
+    {
+      "seq": "CGUUGAGGUUUUAGUCUGUUUAGGCUUGCUCAAGUUUUACCAACAAAGAGAAGAUCAGACGGUUGCACUA",
+      "structure": ".....((((....(((((......(((.(((..(((.....)))...))))))..)))))....)).)).",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.7
+    },
+    {
+      "seq": "UAUCUAGGCACGGACGCCAAAAUCCCACUAAAUGAGUGAAACCAUGGUCACAUACCCCCUCGUAGGAUAA",
+      "structure": "((((((((...((..((((......((((.....))))......))))......)).)))....))))).",
+      "length_nt": 70,
+      "energy_kcal_mol": -8.5
+    },
+    {
+      "seq": "AUGGGUUUGCUCAUUA",
+      "structure": "(((((....)))))..",
+      "length_nt": 16,
+      "energy_kcal_mol": -1.8
+    },
+    {
+      "seq": "AAGCCUUCGUCCUGGUCAAAAGACAACAGGUAGUUGCCCA",
+      "structure": "..((......(((((((....)))..)))).....))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -6.0
+    },
+    {
+      "seq": "GAGAGUUUCGCUGCGGUGUCCGUCCACCGAAAGUAGUCUGUUAACGUAGCGGUAUCAACCGUACAAUAUU",
+      "structure": "((.((....(((.(((((......)))))..)))...)).))......(((((....)))))........",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.9
+    },
+    {
+      "seq": "AACUGAGGUCGGCCCCAAAU",
+      "structure": "...((.((....)).))...",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.1
+    },
+    {
+      "seq": "GGGACACACACGGACGCCCACCCUACGUUAAACACCGGCUGUGAUCGAGAUUCUCGAGCGAGUGGCCCCGUCAUGAGUGUUGACCUAUCACUGAGCAGCA",
+      "structure": "(((.(((((.((((((.((((....(((................(((((...)))))))).))))...)))).)).))).)).)))..............",
+      "length_nt": 100,
+      "energy_kcal_mol": -18.6
+    },
+    {
+      "seq": "ACUCUGUUUCCUGAGUGCCC",
+      "structure": "((((........))))....",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.8
+    },
+    {
+      "seq": "CGUCCAUUACCCUCGUACCUCUAGGCGAGAUCGUCCUUGUUCGCUUUCAG",
+      "structure": "..................((..(((((((..........)))))))..))",
+      "length_nt": 50,
+      "energy_kcal_mol": -5.5
+    },
+    {
+      "seq": "CGGCAGAUCCGCUGAUCAACGGGUG",
+      "structure": "......(((((........))))).",
+      "length_nt": 25,
+      "energy_kcal_mol": -3.7
+    },
+    {
+      "seq": "CAACGGGUGGGUUCCGUACAGCUUCGACGUGAGACGUGUUAUGUGUACUGAUCCGCUUACCACGCUUAAACGGGCUUCAGCCACACUUAGUCCCAUUAAG",
+      "structure": "...(((((((((((.(((((......((((...))))......))))).))...))))))).))(((((..(((((..((.....)).)))))..)))))",
+      "length_nt": 100,
+      "energy_kcal_mol": -24.7
+    },
+    {
+      "seq": "UGAUUACCAGAAUGUCGCUAGUCUCGAUCCAGACCAGCGUGUCCACCUAUCGAUUGGGAAACUGAUCCUU",
+      "structure": ".(((.....((....((((.((((......)))).))))..)).....)))((((((....))))))...",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.4
+    },
+    {
+      "seq": "GUUAGUCGCGAGGCUGUAGUCUGGGCCCGAAAGCCACCAGACAGGCAGCU",
+      "structure": "...........((((((.((((((((......))..))))))..))))))",
+      "length_nt": 50,
+      "energy_kcal_mol": -18.1
+    },
+    {
+      "seq": "GUAUGGGCCCCGUAGAUUCUAACCA",
+      "structure": ".(((((...)))))...........",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.5
+    },
+    {
+      "seq": "AUAUUGUAGAUGAAUACACG",
+      "structure": "....((((......))))..",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.9
+    },
+    {
+      "seq": "GGUUAAUUACAUAGAAACCA",
+      "structure": "((((...........)))).",
+      "length_nt": 20,
+      "energy_kcal_mol": -0.3
+    },
+    {
+      "seq": "AGGGUUGCUAGAUCCAUUAU",
+      "structure": ".(((((....))))).....",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.8
+    },
+    {
+      "seq": "CACUUUUACUGUAGACUAGAACUUCGAUCCUCCGAUAACACAACACAAUCUCGCUGUGCCUACAGAAUGG",
+      "structure": "........((((((.((((....(((......)))..................))).).)))))).....",
+      "length_nt": 70,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "ACUCGCGCAGAAGCGAUCAGUCACGAAGACGAGGGACUCGGCGAAUGAAG",
+      "structure": "..((((.(.((..(..((.(((.....)))))..)..)))))))......",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.5
+    },
+    {
+      "seq": "UUAUUGAACUGACUUAACGGUUCUA",
+      "structure": ".....((((((......))))))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -4.7
+    },
+    {
+      "seq": "ACACCCAUAUACCCCAGUCAUUAGGAAGUGCCUUUGAAUACUAAACGGCC",
+      "structure": ".............................(((((((.....)))).))).",
+      "length_nt": 50,
+      "energy_kcal_mol": -2.6
+    },
+    {
+      "seq": "UACCCCGAUCUGGACCGGUAAUGGCGCAGCGCUAAUGUCAACCGCAGCCCCAUUUUGUCUCCCUUCAAAU",
+      "structure": "...........((((....(((((.((.(((...........))).)).)))))..))))..........",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.2
+    },
+    {
+      "seq": "CCGGGAAAAAGAUUUUACAAAGCCUUGUAGCUUCCUGGGGGGCCCGCAUGACCCUCAGCCGAUUUGGUCU",
+      "structure": "(((((((.......((((((....)))))).))))))).(((((((..(((...)))..))....)))))",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.8
+    },
+    {
+      "seq": "ACCAGCCCGGCCGUACACUUAACGCACUGUCUUCCAUCGGGAAAAUUUACAUCGGCUUUCCUGGACUGUC",
+      "structure": ".((((...(((((...........(.(((........))))...........)))))...))))......",
+      "length_nt": 70,
+      "energy_kcal_mol": -13.1
+    },
+    {
+      "seq": "UAUCCGGAACAGGUUUCCGUGAUCAGGCCAUAGAACACCCCACGACAGAACUGAAACUUGGCCGUUCUAUUCUACAGAUAUCCAGUCACGCGAAACGUGU",
+      "structure": "........(((.(((((((((((..((..(((((((...(((.(.((....))...).)))..)))))))...........)).)))))).))))).)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -21.7
+    },
+    {
+      "seq": "CUAUUCAAUUGCUUGCCGCCUUGAAAACGUCGCAUGUUCU",
+      "structure": "..........((.(((.((.........)).))).))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -2.2
+    },
+    {
+      "seq": "ACUGGUCGGAAGAGACUCUACGAGUAAGGCCAUGCGCGAACAAACUCAAA",
+      "structure": "..(((((.......((((...))))..)))))..................",
+      "length_nt": 50,
+      "energy_kcal_mol": -5.9
+    },
+    {
+      "seq": "GUUACCCUAGUCCUACCCCAACAUGACGGG",
+      "structure": "................(((........)))",
+      "length_nt": 30,
+      "energy_kcal_mol": -2.6
+    },
+    {
+      "seq": "GAGAGCAGGCUCAACACCGAGGGCAUCACUGCGGGGGUCC",
+      "structure": ".......(((((....(((.((......)).)))))))).",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.9
+    },
+    {
+      "seq": "ACCUCAUGGGUAUGAGUAGC",
+      "structure": "..(((((....)))))....",
+      "length_nt": 20,
+      "energy_kcal_mol": -2.4
+    },
+    {
+      "seq": "GAACAGCAACGCCAUUGCCAGUCGUUAGGAAUUGGCUAUCUUGCGUUGAUCACUGAUUUGAUACUGGCAACCAGACGAUCAGACGAGGUGUCAUAUGUUU",
+      "structure": "......((((((.((.(((((((.....).)))))).))...))))))..((((..((((((.((((...))))...))))))...))))..........",
+      "length_nt": 100,
+      "energy_kcal_mol": -24.1
+    },
+    {
+      "seq": "UGUUUAUGGGUCGGGCAGUAUUUAACUGCUGCGUCAGCCCUGUGCCGGCACGCGGGAAUCUGAACGAGAAGUCCCUCCCAACUAGCGCUCCCGGUCUGCA",
+      "structure": ".......((((.((((((((......)))))).)).))))((((((((..(((((((.(((.....)))..)))).........)))...)))))..)))",
+      "length_nt": 100,
+      "energy_kcal_mol": -29.4
+    },
+    {
+      "seq": "GGUUAGGCACCUAAGGAAGAUACCUUGCACAGUAACCUCC",
+      "structure": "(((((......(((((......))))).....)))))...",
+      "length_nt": 40,
+      "energy_kcal_mol": -7.1
+    },
+    {
+      "seq": "GCUCGGAUCCCAGCCGCAGGAUUCUAAGUAGUGGCCAUAGUCGUGGUUUUAGGAGAGUAACCCUGCACAG",
+      "structure": "(((.((...))))).((((((((((.......((((((....)))))).....)))))...)))))....",
+      "length_nt": 70,
+      "energy_kcal_mol": -16.0
+    },
+    {
+      "seq": "AACUAUGAGUUACGACAAGCAUCAGCGUGGGAAGGUUGUCUCUCUCCGUU",
+      "structure": "(((...(((....(((((.(.((.......)).).)))))...))).)))",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.3
+    },
+    {
+      "seq": "CACGGCCCAGCC",
+      "structure": "...(((...)))",
+      "length_nt": 12,
+      "energy_kcal_mol": -1.3
+    },
+    {
+      "seq": "AUCAAGUUCACUCGGGUAAGCCCUUUCUUAGGUCUAAGUUCAGCACCCUGGUCUAAACCUCAGCGGGUAA",
+      "structure": "...................((((...((.((((...((.((((....)))).))..)))).)).))))..",
+      "length_nt": 70,
+      "energy_kcal_mol": -11.5
+    },
+    {
+      "seq": "UAGUAACAUAAGAUGGAUGGCUACC",
+      "structure": "((((..(((...)))....))))..",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.6
+    },
+    {
+      "seq": "CAAAGUCAAGGUGCAAUUAACUUUA",
+      "structure": ".......(((((.......))))).",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "ACGUAUAAUAUGUAACUGACCCUCCUCCUGACUUACCGUCCGUUGAAUGGUGCGACCGAGUGUGAACUCGGGCGCGAUAUGAUUUUGUCUGUACCGCGUU",
+      "structure": ".(((((......((((.(((.................))).))))....))))).((((((....))))))(((((.((((((...))).))).))))).",
+      "length_nt": 100,
+      "energy_kcal_mol": -21.5
+    },
+    {
+      "seq": "CACGAUGCCGAGAACCUGGCUCUAUGGCCCGCGAAGCACACAUAUCCAGUGUCCGAGACCGUGUUUCUGA",
+      "structure": "((((.(..((.((..((((...((((....((...))...)))).))))..))))..).)))).......",
+      "length_nt": 70,
+      "energy_kcal_mol": -12.9
+    },
+    {
+      "seq": "AAUCUCGAGAGGCCACUUACUAAGAGAAGUACGUGAAGAUUGCGAGCUUA",
+      "structure": "...((((.((...(((.((((......)))).)))....)).))))....",
+      "length_nt": 50,
+      "energy_kcal_mol": -8.6
+    },
+    {
+      "seq": "CAGUCAUCUGCAAAGAGCCCGUUCAACACAUGUGGCCGAC",
+      "structure": "(((....)))......((((((.......))).)))....",
+      "length_nt": 40,
+      "energy_kcal_mol": -3.3
+    },
+    {
+      "seq": "UGGCCGGCCAUGUCACAACCCAGUU",
+      "structure": "(((....)))...............",
+      "length_nt": 25,
+      "energy_kcal_mol": -0.4
+    },
+    {
+      "seq": "ACAUAAUCUAAAACGGAUCAGAGCGUGCAU",
+      "structure": "............(((........)))....",
+      "length_nt": 30,
+      "energy_kcal_mol": -0.8
+    },
+    {
+      "seq": "GGGUCACUCUGAUCAGGUUGUUUAA",
+      "structure": ".(((((...)))))...........",
+      "length_nt": 25,
+      "energy_kcal_mol": -1.5
+    }
+  ],
+  "extended_fixtures": {
+    "long_sequences": {
+      "seed": 4276993775,
+      "fixture_count": 75,
+      "fixtures": [
+        {
+          "seq": "CCAAGCGAUAUUCUGACUAUUGGUGCGACGGAAUGUAUCCAUUCGAGCGGGAUCGAAGGUUAAUUAGCUACUAAGGUUAGGACGCGGUUGCAAGAUGGGGUUUCUCCACCCACAACCGGUAAAAUACACGCUUCGAAACAGCCGUUCCAU",
+          "structure": "..........((((((((.(((((((.........((.((.(((((......))))))).))....)).))))))))))))).(((((((...((.(.(((......(((.......))).....)).).).))....))))))).....",
+          "length_nt": 150,
+          "energy_kcal_mol": -30.3
+        },
+        {
+          "seq": "GGCGUGUACCAGAGUUCCGGCGUGGACGAGAACCAGGAGGAUCUUCCUGUUCCGCCUCCACAGAGGAGUCGCCCUAGCCGUGCUCGUGAGUACAUCUGAGACGGUAUUAGUGCCGGGCACAGCACCUGUCAAGAUGAAUGAGUGCAGGCAGGCGUACCCUCCGUUGCGCUGUACACGCCUAAAGGAUAAAUGGUAAUCGG",
+          "structure": "(((((((((.((.((..(((.(((((((.((((.(((((....)))))))))))..)))))..(((.((((((...(((((((((((.....(((((..(((((.....((((.(....).))))))))).))))).)))))))).))).)))).))))))))..)).))))))))))).....................",
+          "length_nt": 200,
+          "energy_kcal_mol": -73.2
+        },
+        {
+          "seq": "GACGCGUAUCGGCCGGAUCACAGAGAGCAUAGGCAAACCUCUCAGGCAUGAGGCUUUUCGACAGCGAAUAUCCAAACCUUCAGUUGACUGUCGCUAAUUAGCAGCGGCGUGAAAUAGGUCCCAAGAUGGCUAUUCCCAUCAAAUCUCCCGGGUCAUGCCGUUGCACAUAUGCAAGAUCGAGGGGGCUUAGAUUACCGGGUUGAGAUCGAUGCGUGGCCUAGCCUGGAUGUACUCUCUUUCUUCGUACGAAGGGUCAUGAUGCUCCCGAGAAAGGGCAUGAUUAGGGGCUAGACCGGGCCU",
+          "structure": "(((.(...(((..((((....((((((.(((........((.(((((...((((((((((((..((...(((.((.(((((..((((((...((......((((((((((((....((......(((((......)))))......))....))))))))))))......)).)).))))))))).)).)))...)).))))))).........))))).)))))))))).))))))...))))..))).).)))((.((((((........)))))).))...(((((......)))))",
+          "length_nt": 300,
+          "energy_kcal_mol": -90.6
+        },
+        {
+          "seq": "GAUAUGUCUCACGACACAGGAGGCAGCAGAGAUUCGCGUCGUCCGACCUCUGCUGGCUUCAUUCGACCUUCUCAAAACCAAGAGGGAAAAUCGGGAGAUGUGCGUCCUAGCUAUAUCUGUACUAAUCGCCGUAGUGCGGGGGUGAUGGUAAAAGUGUUUCUGGCCAUAAGUAAAGCAGUCAUGGCUAUAAAUACUGAGCUCAAUACAGCAUGCCCGCUUGAAUUACUUUGCUCCUAUAGUAGACUCAUAC",
+          "structure": "((((((.((.(((.((((((((.((((((((..(((.(....)))).)))))))).)))).(((((((((((........))))))....)))))...)))))))...)).))))))(.(((((...((.((((((((((.(((.((.....(((((((.(((((((.............))))))).)))))))..........)).))).)))))....)))))...)).....))))).).......",
+          "length_nt": 250,
+          "energy_kcal_mol": -67.9
+        },
+        {
+          "seq": "AGGUCUUUAAUACGCGAUGUGUGGGGGACAGCGGCUAAUCCGGGGCGGCAUACGGCGGGUGCCAUCAUCAAAUCCCAAUCGCUGCCUUGUUUGGUUGGUGCGAUCAUGUGCGGUGAAUCCGUCGCCCCGCCGGAUAACAGGGGGUGACCCUUGGGUGCCGGAAUAAUCUCGAUUGCCGGACAGACGGGUGGACGGCGAUAAGUAUCGUAGACUAUAAUAUCACGCCGUGUACAUGGAGAACGAGCAGGCCACUGGCCUGCUAGUGCGGAUCCGCCCUGAUGAGGAGAAAACUCACCCUCU",
+          "structure": "..((((((.((((.....)))).))))))((.(((..((((((((((((.(((.(((.(((....((((((...((((..((......))))))))))))....))).))).))).....)))))))).((((....((((((....))))))....)))).....((((.((((((((...((...((((...(((((....)))))...))))....))...))).))).)).))))((.((((((((...)))))))).))..))))..)))))...((((.(........))))).",
+          "length_nt": 300,
+          "energy_kcal_mol": -99.1
+        },
+        {
+          "seq": "UAUAACUCCCGCUGAAGUCAGGUGCGGCGAUUGGAAUGUACGGAGUUCCUGAAAACAUGGCCACAUCGCAACCUUACCGUUAAUCCGAACCCGUGCAUCGUCGUCUCAAAACGAACUACGAGGGCCCCAGCAGGCCUAGUGCCUAAGAGC",
+          "structure": "..........(((......((((((((((((..((.(((((((.((((..((....((((................))))...)).)))))))))))))))))))................(((((......))))).))))))...)))",
+          "length_nt": 150,
+          "energy_kcal_mol": -32.9
+        },
+        {
+          "seq": "AAGGCGCCCAGUUAUUUGAAAUUCUCACAUCCAACCGACUCCAUGACACCAUGAGAUGACGCGCCCCGCGUAUGCUGUGCAUAAUAAUGAGGCCUGUGUGCCAUCAUCUGAGGGCUGUCUAAUCCCGCCGCCGGAAUAGAACGGUACUCCAGCCAAAGGGGGACCGUACUAAGUUCCAAAUUUUAGAUGUCACGGGACAG",
+          "structure": ".((((((((..(((..(((......(((((....((......(((.(((....((...(((((...)))))...))))))))........))...)))))...)))..))))))).))))..(((((..((.(((((((.(((((.((((........))))))))).))..)))))...........))..)))))...",
+          "length_nt": 200,
+          "energy_kcal_mol": -46.6
+        },
+        {
+          "seq": "CAUACGAUGUGAACCGCUCUGUUAUUCACCGUGCCGCACUAGUACUUUUACGCACGCCGGAAUCUGGUUACCAGACCCUUGUUCCCACUUGACUUGGCCUAUCACGCAAGCUUCGUACAGGCUCCUUUUGUCGUAUGUUCACCGAAAAUAAUCGACUGAGCAGUCGAAGAGGCCACUUCCAGCGAAGAGGUCCUCUCAGACGCACAUGGUACCAGUAAGCAAUAAUGGAGUAAGCAUUAGUUUGAAAGGCGGGAGGGGUUACAGCUGGUUUAUGGUAGUACUUCUUGUCCCUGCGCUGUG",
+          "structure": "..(((...(((...(((..((.....))..)))...)))..)))......(((((((.(((....((((((((((((.((((.(((.(((....(.((((.(((.((((((((.......(((((..((((..(((....((((............((.((.(((..(((((((.((((....)))).)).)))))..))))).))))))....))).))))....))))))))).)).)).))).)))).)))))))..))))..))))..)))))..))).....)))..))).))))",
+          "length_nt": 300,
+          "energy_kcal_mol": -74.4
+        },
+        {
+          "seq": "CAUGCCAUUGGACCCUGCCUGGUACAUGUUCGUAAGCGACGGCGACGUGCAGCAAAUUCGGCCAACUAGAAAAGACAACCCUAAGGCCUUAUUAACCCUCUUCAGCUCUUAGUCUCCAGGCUAUAGCGUAGGACCAAAAGCUCCGCUAGAACGUGAAAAAUCCCCCUAGCAAUUGAGUCGCCAGCGCACAUUCGCUAUUCGGUAACAGUGUGCCGAGUAGUGGAGGGUAAGACCUUUUUUUUAUGCAUGC",
+          "structure": "(((((..((..((((((((((((...(((.(((..((....)).))).)))...(((..((((...(((...........))).))))..))).....((((..(((..(((((....))))).)))..))))......((((.(((((................)))))....)))).))))).)))..((((((((((((((......))))))))))))))))))..))............))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -59.0
+        },
+        {
+          "seq": "AGAGUGCCAACAGACUUCUUCUUUGUUUAAUAGAUUCAGUCUCAUUGUACGAAUGUCUGUCUGCUCGUUGGGUAACCGGUGUACUAUCCGCUCAUCGUUCCUGAGCUCAGGAGUACUUUGGCACCGUGCUAGGGGAAGGGUUAUCUCCCUUCGCGCACAUACCGCUUCAAUAAAGCUACUGGCUUCCCUGAUAUGCAGGA",
+          "structure": "...((((((((((((......(((((.((((((((...)))).)))).))))).....)))))..((.((((....(((........))))))).))((((((....))))))....))))))).((((...(.((((((......)))))).)))))...((((.(((...(((((...)))))...)))...)).)).",
+          "length_nt": 200,
+          "energy_kcal_mol": -50.3
+        },
+        {
+          "seq": "AUCUAUAAGGAGCCUAGCAGCGUGUAAGCCAAUCCCUCCUAUACCAUCCGAAUCUUGCGAGCAGCCAGCCUAAUCCCCUGCUUGGGAUUUAUUCCUUCUAUUUGACUAUAAAAGGCUCACGACCUAGCAAUCUCUGGCACAAAGUCCCUA",
+          "structure": ".......(((((.......((......))......))))).......(((....((((.((..(..(((((((((((......)))))).......................)))))..)...)).))))....))).............",
+          "length_nt": 150,
+          "energy_kcal_mol": -21.7
+        },
+        {
+          "seq": "AUAUUUCUAGGGCGCAUGAUAACCGUGGACGCAAUUCUGGUUACCCGUGGCACUUAUUGAAGGCUCAGCUCGAAGUCAGGCGCCUAACCACAGCAUACUCACGGCGGAUUGCAUGUCACUACGACUAAGUAAUGGUCACCCUUAUAAAGCAAUGCAUGCCCCUCUAGAUAAUUCCGUAGAAGGGCACGGCAGCUGGUUUG",
+          "structure": "........((((.(.((.((.((((((((((((((.(((.....((((((.......((.((((...(((........)))))))...))........))))))))))))))..))).).))).....)).)).))).))))..((((.((.(((.(((((.((((((....))..)))).)))))..)))..)).))))",
+          "length_nt": 200,
+          "energy_kcal_mol": -46.2
+        },
+        {
+          "seq": "AUAGUGUUAUAAACUGAGCCCGACGCGCCUUCAGGGACGUCGGUUAUCCUCGAUCGGUACGCCUCAAACGAACUCGGUUCGGGAUAGAGAAUCGCUGCAAUCAAAACCUCUAAAUAUUGCCUACAAAUGCUGGGUAGCGCUAUCUAAUAGCGUUGGACACCAGGACAUUGCGCACCGAAAAACGAACAAGUCCCUCACGAGGGGAGCUGCCCGGGUGUUGCUAGUGAGGCUUUGGUAGUAACAGCCUAGA",
+          "structure": "((((((((....(((.(((((((((..((....))..))))))(((((((.(((((((.((.......)).)).))))).))))))).........(((((..............)))))........))).)))))))))))....(((.((((.((((((((.(((((((((((......((..((..(((((.....)))))..))..)))))).))).))))....)))))).))..)))))))..",
+          "length_nt": 250,
+          "energy_kcal_mol": -64.4
+        },
+        {
+          "seq": "GGUCGCGAGGGGUCCUAAAGUACUCGAUCGCGCCAUCCAAUGACUUUCGACUGGAUGUUUAAACGGAGAGCGUGUUUCCGACGAGACGAAUAUAACCUCGUGAACUUCACACAGGCAGCAGUGCUGCCGCGAAAGGAUCCUCGGUCACAUGAGUAACUCCUGUUUCAAUCGGUUCGGAACCAGUCUGACCGCAAAACUCC",
+          "structure": "((((((((((.........((.((((..(((((..(((...(((.(((....))).))).....)))..))))).......))))))........))))))).))).......((((((...)))))).....((((..((((......))))....))))((((....((((.((((.....))))))))..))))...",
+          "length_nt": 200,
+          "energy_kcal_mol": -51.1
+        },
+        {
+          "seq": "UACCGUAAGGCCAUCAGAUGCAACUCUAUUGCUCUACACGGAGCCCGCCCACAACUCUUGGUCUAAUCCCCCAACGAGGGCGACGUAUAGAUUAUCCCAGCCCAUCCGCUCGGGGAGUACAGUUCGUACGGGCUCCAAGUGCCAUAAUGACUAGACUAGACCACGAACUCACGUAAUAAUGAAUCAGAAGUCGGCCGGCC",
+          "structure": "........((((...(((.((((.....)))))))((..((((((((...((((((....((....(((((...((.((((...(((.....)))....))))...))...)))))..)))))).)).))))))))..))(((.....((((.((.......(((......))).........))...))))))).))))",
+          "length_nt": 200,
+          "energy_kcal_mol": -44.6
+        },
+        {
+          "seq": "UCCCCAGGUACUAGACCUCUAUGUCUCGUACACGCGGAAGUAAUGAUGGCGUUAAACUUAAUGGUUACGAUUUUUUUAUCCGAGAAGAAGCAAUGAGUGAGUCGACGGGAGCUUAUUGAGCCUUUACUGAGAGAUCUACUAUGGUCCAAUAAACGCGCUCCACACUGCGACAUGAUUAGACCUCUUAGCUAUAUUUCCCCAUUACGGAACUAAACGUCCUAGCCGUCUCCGACUAGAAGAAUUUAAGCUAGGCCUACUGAAGCUAAAGGUCUGACAUUCCCAUUACCCACCAAGAGUCAG",
+          "structure": "(((.(..((((.((((......)))).))))..).))).....((((((......(((((.((.(.....(((((((....)))))))).)).)))))..((((...(((((((((((.(((......((....))......))).))))))....)))))......))))(((.((((((((.((((((....((((.......))))........((((((..(((.(.....).)))......))))))........)))))))))))))))))..))))))...............",
+          "length_nt": 300,
+          "energy_kcal_mol": -59.6
+        },
+        {
+          "seq": "AAAUGUGAAUCCUUAAUGUACAACGGGGGGCCGUUCUUUUAAAGUCUCUUAUAUAGCCCUGAUCGAUGGACAUUGCGCCUGAAUGAUGGAGGACUAACGUCGAUAUUACCGUGCUCGGCGCGUUAGUAUUGAAAGUAUAACGUGCUUACA",
+          "structure": "...(((...((((((((((.((.((((((((.((..................)).)))))..))).)).)))))..............)))))...)))(((((((((.(((((...))))).)))))))))((((((...))))))...",
+          "length_nt": 150,
+          "energy_kcal_mol": -30.6
+        },
+        {
+          "seq": "UCAACUGCCGGUCAGCAUAAGAUGGCCUGGCAUUAGUGUUGGCAGAUAGACAACGGCGUUGGCUAGUAGUUGCUUGUCACCGUCUGAGCGCUGGGAAAGGCCUCGAGGAAUGCUCCUCCCAAAGCUGCUUCAAUCUAUCAGUAAGUUUCG",
+          "structure": ".(((((((((((((........))))).)))).....))))((.((((((....((((.((((.(((....))).)))).)))).(((((((((((..(((..........)))..))))..))).))))...)))))).))........",
+          "length_nt": 150,
+          "energy_kcal_mol": -39.2
+        },
+        {
+          "seq": "GUGCGGAGGGAUCGGUGAAGGUUGGCCUGCGAGAGUGAGACUACUCGUUUCAACCAAAUCCGCCAAUAGAAAGACCGUGCGGCAAAAGGAAUACGUAACAGUCGUCGUGCACAGUGCACUGUAUAUCCACACCCGAAUUUUUAGGGCCUAAUAGGCGAUUCCGUCCUGUCGUCGAGUUCACACGGGGUGACGUCCUAAGGGGUCAGUGCUCAAAGGCUGUGAAAGUUCGCACUUACAGUUUGAUCGGGUA",
+          "structure": "((((((..((..(((....((((((...((((((((...))).))))).))))))....)))))..........)))))).......((((((((...........(((((...)))))))))).)))..(((((((((((((.(((((....(((((((((.....(.((((.(.(((....))).))))).)....))))))...)))...))))).))))))).................)))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -64.0
+        },
+        {
+          "seq": "CAUACCUCUAGAACCUGGAUGGUCGAUAGGUCGAGAUUCCCGUUCCUAAAGAAUUUCAUCCCGCCAAGGGUUAGAGACCUUCUUUGAUUUUGUGUCACAGAGAUCUUGCAGCUACUUUCCGCUCAACCGAAUACCACCGGCCGGGGUAGAAUGAGCUCUGCCCGUACUGCUCCCUGGCUUAUGAUAGUAGUGGCCCGCACCUAUAAACAGUUGUAGUACACAAAUACAGUUGGCCAGUUUGGAGGCACCG",
+          "structure": "....((((((((..((((.((((.....(((.(((......((..((.((((.((((....(((..(((((((((((...)))))))))))))).....))))))))..))..))......))).)))....))))))))..(((((((.(((.((...)).))).)))))))((((((.((..((...(((..(.(((.((......)).))).)..)))...))..)).)))))))))))))).....",
+          "length_nt": 250,
+          "energy_kcal_mol": -61.1
+        },
+        {
+          "seq": "AGCCUCGUUACUUUUUGCCAUAAGAAUGCACAGUCGUUAUGCUCCACGGAACUACGCCGCUUAACUGAGUAACCAUGUUUUCAAUUCCGUUCUGCUGAAUAUCUUACCAUCGCCAUCGCUGACUAAUAGCCGGUUAGAGCCGCCUUAACCCGUCUCUAACUAAAUUUAUGCCUAGGGCGAGGCGGCAAUAUGGCAUAGUA",
+          "structure": "........((((...(((((((.........((..(((..((...(((((((......((((....))))......)).......)))))...))..)))..)).....(((((.(((((.....((((..((((((((.((........)).))))))))....))))......))))))))))...))))))).))))",
+          "length_nt": 200,
+          "energy_kcal_mol": -40.9
+        },
+        {
+          "seq": "CGCGUAGCAUCUUAGCAUGGUACUGGUGGGCCGGCAUGGUGGGACCUGGGCCGACAAGCUAAUCACGGUCCACGUUUGGUCCUGUCUGGAGCCUGUCCCGAUGAUAAUCGGCCAGCCAAUUGACAUCUAGGCUUUUUACAGCAAGUGAUCGUGAGCGGUCCCAGCACUUGGUGAGUAGGGGAGUCUGGGAAAAUACGGGU",
+          "structure": "(.((((...((((((.((....(((.(..(((((..((.(((((((...((...........((((((((.((..(((...((((..((((((((....((((.((((.((....)).)))).))))))))))))..)))))))))))))))))))))))))).)).))))).).)))....))))))))...)))).).",
+          "length_nt": 200,
+          "energy_kcal_mol": -62.0
+        },
+        {
+          "seq": "AAAUGCACCAAGGAAGAUACCCGAACUCUUUAUUGGGCAAUAUUGCUAUAUCCCAUCGUCUCAUCUUACCUAAAUACUCCGGGGACCACACCCAACUUAAAGCUUUGCCAAAGAUCGUGGACGUCCGGCUGAUACCACUGCGGUGUACUGCUGUGUUAGUGCUUCGGGUUAUCACCAGUGGGUGGUACUGGUGCCGGGGUGUGUUGCGGUACGUCCAGUGUGCUGGUAAGGGUGCCGAUACCCGUGCGCGAUGCCUCUGCAGAUGGAAAGGUAAGAGACACUAUGUAUUCCUCAGGGCAA",
+          "structure": "...(((.((((.(((((.........))))).)))))))...(((((......(((.((.((.((((((((.........(((.......)))..........(((((.....((((((.(((..((((...(((((.((((.((.(((((((((.((..(((((((.....((((((((.....))))))))))))))).)).))))))).)).)).)))).))))).....)))).....))).))))))......))))).....)))))))))).)).)))..........)))))",
+          "length_nt": 300,
+          "energy_kcal_mol": -84.7
+        },
+        {
+          "seq": "GUUGCAUCGCGAAAUCUUGGAGGUCGCUCUCAGCCUGCUUACUUGGGUCUAAGUUGGUCGUCCCGAUCACAUUCGCUCGAGUGGCGUUCCCCCCGACGAAAGGGCCCAACGAGGGCAUGGAGUAAGGGAUGCGUUCGGUGUAGCUAGUGGACAUGGCCCGUGUCCAUAGAAACCAAUUUCUUAGGAGAAUAGGAACAACG",
+          "structure": "(((((((((((..(((((.......(((((..((((......((((((((...((.((((....((...(((((....)))))....))....)))).)).))))))))...))))..)))))..))))).))..)))))))))..(((((((((...)))))))))..........((((((......)))))).....",
+          "length_nt": 200,
+          "energy_kcal_mol": -58.3
+        },
+        {
+          "seq": "UUGUAUUGUCACGCGACUGCAUACCGUCAAGGGGCGCCUGAUGCAGGAAUCCGGCUUAUAGGACGGGUCGCAUUACUGGUCAAGCUAGUGUACGCGUGGUCAGCCUUGUUAGAGGGGCAUUAAUAUCGUAGAUUUCCGUAUAUUCCUAGGCACUUACCCGACAUGCGAUGGGGUGUGGAGUGCCCUUUCUCGGAUCCCUACACGAGGGUUCUGGUCGGGGUUAUGUCUUGAAAAGCCGGUUUAUAUAAGGAACACGCUGUGUGAAAUCUCUAAAAGCGCCGCUAUCCCUUCAUAGUGGUG",
+          "structure": "........(((((((..(((...(((((....((.(((.(((......))).)))))....)))))...))).(((((((...)))))))...(((((.....((((((((((..(((.((((...(((((..(((((..........((((((...((.((((.(....).)))))))))))).....(((((.((((.....)))).))))).))))))))))..))))...)))..)))).))))))..))))))))))))............(((((((((......)))))))))",
+          "length_nt": 300,
+          "energy_kcal_mol": -83.7
+        },
+        {
+          "seq": "ACCGAUCCUGACAUAAUCACGAACUGUGGUGCUUGGUCCAAUACGCAGUCAUAGCAUCCACACUUAGGAUCCGACGAAGAGCUUCUCUUGCGCGCUAAGGCCGGAGUAAAUAACCAUAACUGGUUGCUUUAGCCCUGGCUCCAUAAACGCAAUUUUGGUGACGCUUAAGUAUGCCGGCGGGUAAUGAUUCCGUCAGGUGUCACUUUCGUAGAGGUCACACGAGCCUCGACGCGCGCAGUAAGCAUCCAAUGUUGCUGCAACUCCAGGGAAGGUGACAUUCCACUCGAGCUCCGUGCCUAG",
+          "structure": "...((((((((.............(((((((((..(.(.........).)..)))).))))).))))))))((.(((((((...))))).))))(((.(((((((((...............((((((((..((((((..................((((((((((.........((((((.......))))))))))))))))..(((.(((((.......))))).)))...(((((((.(((...))))))))))....))))))))))))))...........)))))).))))))",
+          "length_nt": 300,
+          "energy_kcal_mol": -84.9
+        },
+        {
+          "seq": "UACCUAUUGUCCUCAAAGACAGCGUCCAAUUUCGCACGCAGCAUAUAUGGUGUGCCCGCCCUACGUACCGAAAGAGUGCGCUAGUGACAGACAGCACAUGCGCACAAAAGUGGCAAGAGAGGGGGGCAGGAUGAAGGUACCACUUAAAGCUUCGCUGAGUGCUGCUUGCGAAACGUCCCCUGCAAGCAUAAGUUUAUAUC",
+          "structure": "(((((.(((((((........(((........)))..(((.((....)).)))((((.((((.(...(((.....((((((..(((........)))..)))))).....)))...)..)))))))))))))))))))).(((((..(((...)))))))).((((((((..........))))))))............",
+          "length_nt": 200,
+          "energy_kcal_mol": -56.6
+        },
+        {
+          "seq": "AGAUUACUAUACCGUGAGUCAUCAAGCUUACCCAGAUGGGCAAGGCCGUAGCCGAUAUGAAUACACUUAACGUCAGAAAAUAGGAAAAAAUUGGAUGAUAGAACUAAUAGCUUAUCCAUGUCUGCAGCGUUUUCGAUCCUACUGAUUCUC",
+          "structure": ".............((((((......)))))).(((.((((...((.(((.((.((((((.(((..((....((((...(((........)))...)))).........))..))).)))))).)).)))...))...)))))))......",
+          "length_nt": 150,
+          "energy_kcal_mol": -20.5
+        },
+        {
+          "seq": "UGUCAUGGCCAGGACUGGCCCUCCGUUGAUAGGUUCCGUAGGGCCGAUCAAAUAGACAUCUGUCCCGUCUCUAGAUUAGCCCAUUCAACAUUUAUACGCGACCAUCCCAUAGUCGGGCGGUGCGCGCCAUCUGAGAACGAGAAGCGGUGAUGAACUAGGCGAGCAGAUUGGGUCAUCCUCGUUACUCGCCGUCGCCGGCCAGUCUGGUCAGAUGAUGCUGUCCUCUAUCUGUGGCAUAAAAUUUCUAUCA",
+          "structure": "......(((((....))))).......(((.((((.((((((((.((((....((((.........))))...)))).))))............)))).)))))))((((((..(((.((.(((((.(((((((...(.(((..(((((((......((((((..(((.(((....))).))).))))))))))))).....))).)))))))).))).)))))))..))))))................",
+          "length_nt": 250,
+          "energy_kcal_mol": -76.0
+        },
+        {
+          "seq": "UCUUUACAAUGACCGGGAGAUAUUGUCUGCAGUGAAUCGUGGUACCUCAGCAGUCAGGUUGCUGGAAACUUCUUCGCGUUAAUUUGAUAAUAAAAAGGGCAUUACAGAAAACGAUACGCAGCGAUUCUGGUGUAGUGUCUGAGACGUAGUCUAUUACAACGAUUCCAGGAUUGCCUCUAAGCGUCUGAUCCAUGCUCUCA",
+          "structure": "...........((((.((..(((((....)))))..)).)))).........(((((((((.(((((.....))).)).))))))))).......(((((((..((((...((.......((((((((((.((.((((...((((...))))...)).)).)).)))))))))).......))))))....)))))))..",
+          "length_nt": 200,
+          "energy_kcal_mol": -45.0
+        },
+        {
+          "seq": "AGGAAGACACUGCGAUCGCAGUCGUAGUACUGAAAUCGUCUGAAGAGCCUAUAUUCCGAUUGAGGGAGCCGUGGGGAAAUCCGACAGUCAAUGCACCUGAGAACAUAUACGCAGAACCCGUUAGUCGACGCAUGGCGUACAGGCUUUAAA",
+          "structure": "........((((((((....)))))))).........(((((....(((.......((((((((((..(.(((...........(((.........)))..........))).)..))).)))))))......)))...)))))......",
+          "length_nt": 150,
+          "energy_kcal_mol": -31.7
+        },
+        {
+          "seq": "AGACGGAGUUCAGUCGGCACGGCUCUGCUGAGCACAUAGAUAAUUUGUGAUAUAUUGCGUAGCCUAAGAUUUGGACACAGAAGCCGGGUAGGCUACUUCGCCCCGCUCGCUUGCCUCGGGGCAAACCGCCGAGAGGUCGUGAUGGCAGGGACUCGGUUUUACGGCCACGCUCUUGGUCAGAUGUCACCUGGUCAGACGAA",
+          "structure": "...((((((..((((.((.(((((((((((.(((((((((...))))))......))).))))...............)).))))).)).))))))))))......(((((.(((..((((((....(((((((((((((((.(.(........).).))))))))....)))))))....)))).)).))).)).))).",
+          "length_nt": 200,
+          "energy_kcal_mol": -58.9
+        },
+        {
+          "seq": "UUCGGAUAGGCCCUAGUCAAGGCGCGAACCCCGCGCCACAGUACCGCCGCCUGCCAUUCACGACAUUUAACUACAGCCCACAACUGCCUGGAGAAGCUUUCGUACUGCAAGCUCAGCAUCUUAGUUUGCGUUAUAGAAAAAUAGUUGGGUUUAUCCCCAUGAGACAGUUCCCCUUGUUCGUAUCAAUCCAUUCGCCGUUUGUACGAAUAAACAAGCAGUUUGGUCCCCCAUAAUGACCCUCUACAUCGUUAGAACCAUACUGAGAGGCGGGAAUGGUUAACUGCCAAUUGGUUGGUAAAA",
+          "structure": "...((.(((((....(((..((((((.....))))))...).))....)))))))....((((((((........(((...((((((.((.......(((((((.((((((((.((...)).)))))))).))).))))......((((......))))..............(((((((((.(((.(........).)))))))))))).)).)))))).))).......))))..........))))....((((.(((((..(((((..........)))))..)))))))))....",
+          "length_nt": 300,
+          "energy_kcal_mol": -64.9
+        },
+        {
+          "seq": "GAAAUCGAACGCCCUUUAGUGCCUCAUGCCUGGGACAGUACAUUUGCAUUUUCGCAGCGUACGCGCGGGAAUACUCGGGAGGCUUUGAAUCGGAGGUCUAUUAGGCUUCCAUGCCAAGCGAACGAAGUGCUCAGUACAACCCUCCAUCAGGCCGGGUGUGCAAAACUAUUCCUUCUUUCCAGGUUUUUCAGUUAAGUUAU",
+          "structure": "((((((..((((((....(.((((.(((...(((...((((....((((((......(((.((((((((((..((....(((((((......)))))))...))..)))).)))...))).)))))))))...))))..)))..))).)))))))))))......................)))))).............",
+          "length_nt": 200,
+          "energy_kcal_mol": -47.6
+        },
+        {
+          "seq": "AGUUAUUCGUAUUAACGCGGCUCGUCACACCUACACACGGAGGUGUGUCGCCAGUGUCUUGAGAAUUUCAGGAGAAGGACCGCGCCGGCUACUCGUCAUUGACUUUUAUUAAUAGCGUAGGAUUGCUGCAGACUCCGGUACCCCAUGUAAGCAAUCGCUCUGAUGCAAUCCCUCACGACUUCACCAUACGGCCUUAUUUCGGUAGUCCAAACACGGCCGCCACUGGAGGCACUUAAAGCCUUUCCCGUGA",
+          "structure": "................((((((((.(((((((........))))))).))....(.((((((.....)))))).).((((...(((((....((((...(((...........(((((.(((((((..((((...((((..............)))).))))..)))))))...))).)))))....)))).......))))).))))......))))))(((.((((((.......)))..))).))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -60.3
+        },
+        {
+          "seq": "AAUGGUUUCCCGCCCUUAUCUGAAGAUUCGUAGGCAGGUAAGCGGGUAGAACGUUAGACCCAGCGUCGGCUCAUAUUGCGCCCCAUCUAGAUCGGAAAUGUGUACGAUCACUGGACUCUUUUCACUAGUCCCAAGUAUAACAGAGUCAUU",
+          "structure": "((((.((((((((..(((((((............)))))))))))).))).))))....((((.((((...((((((.((..(......)..))..))))))..))).).))))(((((((..(((.......)))..)).)))))....",
+          "length_nt": 150,
+          "energy_kcal_mol": -30.3
+        },
+        {
+          "seq": "UUGGUUUUUGUUGUGACUCGGCCUCCGUAACAUCGGAAAACGUUCACCAGAAGCUCCUUCCGAUAUGAGACCGGGAUUGCACGGGGACUCCGGGAUAUGAGCUUCACGUUUUAAAGGUGGCAUACUCAACUGAGCUGGCUAUGGCCCCGCUGCGAGCCCGGUAGUAAAUCUUACAGUCCUCAGACUUCACCCAAAGCGAACCCAAAAUUUUAACACUCUCCUGUGUGACACUGGCAGGAGCUUGACACUAGCUUUUUCUGAUGUUGUAUUGCUAAGUGCUUGGUGGUUUAUCCCUGGACG",
+          "structure": "........((((.......((((.((((((((((((((((.(((......((((((((.(((((.((..((((((.((((((((((.((((((....((((..((((.((...)).))))....))))......))))....))))))).))))).))))))..)).)))....((((....))))..........................((((......))))......)).))))))))......))).)))))))))))))..............))).))))........))))",
+          "length_nt": 300,
+          "energy_kcal_mol": -78.4
+        },
+        {
+          "seq": "UAUGCGAAGUCCUUACGUUUGCUAAGAAGCCACCUGUUCCCCUCACCAUGAUCCUAGGCACGAAUGUCUCCGGGUCUUUAAGUGGUUACCAGUGAACGCGUCGUCGAGUCCUUGCAGAGCGUCGUACGCUAAAGAACAGGAGGGGGGUCCUUUACGGAUUUCCAUGGGUUGCGCAAUAUGUACGCUGUCUACCUCGAUCUGAUUCGACGUUAACUCCAUAGGGGAGCAUUAGUCUCUUCAAGACAAGCCA",
+          "structure": "................(((((((..((((..((.(((((((((.((((((((((.(((((....)))))..))))).....)))))....(((....(((((((((((.....(.(.((((((((((((.....(((.....((((((((.....))))))))....))))))...)))).))))).))...))))).......))))))..)))....)))))))))...))..)))).)).)))))..",
+          "length_nt": 250,
+          "energy_kcal_mol": -65.7
+        },
+        {
+          "seq": "GUCAUUACAAUAUAACUCACCGUGCGCGUAUCGUACGAUUCUGAAGCAUACGACUAACCCCCCUAUGAGGCUCAGGUAAAUCUGGCUCUCUGCCUGGAACUCGGAGGCGGAGGCCGUGGUCCUCAGGUCUAAAUGCCCAGCAUAUUAGAACAGAGCCGGGGCGUGUAGAUAUGAUCUUUCUGUUGCUCUGAACGUCAGGA",
+          "structure": "....................((((((.....)))))).((((((((((...(((((.(((((((.((((..(((((((............)))))))..)))).))).)).))...))))).(((.(((((.((((((.((.............))..)))))).))))).))).........)))).......))))))",
+          "length_nt": 200,
+          "energy_kcal_mol": -51.9
+        },
+        {
+          "seq": "UACAGUGACUGACACAAUCCCUAAGUGAUGGGCGGAGCCGGUUUGUUGACGCUAAGGUCCGCGCGCGUCUGUAACGGGAUGCUUACCUUGCUGGGUGGUCAGGCUGGACACCACAAACUACAAACGAUAAGCACCGCUAUCCCGGUUUGCGUCUUGUAAAGGGGAACUUGUAGAUUAAUGCGAACCGACGUAUGGCGUUGCCAGGAUUACGUACCACAGGACUCCUUCGUCACCCACGUCUCGGCAAUGGCCAUUUGGAGGAUUGGACUAGCACCACACAAGCUUAUUCCCAGUAGACGA",
+          "structure": "....(((.(((...(((((((((...(((((.((..(((((......((((.((((((..((((.(((.....))).).)))..)))))).(((((((.(.((..(((..((......(((.........(((.(((((((.((((((((((.((...(((.....)))...))...))))))))))..).)))))).))).........))).....))..))).)))))))))))))))))))..)).)))))))).))))))...))))))..........................",
+          "length_nt": 300,
+          "energy_kcal_mol": -80.1
+        },
+        {
+          "seq": "AAACAUUGUCCUCCAUUUCUUACUCGAUUCGCCUUACUGGCGCCAAAGUCCCAACAAUGGCAGUUUCAUGAACAUACAGUCAGGAGACCGACAGAUGAGUUAGCUCACCCCCGCCGGUCGAUGUCCUCGAUAAUCAGGCUCUGGGCAAUGUUGUGUACGAUCCCGGCCACCAUUCGUGUGCCGCAUAGUGUAACAGCACCCCACUGCACAUGUCAUCACCCUUAAAAAAGCUUCUGAUCUUAAAUGAGUC",
+          "structure": ".....................(((((....(((.....)))((((..((....))..)))).(((((.(((........))).)))))....((((.((..((((..........(((.((((.(............((..((((...((((((.((((....(((((((.....))).)))).....)))))))))).))))..))....).)))))))........)))).)).))))....))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -51.7
+        },
+        {
+          "seq": "GAUGUACGUUAAAGGUGUCGGAACAGGCCACGUUAAUUUGCACGAGCUACUUCAGGACGCCUAGGAUGUAGGCGAGAAGGCGCUCGGGGCCUAGGAGCGACGAAUAUACUGCCACAGGCUUAAUAGAAUGAUACCGACACCCCAAAAAGGUGGCAGCUGAGUUUUCUCGACUUAUGAACCAAAGCUCCGAUGAUCCUGUCCUGACAAUCGCAGGUCCCAGAGUCCGAAGCGGGUUUAGCUAGGACGACGA",
+          "structure": "..(((((.((...((((((((...(((((.((((..(..((.(((((..((((....((((((.....)))))).))))..)))))..))..)..)))).................)))))............)))))))).....)).)).))).........(((((.((((((((((...(((.((..(((.(((.((((.(....)))))...))).))))).))).))))))..)))).))).))",
+          "length_nt": 250,
+          "energy_kcal_mol": -64.2
+        },
+        {
+          "seq": "AACGGGAAAAAUCAGUAUCCCGCGUCAGUAGGUUGUCUGGGAAUGUUUGCCUGUUAAUGGCAUGUUUAUGGCUGUUGCAACGGCGCCAUAAGGCCGGUACCGCUGAAUCGACGCUUCGCUUAUGAAAAUCGAUUUCGAUUUACCGGAAGCCUGACGUGGUUGACAGGGUCGAUAUAACUCCAACUGGGUAAUUGGUCAAU",
+          "structure": "..........((((((..(((.........(((((...((..(((((..(((((((((..((((((((((((.((((...))))))))))(((((((((...(.(((((((...(((......)))..))))))).)...)))))...)))))))))))))))))))...)))))..)).))))))))..))))))....",
+          "length_nt": 200,
+          "energy_kcal_mol": -52.3
+        },
+        {
+          "seq": "GUUGACUCGGUGUGGCGAUUUUAAUUUCAGUAAUGUCAAGCGGAUGCGUGUCGGCCUAACUGGCGAAGCUCCAGUGGCUUCACAGAAGACCUCGUGCUACUGCGGCUUGCACACGUGUAAUGGUUGCAACACUUCCAUGGUGGUUGACACUUUCAAGUGUAUGCUCCAGAAUUGCUAGGGAUCUCAAUUCUGGCUUAUCCACUUGGUGAGGUGCUGGGGUACCGCGACGUAAAAUAAGCGUAUUGUGAUC",
+          "structure": "((((((.((...(.(((((.(((.......))).)))..)).)...)).))))))...(((.(((..(((((((((.((((((....(((((((((....(((((((((((....))))..))))))).......))))).))))........((((((.(((..(((((((((..((....)))))))))))..))).)))))))))))))))))))))..))).).))....................",
+          "length_nt": 250,
+          "energy_kcal_mol": -66.2
+        },
+        {
+          "seq": "AUUAAGGAACGUUGAGUGUUCGACACUCACGUGUAGCCUCGCUAUUAAUAACAUAGAGACCGUUGUCAUACACGUAAGGGCUUCUUUAUCCAGUCGCACCCUUCUACCGCAUUUCCGCACGAGAUGAACUUAACGUAUCCAGGCGCAGCUGAGCCGGUUCGGGAUGUAAGCUUUGGGGCCCUGUUAUUCCAGCAUAAGUU",
+          "structure": "........((((.((((((...))))))))))(((((...)))))................((((..(((.((...((((((((.......(((.((((((....((((((.((.(((.(..((((.........))))..)))).)).))...))))..))).)))..)))..)))))))))))))..)))).......",
+          "length_nt": 200,
+          "energy_kcal_mol": -39.0
+        },
+        {
+          "seq": "UGUCAAUAUAUCCCUAGCACACUUCGACAAGAUUCCCCGAGGCUCCAGAGGCAAGAUUGUUUUGACCGCAGUCUCUUAUCUCUUAUGCAUCGAAUAUAACGUGUGAUGAACCCUUGAUUAAUGUUGUACUUACGGCGGUAAUGAAGAAGGGAACUACCAGGCUUCGGUCUUACGCCCCGGGUCUGGAGGUUGUGCUCCCA",
+          "structure": "...............((((((((((.(...((...((((.(((....((((((....))))))(((((.(((((..((((((((...(((((((((((((((.((((.((...)).)))))))))))).)).))......)))...))))))..))..))))).)))))....))).))))))).)))).))))))....",
+          "length_nt": 200,
+          "energy_kcal_mol": -44.9
+        },
+        {
+          "seq": "CAGAUGGAAAUGCACAGUUUGUACCGAUGCUUGUGGGCCACUUGCCGGUGCGGGUAAUCUGCUAAUUGUAGCCACAUCGUUCUAGCACUCGUUGGCAUGGACGGAGCUUCCUCGUCUAUAUCUGUACGAUAUCAAUAGCUCCCCAAAGGUGAUCCGUGGCUUAUUACUCUGGGAAGGUUAAAAGUCUCGAGUAGGUUAACACUCCAGGCAUGUUUAUCCAAGCGAGCCAGGAUAUAGUACAGAAUAUCAG",
+          "structure": ".((((((....((....(((((.((.(((((..((((.....(((.((.((((.....((((.....)))).....)))).)).)))))))..))))))))))))))....))))))...(((((((.(((((....((((.(....(((((..((((.((..((((((.((((..........))))))))))...........)).)))).)))))...).))))...))))).))))))).......",
+          "length_nt": 250,
+          "energy_kcal_mol": -61.2
+        },
+        {
+          "seq": "GUCAAGUUCCUUCAUACCAAAUGUGCACGGGCUGUAAUCAUGUACAAGUUUCACUGGGUGCAGACGUACCUGCCAUAGGCCAGCCAAGUAAUCCUGCGAUCAGGAAGGGUCCCGAACGGGGGCGAUGCCUUGGCGGAGCGAAGGUUUCCCGCCGGCGACACGCCAUUAUGAACUGUCAGCUCUGUGUCAUUCUGAAGGGG",
+          "structure": "......((((((((.....((((.((((((((((...(((((.....((.((.((((..(.((((.(.(((((((.((((..(((.......((((...((.(((....))).)).)))))))...)))))))))).)...).)))).)..)))).)).)).....))))).....)))).)))))))))).))))))))",
+          "length_nt": 200,
+          "energy_kcal_mol": -62.5
+        },
+        {
+          "seq": "GAGAGGCUCCGGUCUACGUACUUGCUAUGUGAUAGGGACUCGCAUAGUGGAUAAUCAGACAUUGAGGUCGUAAAACCAUGACGCCCACUAGCAACACUCGGGUCUGAGAAUGACGGUUAAAACACGGCACACGGAUUUCUUAGUGGAACA",
+          "structure": "((((((.((((((...(((..(((((((((((.......)))))))))))....((((((.((((((((((......)))))..............)))))))))))................)))..)).)))))))))).........",
+          "length_nt": 150,
+          "energy_kcal_mol": -31.0
+        },
+        {
+          "seq": "AAUCGACUAUAAAAACACAUCGAAGCUUCAAAGAGAGCCCACACUCGGCUCGCAUUGCGUUGAUAGUGUCGCAAUCCUGAGAUGUAGCCCAAUCCAGUGACUCUCCACGGGGACGAGAAUAACGUAAAUCUCAAAGUAAGUAUAAGAUCG",
+          "structure": "..............(((((((((.((........(((((.......))))).....)).))))).)))).....(((((.(((........)))))).))((((((....))).))).................................",
+          "length_nt": 150,
+          "energy_kcal_mol": -24.9
+        },
+        {
+          "seq": "UGGCUCAUACCUACCCAUUUCGCGUUCGCCCAGCCGGAGUUGCGCGGACGGACUUGGACGUAGGCGCAAGGAGCAACUGGACUUACGUUGGCCGUGUUCGAGAGGUGUCCGCGGCGCCCCAAAACCUGGACGUUUCGUACACCGUACGGG",
+          "structure": "..((((...((((((((..((.(((((((.((((....)))).)))))))))..)))..)))))......))))...........(((..((.((((.(((((..((((((.((..........))))))))))))).)))).)))))..",
+          "length_nt": 150,
+          "energy_kcal_mol": -47.6
+        },
+        {
+          "seq": "CACCUACCAGCGUUAAGGUUGUUAUCGGGCACGCGAUGUCCGUCCAUCUUAUCUGCUGAACUUUCAAUUCGAUCGUCUCGAAUGGCUAGGUCGUCAUCGGGUUCAACGGAAGCUACUCGUCCGAAAGCAAGAGUCCGUGACCUGUAGCAUCGCUGGCCAUAGAUUCGACGACAGGCGAGUUGUUUUCGGAUUCAGGAAGC",
+          "structure": ".......(((((.((((((.(....((((((.....))))))..)))))))..))))).......((((((.((((((((((((((((((..((...((((((..(((((.....(((...(....)...))))))))))))))..))..).))))))))....)))).))).))))))))((((((.......))))))",
+          "length_nt": 200,
+          "energy_kcal_mol": -56.3
+        },
+        {
+          "seq": "UUCGUCUAGUUCUGCAACAAUCACCUUUUAACUGGAUCGGCUCCGGCAAAGCACAGUUCUAUGUUCCAUUUUGUCAAGGCGCGUCUUUUUGGACUUAGAGAGGGAAGUAAGAUUGAAAUAUCGAUACUAGGAAUAAAAGCGAAACGGCUGGAAGCGACAGCGCCACCAGCCUUUACGGCUGAUAGCCAUACGGUAGCCUGAGAGUAACCACCAUAAGCUUUGAGACAGGCCCGCUCCUCUCAUUGGCCGA",
+          "structure": "((((((((((((.....(((((.((((((....((((..(((..(((((((.(((......)))....)))))))..)))..))))............))))))......))))).......)).)))))........)))))..((((((..(((....)))..))))))....((((((((((.....(((..((((((((((...........)))))....)))))))).....)).)))))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -55.9
+        },
+        {
+          "seq": "UCCCCCUAGCCCCGUAGGAAGGGCGCUUACGAAGGGUCCUGGCGAUGGCCCACAGCGAGUAACCUAAAACUUACUAGAACUUAUCAGCGGGCGAGUUCGCGGGAGGACAGAUGUAGGUCACGCUGUAUGUUGUGUGGGAGGGACCGUGGUUUAACCCUGUUCAAAAAGUCUUUGGGAGUGUCAGCGUAUCACUACACUUGCCAUAACGGCUACUCCGAGUAAAGGCACUUGCGUGGGCUUACAACCUGUA",
+          "structure": "...((((((((((.......))).))).....))))(((((.(((..((((...((..((((.(((........)))...))))..))))))....))))))))..((((.((((((((((((....((((...(.((((((.((((.........................(((((((((.((.......)))))))).)))..)))))).)))).).....))))...)))).))))))))..)))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -69.3
+        },
+        {
+          "seq": "AGUCCUCAAUGAUCCUGGGCAGAUAACCACAAUUUACGUUCUAAAGACUAGUCACGUCCUACAUAUUGGAAUGAUGCGAAUUUAACGAGUGAGGUGAAAUGUCAAAGUGGGAAGUAUAUUAUACCAAGCAAAGAAAUUAUCAAAGAGGUC",
+          "structure": ".(.((((..((((.((..((..........(((.(((.(((((..(((...((((.((((....(((.(.......).)))......)).)).))))...)))....))))).))).))).......))..)).....))))..)))).)",
+          "length_nt": 150,
+          "energy_kcal_mol": -22.8
+        },
+        {
+          "seq": "GAUCCUGAGCGAAGGGCAUAGAUAACGCAUGCUAAAUACUUAGAGCAAUUAUAGAAAGAGCGUGUCUCUUCUUGUUCUAUGCUUUGGUUUGGAAAACAGCGAGUUCUGCGUGAAGGUGAUUAACAGGGUGUAUUAUGAUGGACUAAAAGUCGACACGAUAUGCCGAACUAGCGGUGCCUACAGUCGCCAAACCUGUCGGAUGAUCAUCGCAUAAGACGAGGCCAAUCCCUGGUUACUGGUUAGUUUCCUC",
+          "structure": "...((.(((((.((((((.(((..(.(((((((.....((..((....))..))....))))))).)..))))))))).))))).))...(((((..(((.(((...(((((.(((((........((((((((.((.(.((((...)))).))).))))))))..........))))).))..)))..((((....((((.....((((....).))).....))))..))))))).)))..)))))..",
+          "length_nt": 250,
+          "energy_kcal_mol": -57.2
+        },
+        {
+          "seq": "UGACUAGUAAAAACCACCCAACACAUUAUAGGCUCGCGAAGGAAAGCGUUCGGGGCUUCGGCGUUUGGCGCCUCGGGUCAUCUAAGGCCAAGGGUAAAAUAUCUCCCCGCCUUAAUGAGGUACAAACCAACUAAUAAUCAUUCAAUGACA",
+          "structure": ".............................((((((.((((.(....).))))))))))....(((((..((((((.......((((((...(((..........))).)))))).)))))).))))).......................",
+          "length_nt": 150,
+          "energy_kcal_mol": -31.1
+        },
+        {
+          "seq": "GAGUUGUAAUUAAGGAACCACUGCGAAUACAUUCCGCCCUAGCGUUCCGUGUCGGAUGCCGAAAGCGAUACACCAAGUAGUAAGGGCGGUCUGGCACAUGACGGUCCGUUACCGCUACUCGUAGCUCAAGAGUUUCAAUCCGACUUCGGCAUUUUCGCUCAGGUCGUGUACACGAACAAAGUUUUCUCAAUACGCCCCGC",
+          "structure": "....((((.....(((((.....((..(((((...(((..((((..(((.((((((((((...(((..(((....(((.((((((((.(((........))).)))).)))).)))....))))))...).))....)))))))..)))......))))..))).)))))..))......))))).....))))......",
+          "length_nt": 200,
+          "energy_kcal_mol": -47.2
+        },
+        {
+          "seq": "GUGCGUGCUACGACAUGCACGUCUGGCCCGCCAGACGAGGCUAACCAUAAGGGCUGAAGAAACCGCAUAUUACAGUCACUUAAGUGUACGCUCGUCACUUGGAACUUCGAGUGAGGGUUGACAACCCCGGUAACUUCCAACACCCGACUCGGAGAUGGGAUCGCGGCCUCCCGAAACUACCCGUAAAUUUAGCCUGUAGGGUAGAGGUCGUGUUGCGUGGACUUUGAACUACCAGGGGUUUCCCUUCGGACAUGAAAGCCUAGUCCCAGUUUACUCCUUAACUAUCUGCAUCUCGAGUCC",
+          "structure": "(((((((......)))))))((((((....))))))..............(((..((((..((((...................(((..((((.((((((((....))))))))))))..)))....))))..)))).....)))((((((.((((((((((((((((((.......(((((................))))))))))))))..((..((.((((.(....(((((((...))))).))...).))))))..))...((((........)))))))).))))))))))).",
+          "length_nt": 300,
+          "energy_kcal_mol": -83.2
+        },
+        {
+          "seq": "UCUCGUCGGAACAAUGUUAGUCAGCACCUGAUUUUUGUUAUUAACUCUGUUUUAGGAGGACCAGGGUCGUAAUACACCCCAGUCGUGAACAGGUUCGCAGUGUCGCACCGUUGGUCUAAUGGUUCUGAGCCUAUGAUUCUGAUUUUCUACCGCCUCCUAGAACGGGGAUUCUCGAGACUGGGGGAGAUAUGAAUUAAACUCGAGAACUACGUUGCAUUUCUGGUAGAGAUCAAGAUGGCCAUCAGUGCCGGCGUGACUUAGUCGAGGCAGUCGUUAGUAUUGUUCAGGGGCUUACCUGGC",
+          "structure": "((((.(.((((((..((((((.((((.........))))))))))..))))))).)))).(((((...........((((.....(((((((...(((.((.(((.((....((((...((((.(((((((....(((.((((((.((((((........((((.((.((((((((......................)))))))))).)))).......)))))))))))).))))))..)))).))))....))))..))))).)).).))......)))))))))))....))))).",
+          "length_nt": 300,
+          "energy_kcal_mol": -81.5
+        },
+        {
+          "seq": "UGGUCUGCUUGUGGCGAGACCGUCCUCGGGGCCCUACCGUAGGAUAAAUUGUUCCCCGUUCACCUCAUGCAGAGGCUCCGUGAAAAAGGUCCGGGACGCGACACCAUCUGUUUCGCGGGCACGGGUCGUUGCAGAUUGCAAGUUGCAGACAACCACGAAGAGGGAACCCGCGACGAGCGUAUCGGAAAGCAAGACCGCAAGUAGAUAGGCCGCUUGGGAUAAUAUGUGAUCAAGGAGGCCGAUUGGGUUAUCAGGGGUCGGUUGCUAACUCGUUUGACGACAGGGGUAUAACUCUCCAUA",
+          "structure": "..(((((((((((((((.((((((..((((.((((..(((.((.....(((((..............(((((.(((.((((.......(((((.((.(((........))).)).)))))))))))).)))))..............))))))))))...))))..)))).))))...)).)))..........)))))))))))).((((.(((((............)))))..))))....((((((((....((((...((......))....))))....).)))))))......",
+          "length_nt": 300,
+          "energy_kcal_mol": -87.3
+        },
+        {
+          "seq": "AAGCUUGUGGUGUCCGAGUUAUACCUAUCUAGUCUUAGAUAAAAGUUGCCCGUGAUCAACGAUUCUGUGUGGGUCUGCAUGUUCUUCCUGCUUCGUCGACCUGAUCAUUAAGUACGGCAUUCAGAGCACCGCACCAGGAUACUCUCCACAGUGCACAACUUGAUUAAUAAACUAAUCGCCGGCAAGCGGUGCUAAUCGGU",
+          "structure": "..((((((((((....((((.....(((.(((((........((((((((.(((.......((((((((((((((((.(((.....(((((((.((.((.....)))).))))).))))).)))).).))))).))))))......))).).)))..))))))))))))))))...)))).)))))).............",
+          "length_nt": 200,
+          "energy_kcal_mol": -41.9
+        },
+        {
+          "seq": "GCUCUACUAAAUGGACUUUUCAUGCGCAUCGUAGCGAGCUGCUACGCCCGCCGAGAUGAGCGUGUGGCCGCUUUUCAGAGUCGAUCCCAAUCGCUAGGUGAGGGAUUAAGUGGUCUCUCCUGGUGGGGAAACUGUAGCGCUCCCGUUGUCGCUGCUGGACUGUUGUUAACCCACCGGUGGUUCGUAAGCUCACACAACCCCCUCGUUCUCGCUUCAGCCAGCGAGUAAUUGGGCUAAGUGGGAACCGCUCGGUUGAGGCUGACGUUUUCUAUGUACUAAUAGUAGGAAGUUCUCUAGGGG",
+          "structure": ".(((((......(((((((((((((.((((.(.(((.((......)).))).).)))).))))).((((((((.........((((((.(((....)))..)))))))))))))).((.((((((((..(((.(((((((.......).)))))).........)))..)))))))).))..(((.((((....(((((.....((((((((((.((((..(((....))))))))))))))))).....))))).)))).)))....((((......))))..))))))))..))))).",
+          "length_nt": 300,
+          "energy_kcal_mol": -96.4
+        },
+        {
+          "seq": "CCGUAAAACAGUAUCUAACGAGCGAUAUAAGAUCCCAGUAAAGAGGGGACGACCUUUGUUCCUUUUUAGGUUUUAAAAACCUAUGCCUACAUGGCGGACUUCUCAGGGGGCAAGAUCGACCACAUUUCAGUCCCGGGUAGGGAUGUAUCUUUAUCCUUUGUGUGCGCCGGGCUUAGCCCCAACUAGUUAUAGAACGGAGCCGUUCAUCUUCAUGUAGCUGAGGUUAGAGAUCCGAUAUACCUACCUCUGCCUACGGAGCCUGCGGGGCCAUAUGGACCGGCAAUAAAUUGUCCUGUACAG",
+          "structure": "(((((...(((..((((((.(((.(((((((((........(((((((((((...)))))))))))(((((((...)))))))((((.....))))((((......((((((((..((.((((((.........(((((((((....)))))))))...))))).).))..))).)))))....))))...(((((....)))))))))).)))).)))...))))))..................)))..)))))....(((.((.((....)).)).)))..................",
+          "length_nt": 300,
+          "energy_kcal_mol": -75.6
+        },
+        {
+          "seq": "ACACGUGUUACGAUAUCAUCAUUACCCCUCUUCGCGCAUCUCUGGCGGAGAGUCCCAGUUGGGGUCUCCAGACCCCAGGCAGCCGGAUAGACUGCGUCCUCUCAUAGCUCUGCAGCUCGGGGUAUAGGUACCAACAGCCGGGAUCGCGAGUCGUGCGACCUGAAGUUUCAGCGUCAUUGAACCAUUGCUGGUUUUGGUCAGUGCAUCAUUCAGUUUGCGACGCAGUCUAAAUGUUUUAGGAUUUUGAACC",
+          "structure": "......(((.(((.(((..((((....((((((((.((....))))))))))(((...((((((((....))))))))......)))(((((((((((.............((.(((((.(((...(((.......)))...))).))))).))((((.(((((......((......((((((....))))))......))......))))).)))))))))))))))))))......))).)))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -72.0
+        },
+        {
+          "seq": "ACAGAUUCGUGCGCGCGUAUGAUCGUGCGCUGUAAGGUGAGUGGAGCGAGUGAUGCAUCCUGACAACGACCUGGUCUCUCAAAUAGAAGGAGUCACAUCUCAGGCCGCCGGGGCGCCAAUGUUGCGACCAUCUUGACCCGACGGGGUUGU",
+          "structure": "..........(((((((......)))))))......((.((.((.((.......)).)))).)).(((((((.(((..(((...(((.((.((.((((.....(((.....)))....)))).))..)).))))))...))).)))))))",
+          "length_nt": 150,
+          "energy_kcal_mol": -43.1
+        },
+        {
+          "seq": "UAGCUGUAUGUCUCUUAUAUGCCAUAUUAGAUUCUCCGAGCGAGGUGAUCCUUGACGACUAGGUACCACCUGGCAGCUUGGAAGUACGCACCCUGUCAGUGCCUUAACGACAGCUGGGAACGAGGCUAUUAAUUUGCAGUGUAAAGUCGGGAACUGUUUCUGUAUGUUACCAACGCAUCAAAUUCAAGUAUACACCACUCGUUGCAUGCGCUGAAGAUAGUUACGGAAGCCGCACAAGCCUGUGCCAGUA",
+          "structure": "..((((...((((..(((.....)))..))))..(((((((.(((((..(((........)))...))))).))...))))).....((((.......)))).((..((((.((((.(((..((....))..))).)))).....))))..))..(((((((((((((..((.((((((((......((....))......))).))))).))..))))..))))))))).(((((....))))))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -54.2
+        },
+        {
+          "seq": "ACUGAACGCGGAUUACCCCAGUGUCCCGACGCUACUAUUUCGAGGUGGCACUGUUUCCGCUCUUAUGUCAUGGUCCUUUUACUAUUGCACCCCGUAUCAGUCCACCGCCAGGUCCGUGUCUCCAAUCCGCGAUCUGGGAAAUAAGCUAGCGGGGUAGAUCGCACGUGUGUUCGCCAGGGUCCCUAGCCAUGAGCGUGGUA",
+          "structure": ".......(((((......(((((((((................)).)))))))..)))))..((((((((((((((((..(((((((((((((((...(((......(((((((((.(........))).))))))).......))).))))))).....))).))).)).....))))......))))))).)))))..",
+          "length_nt": 200,
+          "energy_kcal_mol": -55.2
+        },
+        {
+          "seq": "GACUUGCCGUGCUUAGUGGAUACCGAUGGGCCAUCCCCCCAACACUCGAGGAGAUGAUGGUGGGCCUGUCAACAUCUCUGAAGAAUCCUAAGUAAUUAUAAUCAUCCACCCCAGCCAUUUCCCCGGUGUUUCUAUCCACCAAGCCGACCUGCCGCCUGUGACUAUGGGCGCGAGCGGUCCCAUUAAAUGCUAAGAAGAUGGUUAACCCAAUGUCGGUGUCGUUCUUAGGCGAUUGUUGACGAAUUUACUUGAAUAACUCCAGGUGUAUGACCACCCACCACUUGCAUUAUGUGCAGGAAU",
+          "structure": "..((((((((((((.(((((((....((((.......))))((((.((.(((((((..((((((.............((..((....)).))............)))))).....))))))).))))))...))))))).)))).((((.(((((((((....)))))))...))))))......(((((.(((..(.((((((......((((((.((((((....))))))..))))))....((((((........))))))..)))))).).....))))))))))).)))))...",
+          "length_nt": 300,
+          "energy_kcal_mol": -69.3
+        },
+        {
+          "seq": "GAAAUCCCGCUCAAGAAACACCGCAGGACAGGACACGACGUCUGGGAGAUUUAUGGAACUCCAUGGCAUCAAGUGGCAUAUACUUUUGGGACCAGAUACACAAUGAAAUUCGCACAGAUGAAGAACCUACGCGGAUAAAGAGGUACCCAACUGUUGAUUGUGUCCUACAUACGUCGCUGUUACUGUCGCGGAGCAACAUU",
+          "structure": "........(((.........((((..(((((((((((((((.((((((((((((((....)))))).))).....(((...((..((((((((..............((((((..((.........))..)))))).....))).)))))..))....))).)))))...)))))).)))).))))))))))))......",
+          "length_nt": 200,
+          "energy_kcal_mol": -45.2
+        },
+        {
+          "seq": "GUGCCCUGGCACAACGGAAGGGUUCAGAAGUAUCGAAAACUCCUGGUUAUGCCCUAAUAGGGUCGCGAGUUAUCUCACGAGCUCUGUGGUUGCUGGGAAUGACGCAACCCCAACUGAGCACGUGAGCAACUAUACCCGCCCCUGGUUCAGGGCAACGUUAUCUCUGGGUCUGGAGCUCUCAUUUGCACCAGGGUGUGGGG",
+          "structure": "..(((((((..(((..((.((.((((((.............(((((...((((((..(((((..(((((((..((((((.((((.((((((((.(.......)))))))...)).)))).)))))).)))).....))))))))....)))))).........))))))))))).)).))..)))..)))))))......",
+          "length_nt": 200,
+          "energy_kcal_mol": -70.1
+        },
+        {
+          "seq": "GGCGGGCGCGGAUGCAUGCGAAGGAGCUCCGUGGAUUUCCAGACUGAGCUAUCCCUAACUCACAAUAAAUGGCUUUCAGCAGUAAAUCGGGACUUGAUCAGGGCCCGCUUUCGCUGGUCCUCGUUUCCGGCAUUUGGCGCCCGUAUGUGAUUAUGACUGUCAGACAUUUGCUAUUGUCUCAGGGGACUCUCAAACUCAUUACAAUCGACCUACCCGGAUGAGAUUUACUGGGCUAGGGAUUUCUGCGGGA",
+          "structure": ".((((((((((((((..((((((((((((..(((....)))....)))))...)))..............((...(((((.(.(((.((((.(((.....))))))).))))))))).)))))).....)))))).))))))))..((((...(((..((((((((........))))).....)))..)))...))))...((((..(((((((((.(((...)))))))).)))))))).........",
+          "length_nt": 250,
+          "energy_kcal_mol": -67.6
+        },
+        {
+          "seq": "AAUGCCUCUUCGCCCUUCCACCCGUGGUCAUGCGCGGCGCCCGCCUAUAUCUCCCGCCGACUCGAGCUGCUAUAUACUAACACAUACAAAAGAAGGUUACAUUAUACAGCGAGGAUGUAUUCCGGCUGUCUAGCUCUUCAACAUGCCCAACAUCUCCUCUUAGCAACGGCGCGUAACACUGAUCUAGCUCGGAGGGAAAUUUUAGCGAUCGCAGGGGUGUAGUUGCAAGAUGCUAAGUGUACAUCGGUGCUUGAAAUCUAAAAGACCGAUUUGUCUGACGAAGUCUCGAUUUUAGCCGCU",
+          "structure": "(((((.((((((((((((.....((((.(.((.((((((...............))))).).)).))))).....................)))))............))))))).))))).((((((..((((((((((((((((((...(((((((((.(((..(((.(.....).))).....))).))))))..........))).....)))))).)))).)))).)))).......((((((.(((.........)))))))))..(((.(((...)))..)))..))))))..",
+          "length_nt": 300,
+          "energy_kcal_mol": -65.8
+        },
+        {
+          "seq": "GGCAUGAGGAAAGGUAAUUAUAGUUGUUCGAUGGGUUAUAGGAGUGAGGAGACUACUAACACGUUACGACCAGGAGGAUGCGUCAUAAAGUAGUCCGUAUGAGUUAGCGAGAACUAACGAGUAGUAGCUUCGGCUGGCGCUGGCAGCAUGAGUUGGAGGGAGGUCGGAAAAUAAACCGACGUAUAGCGUUUUUUUCUUAGAUUUAAUGAAUGAUUGGCGAAGCACGGAACUAAUAUCUGUGAUCGUGCUA",
+          "structure": "(((((((....(((((....(((((.((((.(((.(((((.(........(((((((......(((.(((((......)).))).))))))))))).))))).))).)))))))))........(((.(((((((..((((((((.((((((((.((((((((((((........)))))...........))))))).))))).)))..)).)))))).))).)))).))).)))))....))))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -58.8
+        },
+        {
+          "seq": "AAAGGUGCUCUAUAUAUGAAAGCCAGGGGAGGCGCUCAUUUCGCUCCUUUCACGGGGCUUAAACAGGUAUCUAAUAGCCUAAACAUUGCAAACCCAAUCUUUGACUUUCGCGAGCGAGUUCUAGCGGAUGGCUAGGUAAGUCGGGUCCCCGGGUGCAUCGGUACCACACUUUCCAACUCUCGUUUCAUUGCAGAGGAGACCAGUAAGCACUCAAAGAUUCUUACGAAAUCUUGGACCUACAGAGCCCCGC",
+          "structure": "(((((.((.......((((..(((......)))..))))...)).)))))..((((((((....((((..........((((..(((........(((((((((((((.(((((((((.((((((.....))))))..(((.(((......(((((....)))))......))).))))))))....)))).))))..............))))))))).......))).))))))))...)))))))).",
+          "length_nt": 250,
+          "energy_kcal_mol": -59.1
+        }
+      ]
+    },
+    "lxc_cases": {
+      "note": "evaluate-only: structure is template-constructed, not MFE. Vienna MAXLOOP=30 means RNAfold never produces these structures; fold test (property_fold.rs) excludes this section.",
+      "fixture_count": 20,
+      "fixtures": [
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((................((((....))))................))))))",
+          "length_nt": 56,
+          "energy_kcal_mol": -19.54,
+          "interior_loop_size": 32,
+          "u1": 16,
+          "u2": 16
+        },
+        {
+          "seq": "GGGGGGGAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCC",
+          "structure": "(((((((.((((....))))...............................)))))))",
+          "length_nt": 58,
+          "energy_kcal_mol": -19.84,
+          "interior_loop_size": 32,
+          "u1": 1,
+          "u2": 31
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAGGGGAAACCCAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((........(((....)))........................))))))",
+          "length_nt": 54,
+          "energy_kcal_mol": -13.24,
+          "interior_loop_size": 32,
+          "u1": 8,
+          "u2": 24
+        },
+        {
+          "seq": "GGGGGGGAAAAAAAAAAAAAAAAAAAAAAAAGGGGAAACCCAAAAAAAACCCCCCC",
+          "structure": "(((((((........................(((....)))........)))))))",
+          "length_nt": 56,
+          "energy_kcal_mol": -16.54,
+          "interior_loop_size": 32,
+          "u1": 24,
+          "u2": 8
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((....................((((....))))....................))))))",
+          "length_nt": 64,
+          "energy_kcal_mol": -19.29,
+          "interior_loop_size": 40,
+          "u1": 20,
+          "u2": 20
+        },
+        {
+          "seq": "GGGGGGGAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCC",
+          "structure": "(((((((.....((((....))))...................................)))))))",
+          "length_nt": 66,
+          "energy_kcal_mol": -19.59,
+          "interior_loop_size": 40,
+          "u1": 5,
+          "u2": 35
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAACCCCCC",
+          "structure": "((((((..............................((((....))))..........))))))",
+          "length_nt": 64,
+          "energy_kcal_mol": -16.29,
+          "interior_loop_size": 40,
+          "u1": 30,
+          "u2": 10
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((.........................((((....)))).........................))))))",
+          "length_nt": 74,
+          "energy_kcal_mol": -19.05,
+          "interior_loop_size": 50,
+          "u1": 25,
+          "u2": 25
+        },
+        {
+          "seq": "GGGGGGGAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCC",
+          "structure": "(((((((..........((((....))))........................................)))))))",
+          "length_nt": 76,
+          "energy_kcal_mol": -19.35,
+          "interior_loop_size": 50,
+          "u1": 10,
+          "u2": 40
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGGAAACCCCCAAAAAAAAAACCCCCC",
+          "structure": "((((((........................................(((((....)))))..........))))))",
+          "length_nt": 76,
+          "energy_kcal_mol": -19.35,
+          "interior_loop_size": 50,
+          "u1": 40,
+          "u2": 10
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((......................................((((....)))).....................................))))))",
+          "length_nt": 99,
+          "energy_kcal_mol": -18.02,
+          "interior_loop_size": 75,
+          "u1": 38,
+          "u2": 37
+        },
+        {
+          "seq": "GGGGGGGAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCC",
+          "structure": "(((((((.((((....))))..........................................................................)))))))",
+          "length_nt": 101,
+          "energy_kcal_mol": -18.92,
+          "interior_loop_size": 75,
+          "u1": 1,
+          "u2": 74
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((.........................((((....))))..................................................))))))",
+          "length_nt": 99,
+          "energy_kcal_mol": -15.62,
+          "interior_loop_size": 75,
+          "u1": 25,
+          "u2": 50
+        },
+        {
+          "seq": "GGGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGAAACCCAAAAAAAAAAAAAAACCCCCCC",
+          "structure": "(((((((............................................................(((....)))...............)))))))",
+          "length_nt": 99,
+          "energy_kcal_mol": -15.62,
+          "interior_loop_size": 75,
+          "u1": 60,
+          "u2": 15
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((..................................................((((....))))..................................................))))))",
+          "length_nt": 124,
+          "energy_kcal_mol": -18.31,
+          "interior_loop_size": 100,
+          "u1": 50,
+          "u2": 50
+        },
+        {
+          "seq": "GGGGGGGGAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCC",
+          "structure": "((((((((.((((....))))...................................................................................................))))))))",
+          "length_nt": 128,
+          "energy_kcal_mol": -21.91,
+          "interior_loop_size": 100,
+          "u1": 1,
+          "u2": 99
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((..............................((((....))))......................................................................))))))",
+          "length_nt": 124,
+          "energy_kcal_mol": -15.31,
+          "interior_loop_size": 100,
+          "u1": 30,
+          "u2": 70
+        },
+        {
+          "seq": "GGGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCC",
+          "structure": "(((((((...........................................................................((((....)))).........................)))))))",
+          "length_nt": 126,
+          "energy_kcal_mol": -18.61,
+          "interior_loop_size": 100,
+          "u1": 75,
+          "u2": 25
+        },
+        {
+          "seq": "GGGGGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCC",
+          "structure": "((((((..............................................................((((....))))...............................................................))))))",
+          "length_nt": 149,
+          "energy_kcal_mol": -17.47,
+          "interior_loop_size": 125,
+          "u1": 62,
+          "u2": 63
+        },
+        {
+          "seq": "GGGGGGGGAAAAAAAAAAGGGGGAAACCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCC",
+          "structure": "((((((((..........((((....))))...................................................................................................................))))))))",
+          "length_nt": 153,
+          "energy_kcal_mol": -21.67,
+          "interior_loop_size": 125,
+          "u1": 10,
+          "u2": 115
+        }
+      ]
+    }
+  }
+}
