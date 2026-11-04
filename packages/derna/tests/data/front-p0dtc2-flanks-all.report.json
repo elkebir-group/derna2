@@ -1,0 +1,49 @@
+{
+ "lo": 1.1920928955078125e-07,
+ "hi": 0.9999998807907104,
+ "residues": 25,
+ "points": 25,
+ "vertices": [
+  {
+   "adaptation_log": -8.22556391367398,
+   "mfe_kcal_mol": -41.4
+  },
+  {
+   "adaptation_log": -6.457901996024987,
+   "mfe_kcal_mol": -41.0
+  },
+  {
+   "adaptation_log": -5.572382922817585,
+   "mfe_kcal_mol": -39.7
+  },
+  {
+   "adaptation_log": -4.423760213574814,
+   "mfe_kcal_mol": -38.0
+  },
+  {
+   "adaptation_log": -4.223089518112664,
+   "mfe_kcal_mol": -37.6
+  },
+  {
+   "adaptation_log": -1.8180767775454285,
+   "mfe_kcal_mol": -32.4
+  },
+  {
+   "adaptation_log": -0.7194644888773187,
+   "mfe_kcal_mol": -28.7
+  },
+  {
+   "adaptation_log": -0.048790164169431945,
+   "mfe_kcal_mol": -25.5
+  },
+  {
+   "adaptation_log": 0.0,
+   "mfe_kcal_mol": -20.8
+  }
+ ],
+ "region": [
+  "5-cds",
+  "5-3",
+  "cds-3"
+ ]
+}

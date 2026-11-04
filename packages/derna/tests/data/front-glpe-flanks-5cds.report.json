@@ -1,0 +1,39 @@
+{
+ "lo": 1.1920928955078125e-07,
+ "hi": 0.9999998807907104,
+ "residues": 20,
+ "points": 16,
+ "vertices": [
+  {
+   "adaptation_log": -4.680316579834295,
+   "mfe_kcal_mol": -40.5
+  },
+  {
+   "adaptation_log": -3.531693870591524,
+   "mfe_kcal_mol": -40.1
+  },
+  {
+   "adaptation_log": -1.586965056582042,
+   "mfe_kcal_mol": -38.4
+  },
+  {
+   "adaptation_log": -0.9583563971596677,
+   "mfe_kcal_mol": -37.2
+  },
+  {
+   "adaptation_log": -0.2876820724517809,
+   "mfe_kcal_mol": -35.6
+  },
+  {
+   "adaptation_log": -0.08701137698962969,
+   "mfe_kcal_mol": -35.0
+  },
+  {
+   "adaptation_log": 0.0,
+   "mfe_kcal_mol": -33.9
+  }
+ ],
+ "region": [
+  "5-cds"
+ ]
+}

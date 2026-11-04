@@ -1,0 +1,36 @@
+[package]
+name = "derna"
+version = "0.1.0"
+description = "The derna command: exact Pareto-optimal mRNA design over (MFE, CAI), with fixed UTRs and a region constraint"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "derna_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "derna"
+path = "src/main.rs"
+
+[dependencies]
+derna-lib = { path = "../derna-lib" }
+derna-codon-dp = { path = "../derna-codon-dp" }
+tikv-jemallocator = { version = "0.6", optional = true }
+# `float_roundtrip`: `front --resume` and `front --front-from` read back a
+# front this binary wrote, so each number must be read as it was written. The
+# default parser is fast rather than round-tripping, and it read one fixture's
+# `gap` a bit short of what the binary emitted.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[features]
+# `jemalloc`: run on jemalloc rather than the system allocator. The motif gap
+# fold runs ~0.89x the user time on it, with the same fronts, but jemalloc
+# holds more memory resident, so a walk under `--max-rss-gb` can stop earlier
+# and return less than it would on the system allocator. Off by default; the
+# mirror of derna-lib's `system-alloc`, which switches its probes the other
+# way.
+jemalloc = ["dep:tikv-jemallocator"]

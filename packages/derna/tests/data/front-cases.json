@@ -1,0 +1,104 @@
+{
+ "range": [
+  1.1920928955078125e-07,
+  0.9999998807907104
+ ],
+ "cells": [
+  "glpe",
+  "p0dtc2"
+ ],
+ "cases": [
+  {
+   "name": "glpe-bare",
+   "binary": [],
+   "derna": [],
+   "fasta": "packages/derna-codon-dp/tests/data/GLPE_HUMAN_20.fasta"
+  },
+  {
+   "name": "glpe-flanks-free",
+   "binary": [
+    "--utr5",
+    "ACAUUUGCUUCUGACACAACUGUGU",
+    "--utr3",
+    "GCUCGCUUUCUUGCUGUCCAAUUUC"
+   ],
+   "derna": [
+    "--utr5",
+    "ACAUUUGCUUCUGACACAACUGUGU",
+    "--utr3",
+    "GCUCGCUUUCUUGCUGUCCAAUUUC",
+    "--forbid",
+    "none",
+    "--stop",
+    "none"
+   ],
+   "fasta": "packages/derna-codon-dp/tests/data/GLPE_HUMAN_20.fasta"
+  },
+  {
+   "name": "glpe-flanks-all",
+   "binary": [
+    "--utr5",
+    "ACAUUUGCUUCUGACACAACUGUGU",
+    "--utr3",
+    "GCUCGCUUUCUUGCUGUCCAAUUUC",
+    "--region",
+    "5-cds,cds-3,5-3"
+   ],
+   "derna": [
+    "--utr5",
+    "ACAUUUGCUUCUGACACAACUGUGU",
+    "--utr3",
+    "GCUCGCUUUCUUGCUGUCCAAUUUC",
+    "--forbid",
+    "5-cds,cds-3,5-3",
+    "--stop",
+    "none"
+   ],
+   "fasta": "packages/derna-codon-dp/tests/data/GLPE_HUMAN_20.fasta"
+  },
+  {
+   "name": "glpe-flanks-5cds",
+   "binary": [
+    "--utr5",
+    "ACAUUUGCUUCUGACACAACUGUGU",
+    "--utr3",
+    "GCUCGCUUUCUUGCUGUCCAAUUUC",
+    "--region",
+    "5-cds"
+   ],
+   "derna": [
+    "--utr5",
+    "ACAUUUGCUUCUGACACAACUGUGU",
+    "--utr3",
+    "GCUCGCUUUCUUGCUGUCCAAUUUC",
+    "--forbid",
+    "5-cds",
+    "--stop",
+    "none"
+   ],
+   "fasta": "packages/derna-codon-dp/tests/data/GLPE_HUMAN_20.fasta"
+  },
+  {
+   "name": "p0dtc2-flanks-all",
+   "binary": [
+    "--utr5",
+    "ACAACCACAACCAAACCACAACCAACACCAAACCACAACCAAACCACAAC",
+    "--utr3",
+    "ACAACCACAACCAAACCACAACCAACACCAAACCACAACCAAACCACAAC",
+    "--region",
+    "5-cds,cds-3,5-3"
+   ],
+   "derna": [
+    "--utr5",
+    "ACAACCACAACCAAACCACAACCAACACCAAACCACAACCAAACCACAAC",
+    "--utr3",
+    "ACAACCACAACCAAACCACAACCAACACCAAACCACAACCAAACCACAAC",
+    "--forbid",
+    "5-cds,cds-3,5-3",
+    "--stop",
+    "none"
+   ],
+   "fasta": "packages/derna/tests/data/p0dtc2-25.fasta"
+  }
+ ]
+}

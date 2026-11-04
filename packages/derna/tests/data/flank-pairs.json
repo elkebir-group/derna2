@@ -1,0 +1,128 @@
+{
+  "gapdh": {
+    "kind": "real",
+    "source": "GAPDH (human), RefSeq NM_002046; 5' UTR abuts an ATG start codon (verified)",
+    "spellable": {
+      "3-3": true,
+      "5-3": true,
+      "5-5": true,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "GACCCCUGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCUCACUGCUGGGGAGUCCCUGCCACACUCAGUCCCCCACCACACUGAAUCUCCCCUCCUCACAGUUGCCAUGUAGACCCCUUGAAGAGGGGAGGGGCCUAGGGAGCCGCACCUUGUCAUGUACCAUCAAUAAAGUACCCUGUGCUCAACCA",
+    "utr3_gu_frac": 0.3881,
+    "utr3_len": 201,
+    "utr5": "GCUCUCUGCUCCUCCUGUUCGACAGUCAGCCGCAUCUUCUUUUGCGUCGCCAGCCGAGCCACAUCGCUCAGACACC",
+    "utr5_gu_frac": 0.4474,
+    "utr5_len": 76
+  },
+  "gu-poor": {
+    "kind": "synthetic",
+    "source": "synthetic composition endpoint, A/C only; same sequence both sides",
+    "spellable": {
+      "3-3": false,
+      "5-3": false,
+      "5-5": false,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "ACAACCACAACCAAACCACAACCAACACCAAACCACAACCAAACCACAAC",
+    "utr3_gu_frac": 0.0,
+    "utr3_len": 50,
+    "utr5": "ACAACCACAACCAAACCACAACCAACACCAAACCACAACCAAACCACAAC",
+    "utr5_gu_frac": 0.0,
+    "utr5_len": 50
+  },
+  "gu-rich": {
+    "kind": "synthetic",
+    "source": "synthetic composition endpoint, G/U only; same sequence both sides",
+    "spellable": {
+      "3-3": true,
+      "5-3": true,
+      "5-5": true,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "GUGGUUGUGGUUGGUGUUGGUGGUUGUGGUUGGUGUUGGUGGUUGUGGUU",
+    "utr3_gu_frac": 1.0,
+    "utr3_len": 50,
+    "utr5": "GUGGUUGUGGUUGGUGUUGGUGGUUGUGGUUGGUGUUGGUGGUUGUGGUU",
+    "utr5_gu_frac": 1.0,
+    "utr5_len": 50
+  },
+  "hba1": {
+    "kind": "real",
+    "source": "HBA1 (human alpha-globin), ENST00000320868.9",
+    "spellable": {
+      "3-3": true,
+      "5-3": true,
+      "5-5": true,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "GCUGGAGCCUCGGUGGCCAUGCUUCUUGCCCCUUGGGCCUCCCCCCAGCCCCUCCUCCCCUUCCUGCACCCGUACCCCCGUGGUCUUUGAAUAAAGUCUGAGUGGGCGGCA",
+    "utr3_gu_frac": 0.4865,
+    "utr3_len": 111,
+    "utr5": "ACUCUUCUGGUCCCCACAGACUCAGAGAGAACCCACC",
+    "utr5_gu_frac": 0.3243,
+    "utr5_len": 37
+  },
+  "hbb": {
+    "kind": "real",
+    "source": "HBB (human beta-globin), ENST00000335295",
+    "spellable": {
+      "3-3": true,
+      "5-3": true,
+      "5-5": true,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "GCUCGCUUUCUUGCUGUCCAAUUUCUAUUAAAGGUUCCUUUGUUCCCUAAGUCCAACUACUAAACUGGGGGAUAUUAUGAAGGGCCUUGAGCAUCUGGAUUCUGCCUAAUAAAAAACAUUUAUUUUCAUUGC",
+    "utr3_gu_frac": 0.5379,
+    "utr3_len": 132,
+    "utr5": "ACAUUUGCUUCUGACACAACUGUGUUCACUAGCAACCUCAAACAGACACC",
+    "utr5_gu_frac": 0.36,
+    "utr5_len": 50
+  },
+  "hbb25": {
+    "kind": "real",
+    "source": "HBB, first 25 nt of each UTR - the promotion instance's flank slicing",
+    "spellable": {
+      "3-3": true,
+      "5-3": true,
+      "5-5": true,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "GCUCGCUUUCUUGCUGUCCAAUUUC",
+    "utr3_gu_frac": 0.6,
+    "utr3_len": 25,
+    "utr5": "ACAUUUGCUUCUGACACAACUGUGU",
+    "utr5_gu_frac": 0.52,
+    "utr5_len": 25
+  },
+  "tnf": {
+    "kind": "real",
+    "source": "TNF (human tumour necrosis factor), ENST00000449264.3",
+    "spellable": {
+      "3-3": true,
+      "5-3": true,
+      "5-5": true,
+      "5-cds": true,
+      "cds-3": true,
+      "cds-cds": true
+    },
+    "utr3": "GGAGGACGAACAUCCAACCUUCCCAAACGCCUCCCCUGCCCCAAUCCCUUUAUUACCCCCUCCUUCAGACACCCUCAACCUCUUCUGGCUCAAAAAGAGAAUUGGGGGCUUAGGGUCGGAACCCAAGCUUAGAACUUUAAGCAACAAGACCACCACUUCGAAACCUGGGAUUCAGGAAUGUGUGGCCUGCACAGUGAAGUGCUGGCAACCACUAAGAAUUCAAACUGGGGCCUCCAGAACUCACUGGGGCCUACAGCUUUGAUCCCUGACAUCUGGAAUCUGGAGACCAGGGAGCCUUUGGUUCUGGCCAGAAUGCUGCAGGACUUGAGAAGACCUCACCUAGAAAUUGACACAAGUGGACCUUAGGCCUUCCUCUCUCCAGAUGUUUCCAGACUUCCUUGAGACACGGAGCCCAGCCCUCCCCAUGGAGCCAGCUCCCUCUAUUUAUGUUUGCACUUGUGAUUAUUUAUUAUUUAUUUAUUAUUUAUUUAUUUACAGAUGAAUGUAUUUAUUUGGGAGACCGGGGUAUCCUGGGGGACCCAAUGUAGGAGCUGCCUUGGCUCAGACAUGUUUUCCGUGAAAACGGAGCUGAACAAUAGGCUGUUCCCAUGUAGCCCCCUGGCCUCUGUGCCUUCUUUUGAUUAUGUUUUUUAAAAUAUUUAUCUGAUUAAGUUGUCUAAACAAUGCUGAUUUGGUGACCAACUGUCACUCAUUGCUGAGCCUCUGCUCCCCAGGGGAGUUGUGUCUGUAAUCGCCCUACUAUUCAGUGGCGAGAAAUAAAGUUUGCUUAGAAAAGAAA",
+    "utr3_gu_frac": 0.4969,
+    "utr3_len": 799,
+    "utr5": "AGCAGACGCUCCCUCAGCAAGGACAGCAGAGGACCAGCUAAGAGGGAGAGAAGCAACUACAGACCCCCCCUGAAAACAACCCUCAGACGCCACAUCCCCUGACAAGCUGCCAGGCAGGUUCUCUUCCUCUCACAUACUGACCCACGGCUCCACCCUCUCUCCCCUGGAAAGGACACC",
+    "utr5_gu_frac": 0.3333,
+    "utr5_len": 177
+  }
+}

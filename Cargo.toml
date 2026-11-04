@@ -4,6 +4,7 @@ members = [
     "packages/rna-mfe",
     "packages/derna-codon-dp",
     "packages/derna-lib",
+    "packages/derna",
 ]
 
 [workspace.package]
