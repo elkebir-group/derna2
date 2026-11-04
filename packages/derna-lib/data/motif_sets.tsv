@@ -1,0 +1,45 @@
+# Forbidden-pattern sets the motif-constrained fold is measured on: the one
+# list every consumer reads, so the patterns cannot drift between languages.
+#
+# Sets are named by what drives the fold's cost — how many patterns and how
+# long they are — because that is what the runtime work is reported against.
+# A pattern is a nucleotide string, nothing more; no set carries an
+# application, and none should be read as one.
+#
+# Two record kinds, tab-separated:
+#   site <TAB> <IUPAC pattern> <TAB> <label> <TAB> <group>
+#   set  <TAB> <set name>      <TAB> <comma-separated groups, in order>
+#
+# A set is the union of its groups' patterns, in file order within each group.
+# `T` reads as `U`. The label is the pattern itself, so a row is readable
+# without a second table; degenerate patterns use IUPAC codes.
+
+site	CCUCCC	CCUCCC	p2
+site	GCCGCC	GCCGCC	p2
+
+site	GGTCTC	GGTCTC	p8
+site	GAGACC	GAGACC	p8
+site	CGTCTC	CGTCTC	p8
+site	GAGACG	GAGACG	p8
+site	GAAGAC	GAAGAC	p8
+site	GTCTTC	GTCTTC	p8
+site	GCTCTTC	GCTCTTC	p8
+site	GAAGAGC	GAAGAGC	p8
+
+site	GAATTC	GAATTC	p16
+site	GGATCC	GGATCC	p16
+site	AAGCTT	AAGCTT	p16
+site	CTCGAG	CTCGAG	p16
+site	GCGGCCGC	GCGGCCGC	p16
+site	GTCGAC	GTCGAC	p16
+site	TCTAGA	TCTAGA	p16
+site	GGTACC	GGTACC	p16
+
+site	UUNUU	UUNUU	deg3
+site	UGUGU	UGUGU	deg3
+site	NUUUN	NUUUN	deg3
+
+set	2 patterns, 6 nt	p2
+set	8 patterns, 6-7 nt	p8
+set	16 patterns, 6-8 nt	p8,p16
+set	3 degenerate patterns, 5 nt	deg3

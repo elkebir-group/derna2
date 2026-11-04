@@ -1,0 +1,8 @@
+{"cai":0.6783739724850575,"mfe_kcal_mol":-13.5,"rna_seq":"AUGUACGGCAAGAUAAUCUUUGUCUUGCUGUUG","structure":"....((((((((((((...)))))))))))).."}
+{"cai":0.7302738833559198,"mfe_kcal_mol":-12.4,"rna_seq":"AUGUACGGCAAGAUUAUCUUUGUCUUGCUGUUG","structure":"....((((((((((.......)))))))))).."}
+{"cai":0.7496246106801964,"mfe_kcal_mol":-12.2,"rna_seq":"AUGUACGGCAAGAUCAUCUUUGUCUUGCUGUUG","structure":"....(((((((((.((....))))))))))).."}
+{"cai":0.807288550224985,"mfe_kcal_mol":-12.0,"rna_seq":"AUGUACGGCAAGAUCAUUUUUGUGCUCUUGCUG","structure":".....((((((((.(((....))).))))))))"}
+{"cai":0.8439361749790051,"mfe_kcal_mol":-11.2,"rna_seq":"AUGUACGGCAAGAUCAUCUUCGUGCUCUUGCUG","structure":".....((((((((.(((....))).))))))))"}
+{"cai":0.8474531851155263,"mfe_kcal_mol":-9.9,"rna_seq":"AUGUACGGCAAGAUCAUCUUCGUCUUGCUGCUG","structure":".....(((((((((.......)))))))))..."}
+{"cai":0.947331617518335,"mfe_kcal_mol":-8.2,"rna_seq":"AUGUACGGAAAGAUCAUUUUCGUGCUGCUGCUG","structure":"..(((((((((.....)))))))))........"}
+{"cai":1.0,"mfe_kcal_mol":-7.9,"rna_seq":"AUGUACGGCAAGAUCAUCUUCGUGCUGCUGCUG","structure":"..((((((((.((......)).))))).))).."}
