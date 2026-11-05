@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "DERNA2: full Pareto fronts of modular mRNA designs with UTRs"
+version: 0.1.0
+repository-code: "https://github.com/elkebir-group/derna2"
+authors:
+  - family-names: Gu
+    given-names: Xinyu
+  - family-names: Leiserson
+    given-names: Mark D. M.
+  - family-names: El-Kebir
+    given-names: Mohammed
