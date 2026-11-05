@@ -149,13 +149,71 @@ fn the_header_counts_the_points_it_is_written_before() {
 }
 
 #[test]
-fn the_points_do_not_depend_on_the_thread_count() {
+fn the_front_does_not_depend_on_the_thread_count() {
     // Emitting in batches over workers must not change the answer: each line
     // reads nothing but its own point, and the batches are written in the
     // front's order.
+    //
+    // What a thread count may change is how a *tie* is spelled. Two designs
+    // of equal MFE and equal CAI are equally good answers, and which one a
+    // walk reaches first depends on the order its workers finish, so the
+    // sequence and the structure are compared only where the objectives say
+    // the point is not a tie. Asking for both determinism and threads is what
+    // `--deterministic` is for, and the test below pins that.
     let one = run(&["--threads", "1"]);
     let many = run(&["--threads", "4"]);
+    assert_eq!(one.len(), many.len(), "the front has a different size");
+
+    // A point either came back spelled the same, and then nothing about it
+    // may differ, or it is a tie spelled differently — and then everything
+    // that is a function of the sequence differs with it, the GC and
+    // homopolymer metrics included. What may never differ is the objective
+    // the front is a front of, and the verdict the check reached.
+    const SAME_FOR_A_TIE: [&str; 10] = [
+        "record",
+        "mfe",
+        "cai",
+        "cai_log",
+        "modular",
+        "status",
+        "gap",
+        "free_mfe",
+        "violations",
+        "fixed_violations",
+    ];
+    let mut ties = 0;
+    for (a, b) in one[1..].iter().zip(&many[1..]) {
+        if a["sequence"] == b["sequence"] {
+            assert_eq!(a, b, "two runs spelled a point the same and differ anyway");
+            continue;
+        }
+        ties += 1;
+        for field in SAME_FOR_A_TIE {
+            assert_eq!(
+                a[field], b[field],
+                "a design spelled differently at another thread count is not a \
+                 tie: {field} differs"
+            );
+        }
+    }
+    // Ties are what makes this test worth running, and they are a race: a
+    // run where none occurred has compared two identical fronts and says
+    // nothing about the tie-breaking. It is not a failure — the front still
+    // has to match, which is the other half — so it is reported, not asserted.
+    eprintln!("tied points spelled differently across thread counts: {ties}");
+}
+
+/// `--deterministic` is what asks for byte-identical output whatever
+/// `--threads` says, and it buys that by folding on one thread.
+#[test]
+fn deterministic_output_does_not_depend_on_the_thread_count() {
+    let one = run(&["--threads", "1", "--deterministic"]);
+    let many = run(&["--threads", "4", "--deterministic"]);
     assert_eq!(one[1..], many[1..]);
+    assert_eq!(
+        many[0]["threads"], 1,
+        "a deterministic run records the one thread it folded on"
+    );
 }
 
 #[test]

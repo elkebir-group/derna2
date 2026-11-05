@@ -59,7 +59,7 @@ impl Stop {
     /// The given codon's nucleotides, empty when the stop is designed or
     /// absent. This is 3′-flank sequence, so a designed stop contributes none:
     /// its nucleotides are inside the coding sequence.
-    fn given_nucleotides(&self) -> &str {
+    pub(crate) fn given_nucleotides(&self) -> &str {
         match self {
             Self::Given(codon) => codon,
             Self::Absent | Self::Free => "",

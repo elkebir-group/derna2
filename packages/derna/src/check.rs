@@ -4,6 +4,11 @@
 //! the protein, the flanks, the constraint and the codon table, so a check
 //! cannot be pointed at other flanks than the result was produced with.
 //!
+//! `--designs` is for designs that carry no such header, because this run did
+//! not make them: the molecule comes from the command line instead, and every
+//! sequence is refused unless it is a molecule of that description. See
+//! [`crate::given`].
+//!
 //! Certifying a point is one free fold of the whole molecule against the
 //! point's constrained energy — the same check `design` reports. A failing
 //! point is reported, not replaced.
@@ -19,6 +24,7 @@ use serde_json::{json, Map, Value};
 
 use crate::args::{Flags, Shared};
 use crate::free_check::{self, Checked};
+use crate::given;
 use crate::modular_front;
 use crate::molecule::Molecule;
 use crate::result;
@@ -30,6 +36,9 @@ use crate::Result;
 pub struct CheckArgs {
     /// The result file, or `None` for stdin.
     pub input: Option<PathBuf>,
+    /// `--designs PATH`: score the sequences in `PATH` as molecules of the
+    /// description the molecule flags give, in place of a result file.
+    pub designs: Option<PathBuf>,
     /// Keep every point's verdict as it settles, and take back the verdicts an
     /// earlier run of the same `--out` left.
     pub checkpoint: bool,
@@ -52,6 +61,14 @@ pub fn help() -> String {
      --force                   overwrite an existing --out\n  \
      --quiet                   do not print the table of what was written to\n                            \
      stderr at the end of the run\n\n\
+     Designs this run did not make\n  \
+     --designs PATH            score the sequences in PATH (FASTA, or one per\n                            \
+     line) in place of a result file. They have no\n                            \
+     header to read the molecule from, so it comes\n                            \
+     from the molecule flags instead: --protein\n                            \
+     (required), --utr5, --utr3, --stop, --forbid\n                            \
+     and --codon-usage. A sequence that is not a\n                            \
+     molecule of that description is refused\n\n\
      Save and resume\n  \
      --checkpoint              save each point's verdict to OUT.check.jsonl as\n                            \
      it settles, so running the same command again\n                            \
@@ -70,6 +87,9 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<CheckArgs> {
         }
         match word.as_str() {
             "--checkpoint" => args.checkpoint = true,
+            "--designs" => {
+                args.designs = Some(PathBuf::from(flags.value("--designs")?));
+            }
             "--report" | "--max-secs" | "--max-rss-gb" => {
                 return Err(format!(
                     "derna check: {word} describes a search, and this command does not \
@@ -86,8 +106,22 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<CheckArgs> {
             }
         }
     }
-    if args.input.is_none() {
-        return Err("derna check: give a result file, or `-` for stdin".into());
+    match (&args.input, &args.designs) {
+        (None, None) => {
+            return Err(
+                "derna check: give a result file, or `-` for stdin, or --designs PATH \
+                 with the molecule they are designs of"
+                    .into(),
+            )
+        }
+        (Some(input), Some(_)) => {
+            return Err(format!(
+                "derna check: --designs scores designs this run did not make, so there is \
+                 no result file to check beside them; got {input:?} as well"
+            )
+            .into())
+        }
+        _ => {}
     }
     refuse_what_this_command_cannot_do(&args)?;
     Ok(args)
@@ -98,6 +132,20 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<CheckArgs> {
 /// Two kinds: the molecule's flags, which the result file's header carries,
 /// and determinism, which a certification already has.
 fn refuse_what_this_command_cannot_do(args: &CheckArgs) -> Result<()> {
+    // With --designs there is no header to contradict: the molecule flags are how the
+    // command learns what the sequences are designs of, and they are required rather than
+    // refused. What protects against scoring the wrong molecule there is that every
+    // sequence must be one of that description (`crate::given`).
+    if args.designs.is_some() {
+        if args.shared.protein.is_none() {
+            return Err(
+                "derna check: --designs needs --protein, the molecule the sequences are \
+                 designs of"
+                    .into(),
+            );
+        }
+        return refuse_what_no_input_shape_can_do(args);
+    }
     for (flag, given) in [
         ("--protein", args.shared.protein.is_some()),
         ("--utr5", args.shared.utr5.is_some()),
@@ -115,6 +163,12 @@ fn refuse_what_this_command_cannot_do(args: &CheckArgs) -> Result<()> {
             .into());
         }
     }
+    refuse_what_no_input_shape_can_do(args)
+}
+
+/// The refusals that hold whichever shape the input takes: where a checkpoint may go,
+/// and determinism, which a certification already has.
+fn refuse_what_no_input_shape_can_do(args: &CheckArgs) -> Result<()> {
     match result::destination(args.shared.out.as_deref()) {
         None if args.checkpoint => {
             return Err(
@@ -531,8 +585,28 @@ fn certify_lines(
 pub fn run(args: &CheckArgs) -> Result<()> {
     let started = Instant::now();
     result::check_output(args.shared.out.as_deref(), args.shared.force)?;
-    let read = show::read(args.input.as_deref())?;
-    let m = Molecule::from_header(&read.header)?;
+    // Either the input carries the molecule and the points, or --designs gives the
+    // molecule on the command line and the points are folded from the sequences.
+    let (m, header, points) = match &args.designs {
+        Some(path) => {
+            let m = Molecule::resolve(&args.shared)?;
+            let points = given::points(&Params::load_default()?, &m, path)?;
+            let header = json!({
+                "command": "designs",
+                "designs": path.display().to_string(),
+                "points": points.len(),
+            });
+            (m, header, points)
+        }
+        None => {
+            let read = show::read(args.input.as_deref())?;
+            (
+                Molecule::from_header(&read.header)?,
+                read.header,
+                read.points,
+            )
+        }
+    };
     if m.constraint.is_inert() {
         return Err(
             "this result was produced with no constraint, so no point can violate \
@@ -542,8 +616,7 @@ pub fn run(args: &CheckArgs) -> Result<()> {
     }
     // A point's verdict is of its sequence, so progress is matched on that;
     // the position is what the result file's order needs, not the check.
-    let at_of: HashMap<&str, usize> = read
-        .points
+    let at_of: HashMap<&str, usize> = points
         .iter()
         .enumerate()
         .filter_map(|(at, p)| p["sequence"].as_str().map(|s| (s, at)))
@@ -567,7 +640,7 @@ pub fn run(args: &CheckArgs) -> Result<()> {
         .map(|path| ProgressLog::open(path, args.shared.force))
         .transpose()?;
 
-    let certified = certify_lines(&m, &read.points, args, &done, log.as_ref())?;
+    let certified = certify_lines(&m, &points, args, &done, log.as_ref())?;
     let (optimal, total) = (
         certified
             .iter()
@@ -579,7 +652,7 @@ pub fn run(args: &CheckArgs) -> Result<()> {
 
     let mut lines = vec![check_header(
         &m,
-        &read.header,
+        &header,
         args,
         started,
         optimal,

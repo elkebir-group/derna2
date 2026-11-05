@@ -16,6 +16,7 @@ pub mod constraint;
 pub mod design;
 pub mod free_check;
 pub mod front;
+pub mod given;
 pub mod input;
 pub mod metrics;
 pub mod modular_front;

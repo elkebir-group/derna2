@@ -589,6 +589,11 @@ fn assert_first_modular(case: &Case<'_>, verify: Verify, walk: Walk) -> (u64, u6
 /// rejection is checked against the exact free fold under debug assertions,
 /// and the pool must reject at least one design without a fold, or the
 /// comparison says nothing.
+/// How many times the one-slot configuration is run, per case, while waiting
+/// for a design to defer. Deferral needs two workers at the slot at once, so
+/// on a host with few cores most runs take no design down that path.
+const DEFER_ATTEMPTS: usize = 24;
+
 #[test]
 fn the_first_modular_design_is_the_modular_optimum() {
     let cases = [
@@ -619,22 +624,36 @@ fn the_first_modular_design_is_the_modular_optimum() {
         // for a finished fold's structure, then the slot. Under debug
         // assertions every rejection by that structure is checked against the
         // exact free MFE. Designs reach the workers eight at a time.
-        let (rejects, waited, _, _, _) = assert_first_modular(
-            case,
-            Verify {
-                threads: 4,
-                witnesses: 16,
-                witness_stop: 1,
-                witness_promote: true,
-                fold_slots: 1,
-                handoff_batch: 8,
-                fold: ExactFold::SparseCut,
-                ..Verify::folds(4)
-            },
-            DEDUP,
-        );
-        witness_rejects += rejects;
-        deferred += waited;
+        //
+        // A design defers only when a second worker reaches the slot while the
+        // first still holds it, so whether the path is taken at all is a race,
+        // and a host with few cores can run the whole walk without one. The
+        // configuration is therefore repeated until a design defers: the
+        // answer it asserts is checked every time, and `deferred` is what says
+        // the waiting path was among the ones checked. Failing only after
+        // every attempt keeps that guarantee without turning the number of
+        // cores into a verdict.
+        for _ in 0..DEFER_ATTEMPTS {
+            let (rejects, waited, _, _, _) = assert_first_modular(
+                case,
+                Verify {
+                    threads: 4,
+                    witnesses: 16,
+                    witness_stop: 1,
+                    witness_promote: true,
+                    fold_slots: 1,
+                    handoff_batch: 8,
+                    fold: ExactFold::SparseCut,
+                    ..Verify::folds(4)
+                },
+                DEDUP,
+            );
+            witness_rejects += rejects;
+            deferred += waited;
+            if deferred > 0 {
+                break;
+            }
+        }
         // Folds copying spans from recent folds: under debug assertions every
         // verdict is checked against the exact free MFE.
         witness_rejects += assert_first_modular(
@@ -837,7 +856,10 @@ fn the_first_modular_design_is_the_modular_optimum() {
         }
     }
     assert!(witness_rejects > 0, "no design was rejected by a witness");
-    assert!(deferred > 0, "no design waited for a fold slot");
+    assert!(
+        deferred > 0,
+        "no design waited for a fold slot in {DEFER_ATTEMPTS} attempts per case"
+    );
     assert!(window_rejects > 0, "no windowed fold rejected a design");
 }
 

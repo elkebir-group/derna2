@@ -171,6 +171,8 @@ pub struct ShowArgs {
     pub style: FastaStyle,
     /// Also draw the selected points as SVG here.
     pub plot: Option<PathBuf>,
+    /// The plot's title, in place of the record's name.
+    pub plot_title: Option<String>,
 }
 
 /// Help text for `derna show`.
@@ -187,7 +189,8 @@ pub fn help() -> String {
          --tsv                     tab-separated, the same columns\n  \
          --fasta                   the selected points' sequences as FASTA\n\
          {FASTA_STYLE_HELP}  \
-         --plot PATH.svg           also draw the selected points, CAI against MFE\n"
+         --plot PATH.svg           also draw the selected points, CAI against MFE\n  \
+         --plot-title TEXT         the plot's title [default: the record's name]\n"
     )
 }
 
@@ -205,6 +208,7 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<ShowArgs> {
             "--tsv" => args.tsv = true,
             "--fasta" => args.fasta = true,
             "--plot" => args.plot = Some(PathBuf::from(flags.value(&word)?)),
+            "--plot-title" => args.plot_title = Some(flags.value(&word)?),
             flag if flag.starts_with("--") => {
                 return Err(format!("derna show: unknown flag {flag:?} (see --help)").into())
             }
@@ -353,7 +357,11 @@ pub fn plot_of(args: &ShowArgs, rendered: &Rendered) -> String {
         .into_iter()
         .map(|(_, p)| p)
         .collect();
-    crate::plot::svg(&record_name(&rendered.header), &kept)
+    let title = args
+        .plot_title
+        .clone()
+        .unwrap_or_else(|| record_name(&rendered.header));
+    crate::plot::svg(&title, &kept)
 }
 
 /// One line per point, behind a header row naming the columns.

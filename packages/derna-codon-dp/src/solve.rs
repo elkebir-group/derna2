@@ -335,6 +335,39 @@ fn solution_from_trace(inputs: SolutionInputs<'_, '_>) -> Result<BrdSolution, Fo
 // solve_pord
 // ---------------------------------------------------------------------------
 
+/// Callback handed each BRD solve of a sweep and its solve time in seconds.
+pub type OnSolve<'a> = &'a dyn Fn(&BrdSolution, f64);
+
+/// The CAI scale a sweep's λ thresholds are read on.
+///
+/// This solver quantizes CAI as `round(log_CAI · 100)` and DERNA C++ uses raw
+/// `log_CAI`, so the same trade-off sits at different λ in the two, related by
+/// `λ_R = s·λ_C / (1 + (s−1)·λ_C)` for `s = 100`. The sweep's thresholds are
+/// **widths in λ**, so reading them on this solver's λ places a different set
+/// of weights than C++ places from the same numbers — measured as 62 λ values
+/// against 21 at 32 residues, the extra ones subdividing where C++ had already
+/// stopped. A sweep asked to reproduce another solver's weights therefore
+/// converts to that solver's λ before it measures a width or bisects, and
+/// converts back to solve.
+pub const CPP_CAI_SCALE: f64 = 100.0;
+
+/// λ on this solver's scale, as the solver with CAI scale `s` would spell it.
+fn on_cai_scale(lambda: f64, scale: f64) -> f64 {
+    if scale == 1.0 {
+        return lambda;
+    }
+    lambda / (scale - (scale - 1.0) * lambda)
+}
+
+/// The inverse of [`on_cai_scale`]: a λ of the solver with CAI scale `s`, on
+/// this solver's scale.
+fn off_cai_scale(lambda: f64, scale: f64) -> f64 {
+    if scale == 1.0 {
+        return lambda;
+    }
+    scale * lambda / (1.0 + (scale - 1.0) * lambda)
+}
+
 /// Internal sweep context — keeps bisector signatures short.
 struct SweepCtx<'a> {
     protein: &'a str,
@@ -344,6 +377,10 @@ struct SweepCtx<'a> {
     threshold: f64,
     threshold2: f64,
     epsilon: f64,
+    /// The CAI scale the thresholds are read on; `1.0` reads them on this
+    /// solver's own λ. See [`CPP_CAI_SCALE`].
+    cai_scale: f64,
+    on_solve: Option<OnSolve<'a>>,
 }
 
 /// One queued bracket plus the cached endpoint solutions.
@@ -417,6 +454,9 @@ fn solve_at(
             cai: sol.cai,
         });
     }
+    if let Some(on_solve) = ctx.on_solve {
+        on_solve(&sol, elapsed_seconds);
+    }
     memo.insert(lambda, sol.clone());
     Ok(sol)
 }
@@ -438,23 +478,30 @@ fn classify_bracket(bracket: &Bracket, ctx: &SweepCtx<'_>) -> BracketDecision {
     let mfe_differs =
         (bracket.sol_lo.mfe_kcal_mol - bracket.sol_hi.mfe_kcal_mol).abs() > ctx.epsilon;
     let cai_differs = (bracket.sol_lo.cai - bracket.sol_hi.cai).abs() > ctx.epsilon;
-    let width_threshold = if bracket.hi < ctx.threshold {
+    // Both the width and the midpoint are taken on the threshold's own scale,
+    // so the weights land where that solver would put them; only the solve
+    // happens on this one.
+    let (lo, hi) = (
+        on_cai_scale(bracket.lo, ctx.cai_scale),
+        on_cai_scale(bracket.hi, ctx.cai_scale),
+    );
+    let width_threshold = if hi < ctx.threshold {
         ctx.threshold2
     } else {
         ctx.threshold
     };
     let stop_reason = if !solutions_differ(&bracket.sol_lo, &bracket.sol_hi, ctx.epsilon) {
         SweepBracketStopReason::SameSolution
-    } else if (bracket.hi - bracket.lo).abs() > width_threshold {
+    } else if (hi - lo).abs() > width_threshold {
         SweepBracketStopReason::Bisect
-    } else if bracket.hi < ctx.threshold {
+    } else if hi < ctx.threshold {
         SweepBracketStopReason::NearZeroWidthThreshold
     } else {
         SweepBracketStopReason::WidthThreshold
     };
     BracketDecision {
         mid: (stop_reason == SweepBracketStopReason::Bisect)
-            .then_some(0.5 * (bracket.lo + bracket.hi)),
+            .then_some(off_cai_scale(0.5 * (lo + hi), ctx.cai_scale)),
         width_threshold,
         mfe_differs,
         cai_differs,
@@ -583,6 +630,8 @@ fn sweep_ctx<'a>(
         threshold: DEFAULT_THRESHOLD,
         threshold2: DEFAULT_THRESHOLD2,
         epsilon: DEFAULT_EPSILON,
+        cai_scale: 1.0,
+        on_solve: None,
     }
 }
 
@@ -620,8 +669,44 @@ pub fn solve_pord_with_telemetry(
     codon_usage: &CodonUsage,
     options: &BrdOptions,
 ) -> Result<(Vec<ParetoPoint>, PordTelemetry), FoldError> {
+    solve_pord_reporting(protein, codon_usage, options, None)
+}
+
+/// [`solve_pord_with_telemetry`] that also hands each BRD solve to
+/// `on_solve` as soon as it finishes, in discovery order, with its solve
+/// time in seconds. Memo hits are not reported. A caller that persists
+/// these keeps every solve made so far when the sweep is stopped early.
+pub fn solve_pord_reporting(
+    protein: &str,
+    codon_usage: &CodonUsage,
+    options: &BrdOptions,
+    on_solve: Option<OnSolve<'_>>,
+) -> Result<(Vec<ParetoPoint>, PordTelemetry), FoldError> {
+    solve_pord_on_cai_scale(protein, codon_usage, options, on_solve, 1.0)
+}
+
+/// [`solve_pord_reporting`], placing its λ values as the solver with CAI scale
+/// `cai_scale` would place them (see [`CPP_CAI_SCALE`]). `1.0` is
+/// [`solve_pord_reporting`].
+///
+/// Only where the sweep *looks* changes: every solve is this solver's, on this
+/// solver's λ, so each returned point is the same point the same λ gives
+/// without the scale.
+///
+/// # Errors
+///
+/// As [`solve_pord_reporting`].
+pub fn solve_pord_on_cai_scale(
+    protein: &str,
+    codon_usage: &CodonUsage,
+    options: &BrdOptions,
+    on_solve: Option<OnSolve<'_>>,
+    cai_scale: f64,
+) -> Result<(Vec<ParetoPoint>, PordTelemetry), FoldError> {
     let params = Params::load_default().map_err(FoldError::Params)?;
-    let ctx = sweep_ctx(protein, codon_usage, options, &params);
+    let mut ctx = sweep_ctx(protein, codon_usage, options, &params);
+    ctx.on_solve = on_solve;
+    ctx.cai_scale = cai_scale;
     let mut telemetry = PordTelemetry::default();
     let points = {
         let mut telemetry_ref = Some(&mut telemetry);

@@ -6,15 +6,22 @@
 //! `<out>.machine.json` capturing the run's wall-clock and host snapshot,
 //! and a telemetry sidecar with per-λ solve timing.
 //!
+//! `--stream <path>` appends one JSONL record per BRD solve as it finishes
+//! (λ, design, solve time, elapsed time since the sweep started) and syncs
+//! the file after each, so a run stopped at a time limit keeps every solve
+//! it finished.
+//!
 //! [contract]: https://github.com/elkebir-group/derna2/blob/main/packages/derna-codon-dp/scripts/cpp_parity/README.md
 
+use std::cell::RefCell;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
 use derna_codon_dp::{
-    load_codon_usage, solve_pord_with_telemetry, BrdOptions, ParetoPoint, PordTelemetry,
+    load_codon_usage, solve_pord_on_cai_scale, BrdOptions, BrdSolution, ParetoPoint, PordTelemetry,
 };
 
 fn main() {
@@ -30,6 +37,8 @@ struct Args {
     out: PathBuf,
     machine: Option<String>,
     telemetry_out: Option<PathBuf>,
+    stream: Option<PathBuf>,
+    cai_scale: f64,
 }
 
 struct RunSummary<'a> {
@@ -50,8 +59,27 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let t0 = Instant::now();
-    let (points, telemetry) = solve_pord_with_telemetry(&protein, &codon_usage, &options)?;
+    let stream = args
+        .stream
+        .as_deref()
+        .map(SolveStream::create)
+        .transpose()?;
+    let report = |sol: &BrdSolution, solve_s: f64| {
+        if let Some(stream) = &stream {
+            stream.append(sol, solve_s, t0.elapsed().as_secs_f64());
+        }
+    };
+    let (points, telemetry) = solve_pord_on_cai_scale(
+        &protein,
+        &codon_usage,
+        &options,
+        Some(&report),
+        args.cai_scale,
+    )?;
     let elapsed = t0.elapsed().as_secs_f64();
+    if let Some(stream) = stream {
+        stream.finish()?;
+    }
 
     write_jsonl(&args.out, &points)?;
     let telemetry_path = args
@@ -88,6 +116,8 @@ fn parse_args(iter: impl IntoIterator<Item = String>) -> Result<Args, String> {
     let mut out: Option<PathBuf> = None;
     let mut machine: Option<String> = None;
     let mut telemetry_out: Option<PathBuf> = None;
+    let mut stream: Option<PathBuf> = None;
+    let mut cai_scale = 1.0_f64;
     let mut it = iter.into_iter();
     while let Some(flag) = it.next() {
         match flag.as_str() {
@@ -99,6 +129,17 @@ fn parse_args(iter: impl IntoIterator<Item = String>) -> Result<Args, String> {
             "--machine" => machine = Some(require_value(&mut it, "--machine")?),
             "--telemetry-out" => {
                 telemetry_out = Some(PathBuf::from(require_value(&mut it, "--telemetry-out")?));
+            }
+            "--stream" => stream = Some(PathBuf::from(require_value(&mut it, "--stream")?)),
+            "--cai-scale" => {
+                cai_scale = require_value(&mut it, "--cai-scale")?
+                    .parse()
+                    .map_err(|e| format!("--cai-scale parse: {e}"))?;
+                if !(cai_scale >= 1.0 && cai_scale.is_finite()) {
+                    return Err(format!(
+                        "--cai-scale must be a finite number at least 1; got {cai_scale}"
+                    ));
+                }
             }
             "--help" | "-h" => {
                 print_usage();
@@ -113,6 +154,8 @@ fn parse_args(iter: impl IntoIterator<Item = String>) -> Result<Args, String> {
         out: out.ok_or("--out is required")?,
         machine,
         telemetry_out,
+        stream,
+        cai_scale,
     })
 }
 
@@ -123,12 +166,71 @@ fn require_value(it: &mut impl Iterator<Item = String>, flag: &str) -> Result<St
 fn print_usage() {
     eprintln!(
         "run_glpe78 --fasta <path> --codon-usage <path> --out <path>\n\
-         \x20          [--machine <name>] [--telemetry-out <path>]\n\
+         \x20          [--machine <name>] [--telemetry-out <path>] [--stream <path>]\n\
+         \x20          [--cai-scale <s>]\n\
          \n\
          Runs solve_pord on the protein in <fasta> and writes JSONL hull records\n\
          to <out>. Emits <out>.machine.json and <out-stem>.telemetry.json sidecars\n\
-         with wall-clock, host snapshot, and per-λ solve timing."
+         with wall-clock, host snapshot, and per-λ solve timing.\n\
+         \n\
+         --cai-scale <s> places the sweep's λ values where a solver quantizing\n\
+         CAI on scale <s> would place them: this solver uses 100x C++'s CAI\n\
+         scale, so the same thresholds subdivide further on its own λ than on\n\
+         C++'s. Pass 100 to sweep the weights DERNA C++ would sweep. Every\n\
+         solve is this solver's either way; only the weights move."
     );
+}
+
+// ---------------------------------------------------------------------------
+// Per-solve stream
+// ---------------------------------------------------------------------------
+
+/// Append-only JSONL record of every BRD solve, synced line by line.
+///
+/// The sweep reports through a shared reference, so the file sits behind a
+/// `RefCell`. A write error is kept rather than raised mid-sweep and is
+/// returned by [`SolveStream::finish`].
+struct SolveStream {
+    file: RefCell<fs::File>,
+    error: RefCell<Option<std::io::Error>>,
+}
+
+impl SolveStream {
+    fn create(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+        Ok(Self {
+            file: RefCell::new(fs::File::create(path)?),
+            error: RefCell::new(None),
+        })
+    }
+
+    fn append(&self, sol: &BrdSolution, solve_s: f64, elapsed_s: f64) {
+        if self.error.borrow().is_some() {
+            return;
+        }
+        let record = serde_json::json!({
+            "lambda": sol.lambda_,
+            "mfe_kcal_mol": sol.mfe_kcal_mol,
+            "cai": sol.cai,
+            "rna_seq": sol.rna_seq,
+            "structure": sol.structure,
+            "solve_s": solve_s,
+            "elapsed_s": elapsed_s,
+        });
+        let mut file = self.file.borrow_mut();
+        let written = writeln!(file, "{record}").and_then(|()| file.sync_data());
+        if let Err(e) = written {
+            *self.error.borrow_mut() = Some(e);
+        }
+    }
+
+    fn finish(self) -> Result<(), std::io::Error> {
+        self.error.into_inner().map_or(Ok(()), Err)
+    }
 }
 
 // ---------------------------------------------------------------------------

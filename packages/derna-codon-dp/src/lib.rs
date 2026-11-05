@@ -10,6 +10,9 @@
 //! - [`solve_brd`] — BRD solver at one lambda.
 //! - [`solve_pord`] — PORD Pareto-front solver (λ-sweep convex hull).
 //! - [`solve_pord_with_telemetry`] — PORD solver plus per-λ timing.
+//! - [`solve_pord_reporting`] — PORD solver that reports each solve as it finishes.
+//! - [`solve_pord_on_cai_scale`] — the same, placing its λ values as a solver
+//!   with another CAI scale would (see [`CPP_CAI_SCALE`]).
 //! - [`CodonUsage`] / [`load_codon_usage`] — Kazusa CSV loader.
 //! - [`BrdOptions`] — solver options (`dangling_5_prime`, `codon_mask`).
 //! - [`BrdSolution`] / [`ParetoPoint`] — result types.
@@ -32,7 +35,10 @@ pub(crate) mod recurrences;
 pub(crate) mod solve;
 
 pub use codon_usage::{load_codon_usage, CodonUsage};
-pub use solve::{solve_brd, solve_pord, solve_pord_with_telemetry};
+pub use solve::{
+    solve_brd, solve_pord, solve_pord_on_cai_scale, solve_pord_reporting,
+    solve_pord_with_telemetry, OnSolve, CPP_CAI_SCALE,
+};
 
 use thiserror::Error;
 

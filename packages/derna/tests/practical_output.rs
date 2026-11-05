@@ -323,6 +323,52 @@ fn the_plot_is_xml_with_one_mark_per_selected_point() {
     assert!(broken.is_err());
 }
 
+/// `--plot-title` replaces the record's name in the plot, and the default
+/// still names the record. The title is escaped like any other text.
+#[test]
+fn the_plot_title_is_the_given_one_or_the_records_name() {
+    let dir = scratch_dir("plot-title");
+    let f = dir.join("front.jsonl");
+    front(&f, &[]);
+
+    let default_svg = dir.join("default.svg");
+    derna_cli::show::run(
+        &derna_cli::show::parse(words(&[s(&f), "--plot", s(&default_svg)])).unwrap(),
+    )
+    .unwrap();
+    let default_xml = std::fs::read_to_string(&default_svg).unwrap();
+    let header = &lines(&f)[0];
+    let record = derna_cli::show::record_name(header);
+    assert!(
+        default_xml.contains(&format!(">{record}</text>")),
+        "the default title names the record: {record:?}"
+    );
+
+    let titled_svg = dir.join("titled.svg");
+    let title = "Pareto front <GLPE & UTRs>";
+    derna_cli::show::run(
+        &derna_cli::show::parse(words(&[
+            s(&f),
+            "--plot",
+            s(&titled_svg),
+            "--plot-title",
+            title,
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+    let titled_xml = std::fs::read_to_string(&titled_svg).unwrap();
+    assert_well_formed(&titled_xml);
+    assert!(
+        titled_xml.contains("Pareto front &lt;GLPE &amp; UTRs&gt;"),
+        "the given title is drawn, escaped: {titled_xml:?}"
+    );
+    assert!(
+        !titled_xml.contains(&format!(">{record}</text>")),
+        "the record's name is replaced, not added to"
+    );
+}
+
 #[test]
 fn a_run_ends_with_the_table_of_what_it_wrote_on_stderr() {
     let dir = scratch_dir("table");

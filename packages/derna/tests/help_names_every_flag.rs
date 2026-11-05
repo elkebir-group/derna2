@@ -70,23 +70,32 @@ const FRONT_FLAGS: [&str; 36] = [
     "--fold-threads",
 ];
 
-/// Every flag `derna check` accepts. The molecule's flags are not among
-/// them — the result file's header carries those — and neither is
-/// `--deterministic`, which a certification already is at any thread count.
-const CHECK_FLAGS: [&str; 6] = [
+/// Every flag `derna check` accepts. `--deterministic` is not among them, which a
+/// certification already is at any thread count. The molecule's flags are accepted
+/// only beside `--designs`, which gives the command sequences with no header to read
+/// the molecule from; with a result file they are refused, because its header carries
+/// them.
+const CHECK_FLAGS: [&str; 13] = [
     "--quiet",
     "--threads",
     "--beam-first",
     "--out",
     "--force",
     "--checkpoint",
+    "--designs",
+    "--protein",
+    "--utr5",
+    "--utr3",
+    "--stop",
+    "--forbid",
+    "--codon-usage",
 ];
 
 /// Every flag `derna pool` accepts.
 const POOL_FLAGS: [&str; 3] = ["--out", "--force", "--quiet"];
 
 /// Every flag `derna show` accepts.
-const SHOW_FLAGS: [&str; 12] = [
+const SHOW_FLAGS: [&str; 13] = [
     "--sequences",
     "--min-cai",
     "--max-mfe",
@@ -99,6 +108,7 @@ const SHOW_FLAGS: [&str; 12] = [
     "--dna",
     "--cds-only",
     "--plot",
+    "--plot-title",
 ];
 
 /// Every flag `derna pick` accepts.
