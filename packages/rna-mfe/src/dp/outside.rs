@@ -1,4 +1,4 @@
-//! Outside values of the Zuker tables: for every pair `(i, j)`, the least
+//! Outside values of the MFE tables: for every pair `(i, j)`, the least
 //! free energy of a whole-sequence structure that contains it.
 //!
 //! The fill computes `V[i, j]`, the best energy *inside* a closed pair. The

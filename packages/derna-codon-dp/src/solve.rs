@@ -1,8 +1,7 @@
 //! Top-level codon-DP solvers.
 //!
 //! Houses [`solve_brd`] (BRD at one λ) and [`solve_pord`] (the λ-sweep
-//! Pareto-front wrapper). Mirrors v1's `derna.codon_dp._dp.solve_brd`
-//! and `derna.codon_dp._pord.solve_pord`.
+//! Pareto-front wrapper).
 //!
 //! Determinism is load-bearing: two runs of [`solve_pord`] with
 //! identical args must produce the same `Vec<ParetoPoint>` bit-for-bit.
@@ -25,11 +24,11 @@ use crate::{
     SweepBracketStopReason, SweepBracketTelemetry,
 };
 
-/// DERNA C++'s `lambda_sweep_2` outer width threshold.
+/// The λ-sweep's outer bracket-width threshold.
 pub(crate) const DEFAULT_THRESHOLD: f64 = 0.0025;
-/// DERNA C++'s `lambda_sweep_2` near-zero width threshold.
+/// The λ-sweep's bracket-width threshold near the endpoints.
 pub(crate) const DEFAULT_THRESHOLD2: f64 = 0.00075;
-/// DERNA C++'s `lambda_sweep_2` epsilon — opens the sweep at `[ε, 1−ε]`
+/// The λ-sweep's epsilon — opens the sweep at `[ε, 1−ε]`
 /// rather than `[0, 1]` to avoid the degenerate endpoints.
 pub(crate) const DEFAULT_EPSILON: f64 = 1e-5;
 
@@ -340,16 +339,16 @@ pub type OnSolve<'a> = &'a dyn Fn(&BrdSolution, f64);
 
 /// The CAI scale a sweep's λ thresholds are read on.
 ///
-/// This solver quantizes CAI as `round(log_CAI · 100)` and DERNA C++ uses raw
-/// `log_CAI`, so the same trade-off sits at different λ in the two, related by
-/// `λ_R = s·λ_C / (1 + (s−1)·λ_C)` for `s = 100`. The sweep's thresholds are
-/// **widths in λ**, so reading them on this solver's λ places a different set
-/// of weights than C++ places from the same numbers — measured as 62 λ values
-/// against 21 at 32 residues, the extra ones subdividing where C++ had already
-/// stopped. A sweep asked to reproduce another solver's weights therefore
-/// converts to that solver's λ before it measures a width or bisects, and
-/// converts back to solve.
-pub const CPP_CAI_SCALE: f64 = 100.0;
+/// This solver quantizes CAI as `round(log_CAI · 100)`, and a solver on raw
+/// `log_CAI` sees the same trade-off at a different λ, related by
+/// `λ_q = s·λ_raw / (1 + (s−1)·λ_raw)` for `s = 100`. The sweep's thresholds
+/// are **widths in λ**, so reading them on this solver's λ places a different
+/// set of weights than the raw-scale solver places from the same numbers —
+/// measured as 62 λ values against 21 at 32 residues, the extra ones
+/// subdividing where the raw-scale sweep had already stopped. A sweep asked to
+/// place another solver's weights therefore converts to that solver's λ before
+/// it measures a width or bisects, and converts back to solve.
+pub const REFERENCE_CAI_SCALE: f64 = 100.0;
 
 /// λ on this solver's scale, as the solver with CAI scale `s` would spell it.
 fn on_cai_scale(lambda: f64, scale: f64) -> f64 {
@@ -378,7 +377,7 @@ struct SweepCtx<'a> {
     threshold2: f64,
     epsilon: f64,
     /// The CAI scale the thresholds are read on; `1.0` reads them on this
-    /// solver's own λ. See [`CPP_CAI_SCALE`].
+    /// solver's own λ. See [`REFERENCE_CAI_SCALE`].
     cai_scale: f64,
     on_solve: Option<OnSolve<'a>>,
 }
@@ -646,7 +645,7 @@ fn run_sweep_points(
 }
 
 /// PORD solver: returns the convex hull of `(MFE, CAI)` for the given
-/// protein via DERNA C++'s recursive λ-bisection.
+/// protein via recursive λ-bisection.
 ///
 /// Output is sorted by `(mfe_kcal_mol, cai, rna_seq)` ascending. The
 /// sweep is deterministic — identical inputs produce identical
@@ -686,7 +685,7 @@ pub fn solve_pord_reporting(
 }
 
 /// [`solve_pord_reporting`], placing its λ values as the solver with CAI scale
-/// `cai_scale` would place them (see [`CPP_CAI_SCALE`]). `1.0` is
+/// `cai_scale` would place them (see [`REFERENCE_CAI_SCALE`]). `1.0` is
 /// [`solve_pord_reporting`].
 ///
 /// Only where the sweep *looks* changes: every solve is this solver's, on this

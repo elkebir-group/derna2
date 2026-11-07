@@ -17,14 +17,19 @@ name = "derna"
 path = "src/main.rs"
 
 [dependencies]
-derna-lib = { path = "../derna-lib" }
+derna-lib = { path = "../derna-lib", default-features = false }
 derna-codon-dp = { path = "../derna-codon-dp" }
-tikv-jemallocator = { version = "0.6", optional = true }
 # `float_roundtrip`: `front --resume` and `front --front-from` read back a
 # front this binary wrote, so each number must be read as it was written. The
 # default parser is fast rather than round-tripping, and it read one fixture's
 # `gap` a bit short of what the binary emitted.
 serde_json = { version = "1", features = ["float_roundtrip"] }
+
+# `--features jemalloc` installs it as the global allocator. Available where
+# jemalloc is: it builds from C, and the memory budget it serves reads
+# resident memory from `/proc`.
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
+tikv-jemallocator = { version = "0.6", optional = true }
 
 [features]
 # `jemalloc`: run on jemalloc rather than the system allocator. The motif gap
@@ -34,3 +39,4 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 # mirror of derna-lib's `system-alloc`, which switches its probes the other
 # way.
 jemalloc = ["dep:tikv-jemallocator"]
+

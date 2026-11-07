@@ -9,11 +9,11 @@ fn default_tables() -> (CodonUsage, derna_codon_dp::cai::CaiTables) {
 }
 
 // ---------------------------------------------------------------------------
-// max_cai_pos — must match C++ default.cpp:554 exactly
+// max_cai_pos — the most adapted synonym index per amino acid
 // ---------------------------------------------------------------------------
 
 #[test]
-fn max_cai_pos_matches_cpp() {
+fn max_cai_pos_matches_reference() {
     let (_, tables) = default_tables();
     assert_eq!(
         tables.max_cai_pos[..STOP],
@@ -181,11 +181,11 @@ fn score_cai_wrong_length_returns_error() {
 }
 
 // ---------------------------------------------------------------------------
-// Parity vs Python v1 — exact f64 on standard_cai and score_cai
+// Parity vs the reference dump — exact f64 on standard_cai and score_cai
 // ---------------------------------------------------------------------------
 
 #[test]
-fn parity_vs_python_v1() {
+fn matches_reference_cai_dump() {
     use serde::Deserialize;
 
     #[derive(Deserialize)]
@@ -201,8 +201,8 @@ fn parity_vs_python_v1() {
         test_cases: Vec<TestCase>,
     }
 
-    let json_str = include_str!("data/v1_cai_dump.json");
-    let dump: Dump = serde_json::from_str(json_str).expect("parse v1 cai dump");
+    let json_str = include_str!("data/reference_cai_dump.json");
+    let dump: Dump = serde_json::from_str(json_str).expect("parse reference cai dump");
     let (_, tables) = default_tables();
 
     for (i, tc) in dump.test_cases.iter().enumerate() {
@@ -210,12 +210,12 @@ fn parity_vs_python_v1() {
         let rust_std = standard_cai(&tc.rna, &tc.protein, &tables.log_cai).unwrap();
         assert_eq!(
             rust_score, tc.score_cai,
-            "test_case[{i}]: score_cai mismatch: rust={rust_score} py={}",
+            "test_case[{i}]: score_cai mismatch: rust={rust_score} reference={}",
             tc.score_cai
         );
         assert_eq!(
             rust_std, tc.standard_cai,
-            "test_case[{i}]: standard_cai mismatch: rust={rust_std} py={}",
+            "test_case[{i}]: standard_cai mismatch: rust={rust_std} reference={}",
             tc.standard_cai
         );
     }

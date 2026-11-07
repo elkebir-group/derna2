@@ -119,8 +119,8 @@ pub(crate) struct OutsideScan<'a> {
     /// its corners and the two asserted equal. A split that is wrong only at a
     /// consumer that never wins its cell leaves every cell's value unchanged,
     /// so a cell-by-cell oracle cannot see it; this check can, and it runs at
-    /// lengths no oracle reaches. Set by `DERNA_SPLIT_VALIDATE`, or by the
-    /// caller of [`Self::cost_to_go`].
+    /// lengths no oracle reaches. Set by a development build that asks
+    /// (`Setting::SplitValidate`), or by the caller of [`Self::cost_to_go`].
     validate_split: bool,
     /// Which closing pairs' `1×n` loops score the same at every corner.
     one_by_n: OneByNRows,
@@ -219,7 +219,8 @@ impl<'a> OutsideScan<'a> {
             single_max_len,
             record,
             threads: threads.max(1),
-            validate_split: std::env::var_os("DERNA_SPLIT_VALIDATE").is_some(),
+            validate_split: crate::dev_env::var_os(crate::dev_env::Setting::SplitValidate)
+                .is_some(),
             one_by_n: OneByNRows::of(params),
             id: PASS_IDS.fetch_add(1, Ordering::Relaxed),
             tally: SharedTally::default(),
@@ -264,8 +265,8 @@ impl<'a> OutsideScan<'a> {
     /// The cost to go of every cell alone, without the edge marginals: the
     /// backward sweep and nothing after it, with the single-branch consumers of
     /// each position's closed pairs spread over `threads` workers. `validate`
-    /// checks every split loop against its corners, as `DERNA_SPLIT_VALIDATE`
-    /// does.
+    /// checks every split loop against its corners, as
+    /// [`Self::validate_split`] does.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn cost_to_go(
         params: &'a Params,
@@ -1834,8 +1835,8 @@ struct Corner {
     pieces: [Option<Piece>; 3],
 }
 
-/// Seconds per phase of the pass, reported to stderr when
-/// `DERNA_OUTSIDE_PHASES` is set and not measured otherwise.
+/// Seconds per phase of the pass, reported to stderr when a development build
+/// asks (`Setting::OutsidePhases`) and not measured otherwise.
 struct Phases {
     on: bool,
     spent: Vec<(&'static str, f64)>,
@@ -1844,7 +1845,7 @@ struct Phases {
 impl Phases {
     fn from_env() -> Self {
         Self {
-            on: std::env::var_os("DERNA_OUTSIDE_PHASES").is_some(),
+            on: crate::dev_env::var_os(crate::dev_env::Setting::OutsidePhases).is_some(),
             spent: Vec::new(),
         }
     }

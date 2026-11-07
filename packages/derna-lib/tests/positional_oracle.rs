@@ -10,7 +10,7 @@
 //!
 //! # Why the oracle re-states the alphabet
 //!
-//! [`Want`] below writes out ViennaRNA's constraint semantics again rather than
+//! [`Want`] below writes out the constraint alphabet's semantics again rather than
 //! consulting the crate's own `Mark`. A differential that shares the definition
 //! with what it checks cannot see a misreading of it — and the `<` / `>`
 //! directions are exactly the kind of thing that is misread, since `<` names a
@@ -42,8 +42,8 @@ const LAMBDAS: [f64; 3] = [0.0001, 0.5, 0.99];
 
 /// What one position's constraint character demands of a structure.
 ///
-/// Re-stated from ViennaRNA's `-C` definitions rather than imported, so this
-/// oracle disagrees with an implementation that misread them.
+/// Re-stated from the constraint alphabet's definitions rather than imported, so
+/// this oracle disagrees with an implementation that misread them.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Want {
     /// `.`
@@ -543,8 +543,8 @@ fn required_pairs_match_brute_force() {
 }
 
 /// `|` requires pairing and forbids nothing, and `<` / `>` add the direction.
-/// The directions are the load-bearing case: the oracle reads them from
-/// ViennaRNA's definitions, so an implementation that swapped them fails here.
+/// The directions are the load-bearing case: the oracle reads them from the
+/// alphabet's definitions, so an implementation that swapped them fails here.
 #[test]
 fn bar_and_angle_marks_match_brute_force() {
     for case in [

@@ -5,6 +5,8 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
+use derna_lib::Params;
+
 use crate::Result;
 
 /// The remaining command-line words.
@@ -56,9 +58,13 @@ pub struct Shared {
     pub threads: Option<usize>,
     pub deterministic: bool,
     /// `--beam-first B`: refute a point with a beam fold of width `B` before
-    /// folding it exactly.
+    /// folding it exactly. Always `None` without the `beam-first` feature,
+    /// where no flag sets it and the check folds exactly throughout.
     pub beam_first: Option<usize>,
     pub out: Option<PathBuf>,
+    /// `--params PATH`: energy parameters loaded from a file in place of the
+    /// built-in table.
+    pub params: Option<PathBuf>,
     pub force: bool,
     /// Do not print the table of what the run wrote.
     pub quiet: bool,
@@ -82,16 +88,13 @@ impl Shared {
                 }
                 return set_once(flag, &mut self.threads, n).map(|()| true);
             }
-            "--beam-first" => {
-                let width: usize = flags.parsed(flag)?;
-                if width == 0 {
-                    return Err("--beam-first needs a width of at least 1".into());
-                }
-                return set_once(flag, &mut self.beam_first, width).map(|()| true);
-            }
             "--out" => {
                 let v = PathBuf::from(flags.value(flag)?);
                 return set_once(flag, &mut self.out, v).map(|()| true);
+            }
+            "--params" => {
+                let v = PathBuf::from(flags.value(flag)?);
+                return set_once(flag, &mut self.params, v).map(|()| true);
             }
             "--deterministic" => return Ok(set_flag(&mut self.deterministic)),
             "--force" => return Ok(set_flag(&mut self.force)),
@@ -101,6 +104,15 @@ impl Shared {
         let v = flags.value(flag)?;
         set_once(flag, slot, v)?;
         Ok(true)
+    }
+
+    /// The energy parameters a run folds with: the file `--params` names, or
+    /// the built-in table.
+    pub fn energy_params(&self) -> Result<Params> {
+        Ok(match &self.params {
+            Some(path) => Params::from_file(path)?,
+            None => Params::load_default()?,
+        })
     }
 
     /// Worker threads as written; 1 unless given.
@@ -153,6 +165,8 @@ Input
   --protein PATH|SEQ|-      protein: a one-record FASTA file, a literal
                             amino-acid sequence, or `-` for stdin
   --codon-usage human|PATH  codon usage for CAI [default: human]
+  --params PATH             load energy parameters from a file [default:
+                            the built-in Turner 2004 table]
 
 UTRs and constraint
   --utr5 PATH|SEQ|-         fixed 5′ UTR: a one-record FASTA file, a literal
@@ -186,6 +200,11 @@ Execution
   --quiet                   do not print the table of what was written to
                             stderr at the end of the run
 ";
+
+/// [`shared_help`] for a build with no beam folder.
+pub fn shared_help() -> String {
+    shared_help_without_check()
+}
 
 /// The shared flags as a command without a check should list them.
 ///

@@ -2,11 +2,11 @@
   "cai": 0.990816,
   "dangling_5_prime": false,
   "lambda_": 0.10157046875,
-  "lambda_cpp": 0.001129256842904195,
+  "lambda_raw": 0.001129256842904195,
   "mfe_kcal_mol": -103.1,
   "name": "glpe78_lambda_1016",
   "protein": "MYGKIIFVLLLSGIVSISASSTTGVAMHTSTSSSVTKSYISSQTNGITLINWWAMARVIFEVMLVVVGMIILISYCIR",
   "rna_seq": "AUGUACGGCAAGAUCAUCUUCGUGCUGCUGCUGAGCGGCAUCGUGUCCAUCAGCGCCAGCAGCACCACCGGCGUGGCCAUGCACACCUCCACCAGCAGCAGCGUGACCAAGAGCUACAUCAGCUCUCAGACCAAUGGCAUCACCCUGAUCAACUGGUGGGCCAUGGCCAGGGUGAUCUUCGAGGUGAUGCUGGUGGUGGUGGGCAUGAUCAUCCUGAUCAGCUACUGCAUCAGG",
-  "source": "derna-cpp",
+  "source": "reference",
   "structure": "..((((((..(((...)))))))))((((((...))))))((((((((((((.((((((((.((((.(((.(.((((((((......((((((((...(((.(((((((((((((.....))))))........)))..)))).))).....)))))))).)))))))).).))......).)))).)))))))).))))))))))))....(((((((((...))).))))))"
 }

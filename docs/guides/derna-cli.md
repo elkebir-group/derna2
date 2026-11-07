@@ -153,6 +153,14 @@ of them.
 `amino_acid,codon,fraction` format. A result file embeds the whole table it was
 scored against, so a reader never has to guess which one a run used.
 
+`--params PATH` loads energy parameters from a file, on `design`, `front` and
+`check`. Without it every fold uses the built-in Turner 2004 table. The file
+is either in the built-in table's own layout or a ViennaRNA `.par` parameter
+file; of a `.par` file, the free energies at 37 °C are read and the
+enthalpy, dangle and exterior/multiloop mismatch sections are passed over. A
+result file does not record which parameters it was folded with, so a `check`
+of a run made with `--params` takes the same `--params`.
+
 ### Several proteins at once
 
 `--protein` takes a FASTA file of more than one record on `design` and
@@ -235,16 +243,6 @@ Under any constraint every design carries that check — `free_mfe`,
 `free_structure`, `gap` and `modular`, plus the `violations` its
 free fold forms. `derna design` **reports** the check and never alters the
 design.
-
-`--beam-first B` makes a refutation cheap: a beam fold of width `B` runs first,
-and a structure it finds below the constrained MFE proves a positive gap
-without the **free** fold. Such a point reports `free_mfe_at_most` and
-`gap_at_least` instead, so a bound is never mistaken for a value. What the
-beam's structure is compared against has to be the sequence's own constrained
-MFE rather than the energy the point arrived with, so that energy is folded and
-checked before a refutation is taken — and kept either way, since the exact
-verdict is then the free fold against it. A point under a soft table is never
-refuted this way, a penalized pair not being one the constraint excludes.
 
 ## Sequence constraints
 
@@ -465,10 +463,10 @@ The header line (`"record": "header"`):
 | `stop` | the given stop codon, `"free"` when the search chose it per design, or `null` for none |
 | `forbid`, `access` | the forbidden classes as a list, and `[up, down]` or `null` |
 | `codon_usage` | `{source, table}` — the whole table, so CAI is scored against exactly what the run used |
-| `threads`, `deterministic`, `beam_first` | what ran, not what was asked: a run under `--deterministic` records 1 |
+| `threads`, `deterministic` | what ran, not what was asked: a run under `--deterministic` records 1 |
 | `motifs`, `motif_window`, `pins` | the sequence constraints the run was under; absent when it had none |
 | `motifs_in_fixed_flanks` | the occurrences no codon assignment could remove, which the run warned about |
-| `wall_s`, `peak_rss_kb` | the run's own cost — the memory figure is the process's high-water mark (`VmHWM`), not a sample, so it is a true peak |
+| `wall_s`, `peak_rss_kb` | the run's own cost — the memory figure is the process's peak resident size, not a sample, so it is a true peak. It is `null` where the platform reports no such figure, which is not a reading of zero |
 | `lambdas` (design) · `range`, `pass_grid`, `points`, `gaps` (front) | the command's own inputs and shape |
 
 A point line (`"record": "point"`), with energies in kcal/mol:
@@ -482,7 +480,6 @@ A point line (`"record": "point"`), with energies in kcal/mol:
 | `on_hull` | whether a weight sweep can reach this point |
 | `lambda` | the weight it was asked at — `design` results only |
 | `free_mfe`, `free_structure`, `gap`, `modular`, `violations` | the check, under any constraint. `gap` = `mfe − free_mfe` ≥ 0, and `violations` are 1-based pairs |
-| `free_mfe_at_most`, `gap_at_least` | **in place of** the exact pair, when `--beam-first` refuted the point |
 | `status` | the verdict of whichever command wrote the file: `certified` or `provisional` from a modular `front` (see [that section](#the-modular-front)), `certified` from `check` for a point that passed. A check replaces the input's, so one file's column carries one sense |
 | `gc`, `gc_cds`, `u_cds`, `gc_window_min`, `gc_window_max`, `max_homopolymer` | the [sequence metrics](#sequence-metrics), on every point every command writes |
 
@@ -570,7 +567,8 @@ outgrows the memory cap is left open rather than run until the host kills it.
 Those points are exact, because each gap is solved between two hull points
 that are front points themselves, so nothing an unsolved box holds can
 dominate one of them. The header says `complete`, `stopped_by` (`time`,
-`memory` or `null`) and lists each box left `open` as its two hull points.
+`memory`, `folds` or `null`) and lists each box left `open` as its two hull
+points.
 A front read back with `--front-from` is not walked, so a budget is refused
 there, and a front whose own header says it is incomplete is refused as
 something to read: the search built on it would certify against a front still
@@ -582,6 +580,20 @@ is a plain front of the same molecule, flanks, constraint and codon table. A
 motif front is refused with its reason: it is a different front, and
 `--motif --resume` continues that one.
 
+**`--max-gap-folds N` is a stop that does not depend on the machine.** It ends
+the walk after `N` gap folds, with or without `--motif`, and writes what it
+has settled exactly as a budget does: the header says `stopped_by: folds` and
+records each box it left `open`, and a box whose gap was solved part way
+carries the energy its gap is solved up to (`mfe_from`) and the best
+adaptation there (`cai_log_floor`), so `--resume` folds only the rest. Where
+`--max-secs` stops after a span of time, and so at a different place on a
+faster or a busier host, this stops after a fixed amount of work, whatever
+the host's speed. That makes it the way to split a
+long front into resumable pieces of a known size, each run taking the last
+one's file with `--resume` and the same `--max-gap-folds`, until the header
+says `complete`. It is refused with `--modular` and with `--front-from`, where
+the walk is not what the run returns.
+
 A resume is for a run that was killed, not a way to make a walk cheaper. It
 folds neither end of the hull, and that is all it saves: the completion credit
 and the pass grid are built again, because every gap fold reads them. Measured
@@ -590,6 +602,26 @@ threads, those took 73 s of a 134 s walk — so a budget below 73 s returns no p
 since no gap can start before the grid is pooled, and resuming from such a
 file costs about as much as starting over. A stop at 114 s resumed in 97 s:
 the same front, and 210 s of work against 134 s for one run.
+
+**`--max-rss-gb` is Linux-only, and the memory it stands for is unguarded
+elsewhere.** It needs the process's current resident size, which comes from
+`/proc`; where that cannot be read the limit would never bind, so the flag is
+refused outright rather than accepted as a cap that does nothing:
+
+```text
+error: derna front: --max-rss-gb needs the process's resident memory, which
+this platform does not report; the limit would never bind
+```
+
+The quieter half is the worker count. A walk reads the memory available to it
+and takes fewer workers where a round of folds would not fit; off Linux that
+reading is absent too, and the walk falls back to one worker per core without
+saying so. So on macOS a long walk has neither the cap nor the climbdown, and
+only the first absence is reported. Bound such a run with `--max-secs` and
+`--threads`, and size it with the memory figures under
+[What a front costs](#what-a-front-costs) — `35 MB + 0.04 × residues²` for the
+plain front — rather than relying on the run to stop itself. `--max-secs` has
+no such dependency and binds on every platform.
 
 **`--checkpoint` survives a kill** here as it does for the motif front (see
 [The motif-excluded front](#the-motif-excluded-front)): `--out` is replaced
@@ -918,8 +950,8 @@ and its violating pairs. The verdict is this run's: a check replaces whatever
 verdict fields the input carried, `status` among them, so a point that fails
 here carries no `status` even if the front it came from called it certified —
 that is [the front's own sense](#the-modular-front) of the word and
-a different claim. `--beam-first` works here too, and a result produced with no
-constraint is refused — no point can violate a constraint that forbids nothing.
+a different claim. A result produced with no constraint is refused — no point
+can violate a constraint that forbids nothing.
 
 `--threads N` certifies N points at a time. Each point's check reads only its
 own sequence and the results are written in the input's order, so the output
@@ -1029,8 +1061,8 @@ The pool holds `N` whole-molecule fold tables per worker, about `6 n²` bytes
 each, so memory grows with `N × threads × n²` — at 8 threads and 3,322 nt a
 pool of 16 is about 9 GiB. Wall-clock time was not shown to improve: on a
 loaded host it moved both ways between arms. The default is 0, which folds
-every point from scratch. The pool is refused with `--no-check` and
-`--beam-first`, where the check it belongs to does not run.
+every point from scratch. The pool is refused with `--no-check`, where the
+check it belongs to does not run.
 
 A plain walk likewise saves its progress into `--out` by default wherever it is
 a file, so a run killed from outside leaves a resumable front rather than

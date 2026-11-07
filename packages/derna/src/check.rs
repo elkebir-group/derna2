@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
 
-use derna_lib::{Design, Params};
+use derna_lib::Design;
 use serde_json::{json, Map, Value};
 
 use crate::args::{Flags, Shared};
@@ -46,6 +46,11 @@ pub struct CheckArgs {
 }
 
 /// Help text for `derna check`.
+///
+/// `--beam-first` is named only by a build that has it. A help text that
+/// advertises a flag the parser refuses sends a reader to write a command line
+/// that fails, which is the same defect as an undocumented flag pointing the
+/// other way.
 pub fn help() -> String {
     "derna check — certify a result's points against their own free folds\n\n\
      Usage: derna check RESULT.jsonl|- [options]\n\n\
@@ -55,8 +60,8 @@ pub fn help() -> String {
      Execution\n  \
      --threads N               certify this many points at a time; the result\n                            \
      is the same at any count [default: 1]\n  \
-     --beam-first B            refute a point with a beam fold of width B\n                            \
-     before folding it exactly [default: off]\n  \
+     --params PATH             load energy parameters from a file [default:\n                            \
+     the built-in Turner 2004 table]\n  \
      --out PATH                JSONL result [default: stdout]\n  \
      --force                   overwrite an existing --out\n  \
      --quiet                   do not print the table of what was written to\n                            \
@@ -255,7 +260,7 @@ pub fn certify_with(
     beam_first: Option<usize>,
     threads: usize,
 ) -> Result<Vec<(Value, Checked)>> {
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let table = m.table();
     let designs: Vec<Design> = points.iter().map(design_of).collect::<Result<_>>()?;
     let cds = m.cds();
@@ -316,7 +321,7 @@ pub fn certify_reusing(
     threads: usize,
     keep: usize,
 ) -> Result<Vec<(Value, Checked)>> {
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let table = m.table();
     let designs: Vec<Design> = points.iter().map(design_of).collect::<Result<_>>()?;
     let cds = m.cds();
@@ -523,7 +528,7 @@ fn certify_lines(
     done: &HashMap<String, Value>,
     log: Option<&ProgressLog>,
 ) -> Result<Vec<Value>> {
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let table = m.table();
     let designs: Vec<Design> = points.iter().map(design_of).collect::<Result<_>>()?;
     let cds = m.cds();
@@ -590,7 +595,7 @@ pub fn run(args: &CheckArgs) -> Result<()> {
     let (m, header, points) = match &args.designs {
         Some(path) => {
             let m = Molecule::resolve(&args.shared)?;
-            let points = given::points(&Params::load_default()?, &m, path)?;
+            let points = given::points(&m.params, &m, path)?;
             let header = json!({
                 "command": "designs",
                 "designs": path.display().to_string(),
@@ -600,11 +605,9 @@ pub fn run(args: &CheckArgs) -> Result<()> {
         }
         None => {
             let read = show::read(args.input.as_deref())?;
-            (
-                Molecule::from_header(&read.header)?,
-                read.header,
-                read.points,
-            )
+            let mut m = Molecule::from_header(&read.header)?;
+            m.params = args.shared.energy_params()?;
+            (m, read.header, read.points)
         }
     };
     if m.constraint.is_inert() {
@@ -889,12 +892,6 @@ mod tests {
                 .to_string();
             assert!(e.contains("the header"), "{flag}: {e}");
         }
-    }
-
-    #[test]
-    fn the_execution_flags_are_the_shared_ones() {
-        let a = parse(words(&["front.jsonl", "--beam-first", "40"])).unwrap();
-        assert_eq!(a.shared.beam_first, Some(40));
     }
 
     #[test]

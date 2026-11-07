@@ -1,25 +1,22 @@
 //! Hairpin loop evaluator.
 //!
-//! At `dangles=0` and assuming Vienna's default `special_hp = 1`, the
-//! decomposition (per `include/ViennaRNA/eval/hairpin.h::E_Hairpin`,
-//! v2.7.0 lines 344–410):
+//! At `dangles=0`, with special hairpins enabled, the decomposition is:
 //!
 //! - **size < 3**: not a real loop — returns the size-table sentinel
 //!   (`INF`) lifted to [`Energy`]. The DP layers above filter these out.
 //! - **special-hairpin hit (size 3 / 4 / 6)**: a match in
 //!   [`crate::params::Params::triloops`] / `tetraloops` / `hexaloops`
-//!   short-circuits the rest of the formula. Vienna's source `return`s
-//!   the bonus value directly so the size-table penalty, the AU/GU
+//!   short-circuits the rest of the formula. The bonus value is
+//!   returned directly so the size-table penalty, the AU/GU
 //!   `terminal_au_37`, and the `mismatch_hairpin` lookup are *all*
 //!   skipped on a hit. See [`super::special_hairpin`].
 //! - **size == 3 (no triloop hit)**: `hairpin[3]` plus a
 //!   `Misc.terminal_au_37` penalty when the closing pair is
-//!   `AU/UA/GU/UG`. *No* `mismatch_hairpin` contribution — Vienna's
-//!   source `return`s *before* reaching the mismatch line.
+//!   `AU/UA/GU/UG`. *No* `mismatch_hairpin` contribution.
 //! - **size >= 4 (no tetra/hexaloop hit)**: `hairpin[size]` plus
 //!   `mismatch_hairpin[closing, loop[0], loop[-1]]`. The AU/GU end
-//!   penalty for size ≥ 4 is folded into the mismatch table by Vienna's
-//!   parameter file design — there is no second additive term.
+//!   penalty for size ≥ 4 is folded into the mismatch table by the
+//!   parameter file's design — there is no second additive term.
 //! - **size > 30**: extrapolation `hairpin[30] + lxc * ln(size / 30)`
 //!   per [`super::LXC_37`]. No corpus fixture exercises this path.
 //!
@@ -93,8 +90,8 @@ pub fn hairpin_energy_scalar(
 }
 
 /// Size-table contribution `hairpin[size]` with logarithmic
-/// extrapolation for `size > 30` mirroring Vienna's
-/// `(int)(P->lxc * log(size / 30.))` cast.
+/// extrapolation for `size > 30`, truncated toward zero:
+/// `(int)(lxc * ln(size / 30))`.
 fn size_penalty(params: &Params, size: usize) -> Energy {
     if size <= MAX_TABULATED_SIZE {
         return Energy(params.hairpin.values[size]);
@@ -104,9 +101,7 @@ fn size_penalty(params: &Params, size: usize) -> Energy {
 }
 
 /// `Misc.terminal_au_37` penalty applied to size-3 hairpins closed by
-/// AU / UA / GU / UG. Vienna writes this as `(type > 2 ? TerminalAU : 0)`
-/// in `eval_hairpin.c:119`; [`BasePair::applies_terminal_au`] is the
-/// equivalent on the 0-based encoding.
+/// AU / UA / GU / UG ([`BasePair::applies_terminal_au`]).
 fn closing_terminal_au(params: &Params, closing: BasePair) -> Energy {
     if closing.applies_terminal_au() {
         Energy(params.misc.terminal_au_37)

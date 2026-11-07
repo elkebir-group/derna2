@@ -51,8 +51,8 @@ fn index_to_aa_out_of_range_returns_error() {
 }
 
 #[test]
-fn n_codon_matches_python() {
-    // Derived from Python AMINO_ACIDS: A=4, R=6, N=2, D=2, C=2, Q=2, E=2, G=4,
+fn n_codon_counts_each_familys_synonyms() {
+    // Synonym counts per family: A=4, R=6, N=2, D=2, C=2, Q=2, E=2, G=4,
     // H=2, M=1, I=3, L=6, K=2, F=2, P=4, S=6, T=4, W=1, Y=2, V=4; then the
     // stop family's three.
     assert_eq!(

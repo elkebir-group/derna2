@@ -1,8 +1,6 @@
 //! Stack pair: two adjacent base pairs with no unpaired nucleotides
 //! between them. The lone Turner 2004 contribution is the 7×7
-//! `stack[outer, inner_reversed]` cell — see
-//! `eval_internal.c::vrna_E_internal` (the `nl == 0` branch returning
-//! `P->stack[type][type_2]`).
+//! `stack[outer, inner_reversed]` cell.
 
 use super::Energy;
 use crate::params::{BasePair, Params};
@@ -16,11 +14,9 @@ pub struct StackPair {
     pub inner: BasePair,
 }
 
-/// Stack energy at `dangles=0`. Vienna source:
-/// `src/ViennaRNA/eval/eval_internal.c::vrna_E_internal` (the `nl == 0`
-/// branch) and `eval_stack` (which delegates to the same `P->stack`
-/// table). The inner pair enters the lookup in reversed orientation
-/// because Vienna indexes it from the loop side, not from sequence.
+/// Stack energy at `dangles=0`. The inner pair enters the lookup in
+/// reversed orientation because the table indexes it from the loop
+/// side, not from sequence.
 pub fn stack_energy(params: &Params, s: &StackPair) -> Energy {
     Energy(params.stack.get(s.outer, s.inner.reversed()))
 }

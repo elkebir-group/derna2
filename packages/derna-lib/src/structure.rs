@@ -1,8 +1,8 @@
 //! The structure axis: what the designed fold must and must not do at each
 //! position.
 //!
-//! One character per nucleotide over the whole mRNA, in the alphabet
-//! `RNAfold -C` reads:
+//! One character per nucleotide over the whole mRNA, in the standard
+//! hard-constraint alphabet:
 //!
 //! | character | meaning |
 //! |---|---|
@@ -13,15 +13,14 @@
 //! | `>` | the position is paired with a partner **upstream** (`j < i`) |
 //! | `(` `)` | the two positions are paired **with each other** |
 //!
-//! The `<` / `>` directions are ViennaRNA's, and they are the ones that read
-//! backwards: `<` names a partner to the *right*. Taking them the other way
-//! round produces a fold that is self-consistent and wrong, so the direction is
-//! stated here, on the type, and in the run header rather than left in the
-//! parser.
+//! The `<` / `>` directions are the ones that read backwards: `<` names a
+//! partner to the *right*. Taking them the other way round produces a fold that
+//! is self-consistent and wrong, so the direction is stated here, on the type,
+//! and in the run header rather than left in the parser.
 //!
 //! Every character except `|` also **forbids** the pairs that conflict with it,
-//! which is ViennaRNA's rule and the reason the two halves below are not
-//! symmetric: `|` contributes a requirement and no prohibition.
+//! which is the reason the two halves below are not symmetric: `|` contributes
+//! a requirement and no prohibition.
 //!
 //! # Two halves, two mechanisms
 //!
@@ -144,9 +143,8 @@ pub enum StructureError {
         /// The one that contradicts it.
         second: String,
     },
-    /// Two required pairs cross. The folding grammar is nested-only, as
-    /// ViennaRNA's is, so a pseudoknotted target is refused rather than
-    /// silently dropped.
+    /// Two required pairs cross. The folding grammar is nested-only, so a
+    /// pseudoknotted target is refused rather than silently dropped.
     #[error("required pairs ({a0}, {a1}) and ({b0}, {b1}) cross — the grammar is nested-only")]
     Crossing {
         /// 5′ endpoint of the first pair, region-qualified.
@@ -583,7 +581,7 @@ mod tests {
     /// comment: `<` names a partner **downstream**, so the position may open a
     /// pair and may not close one.
     #[test]
-    fn angle_brackets_take_viennarnas_directions() {
+    fn less_than_pairs_downstream_and_greater_than_upstream() {
         let l = layout(30);
         let sc = StructureConstraints::parse(&l, &format!("{}<{}", ".".repeat(10), ".".repeat(19)))
             .expect("valid");
@@ -621,7 +619,7 @@ mod tests {
         assert!(sc.required_positions().is_empty(), "x requires no pairing");
     }
 
-    /// `|` requires pairing and forbids nothing — ViennaRNA's one exception to
+    /// `|` requires pairing and forbids nothing — the one exception to
     /// "constraints disallow all conflicting pairs".
     #[test]
     fn a_bar_requires_pairing_without_forbidding_anything() {

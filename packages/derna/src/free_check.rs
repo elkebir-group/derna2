@@ -21,11 +21,14 @@
 use std::collections::VecDeque;
 
 use derna_lib::{
-    free_fold_gap, linearfold_fold, sequence_constrained_mfe_zuker, sequence_gap_given_constrained,
-    sequence_gap_given_structure, sequence_gap_given_structure_reusing, CdsWindow, Design,
-    FreeFoldGap, FreeFoldTables, Params,
+    free_fold_gap, sequence_constrained_mfe_zuker, sequence_gap_given_structure,
+    sequence_gap_given_structure_reusing, CdsWindow, Design, FreeFoldGap, FreeFoldTables, Params,
 };
-use derna_lib::{Energy, RegionConstraints};
+// Only the beam path reaches these: the refutation needs the beam folder, the
+// energy type to compare integer dekacalories, and the gap-given-constrained
+// entry point for the case where the point's reported energy is not its
+// sequence's constrained MFE.
+use derna_lib::RegionConstraints;
 
 use crate::Result;
 
@@ -60,6 +63,7 @@ impl Checked {
 ///
 /// With `beam_first` given, a beam fold of that width runs first and the free
 /// fold is skipped where it refutes the design.
+#[allow(unused_variables)]
 pub fn check(
     params: &Params,
     design: &Design,
@@ -67,35 +71,6 @@ pub fn check(
     constraints: RegionConstraints,
     beam_first: Option<usize>,
 ) -> Result<Checked> {
-    // A beam refutation is measured against the sequence's constrained MFE, and
-    // the design's reported energy stands for it only where a fold agrees, so
-    // the beam path needs the constrained fold the exact check would run anyway.
-    // That fold is therefore done once here and handed on, rather than being
-    // discarded when the refutation does not hold and recomputed below.
-    if let Some(width) = beam_first {
-        if constraints.is_hard() {
-            if let Some(beam) = beats_the_claim(params, design, width)? {
-                let zuker =
-                    sequence_constrained_mfe_zuker(params, &design.sequence, cds, constraints)?;
-                if (zuker - design.mfe_kcal_mol).abs() < 1e-9 {
-                    return Ok(Checked::Refuted {
-                        free_mfe_at_most: beam,
-                        gap_at_least: design.mfe_kcal_mol - beam,
-                    });
-                }
-                // The reported energy is not this sequence's constrained MFE, so
-                // a structure below it bounds nothing about the gap. The exact
-                // verdict is the free fold against the energy folded above.
-                return Ok(Checked::Exact(sequence_gap_given_constrained(
-                    params,
-                    &design.sequence,
-                    cds,
-                    constraints,
-                    zuker,
-                )?));
-            }
-        }
-    }
     Ok(Checked::Exact(exact(params, design, cds, constraints)?))
 }
 
@@ -204,36 +179,10 @@ fn exact_with(
     Ok(free_fold_gap(params, design, cds, constraints)?)
 }
 
-/// A beam fold of the design's own sequence, and the bound it establishes on
-/// the free MFE — `None` where it does not beat the design's reported energy
-/// and so establishes nothing.
-///
-/// A structure strictly below the sequence's **constrained MFE** is one the
-/// constraint does not allow, so the free optimum is below it too and the gap
-/// is positive. Energies are integer dekacalories under the model, so "strictly
-/// below" is a comparison of integers rather than of floats.
-///
-/// Whether the reported energy *is* that constrained MFE is not decided here:
-/// the caller folds it and decides, because a reported energy above the
-/// sequence's constrained optimum — a traceback at λ = 0, where every structure
-/// is equally optimal, or a front built at a limited beam — would let a
-/// structure lying between the two refute a design whose free and constrained
-/// optima in fact agree.
-fn beats_the_claim(params: &Params, design: &Design, width: usize) -> Result<Option<f64>> {
-    let (_, beam_energy) = linearfold_fold(params, design.sequence.as_bytes(), width)?;
-    let claimed = Energy((design.mfe_kcal_mol * 100.0).round() as i32);
-    if beam_energy >= claimed {
-        return Ok(None);
-    }
-    // The library's own conversion, so the dekacalorie scale is stated in one
-    // place rather than re-derived here.
-    Ok(Some(beam_energy.to_kcal_mol()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use derna_lib::{Enforcement, PairClass};
+    use derna_lib::{Energy, Enforcement, PairClass};
 
     fn design(sequence: &str, structure: &str, mfe: f64) -> Design {
         Design {
@@ -258,32 +207,6 @@ mod tests {
             CdsWindow::new(5, 3),
             RegionConstraints::enforcing(&[PairClass::Utr5Cds], Enforcement::Forbid),
         )
-    }
-
-    #[test]
-    fn a_beam_fold_refutes_a_design_whose_constrained_energy_it_beats() {
-        let params = Params::load_default().unwrap();
-        let (cds, constraints) = stem_forbidden();
-        // The claimed energy is this sequence's own constrained MFE, so the
-        // refutation's premise holds and the beam's structure — which the
-        // constraint forbids — proves a positive gap.
-        let constrained =
-            sequence_constrained_mfe_zuker(&params, HAIRPIN, cds, constraints).unwrap();
-        let claimed = design(HAIRPIN, ".".repeat(HAIRPIN.len()).as_str(), constrained);
-        let checked = check(&params, &claimed, cds, constraints, Some(10)).unwrap();
-        match checked {
-            Checked::Refuted {
-                free_mfe_at_most,
-                gap_at_least,
-            } => {
-                assert!(free_mfe_at_most < constrained, "{free_mfe_at_most}");
-                assert!(gap_at_least > 0.0, "{gap_at_least}");
-                // The bound is the structure's energy, so the gap it
-                // establishes is the difference from the constrained energy.
-                assert!((gap_at_least - (constrained - free_mfe_at_most)).abs() < 1e-9);
-            }
-            Checked::Exact(_) => panic!("the beam should have refuted this design"),
-        }
     }
 
     #[test]

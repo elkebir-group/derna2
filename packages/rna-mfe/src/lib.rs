@@ -1,16 +1,15 @@
 //! `rna-mfe` — Turner 2004 RNA minimum-free-energy evaluator and
-//! Zuker DP folder at `dangles=0`.
+//! MFE folder at `dangles=0`.
 //!
-//! Validates against ViennaRNA v2.7.0 as the reference oracle (no
-//! `libRNA` runtime dep: the Turner 2004 parameter file is parsed and the
-//! loop energies evaluated natively, and Vienna is used only to produce
-//! the test fixtures).
+//! No external runtime dependency: the Turner 2004 parameter file is
+//! parsed and the loop energies evaluated natively. The test suite checks
+//! both entry points against reference energies and structures.
 //!
 //! ## Public surface
 //!
-//! - [`fold`] — Zuker DP folder, returns the MFE `(structure, energy)`
-//!   for an RNA sequence at `dangles=0`. Bounded by `MAXLOOP = 30` for
-//!   the interior-loop search (matches Vienna's DP).
+//! - [`fold`] — MFE folder, returns the MFE `(structure, energy)`
+//!   for an RNA sequence at `dangles=0`. The interior-loop search caps
+//!   loops at 30 unpaired bases (`MAXLOOP`).
 //! - [`evaluate`] — whole-structure evaluator; ergonomic entry point that
 //!   accepts ASCII bytes. Allocates per call; prefer [`evaluate_encoded`]
 //!   for hot paths that evaluate repeatedly.
@@ -225,9 +224,9 @@ pub fn evaluate(params: &Params, seq: &[u8], structure: &str) -> Result<Energy, 
     evaluate_encoded(params, &nt_seq, structure, &mut scratch)
 }
 
-/// Zuker DP folder. Returns the dot-bracket MFE structure of `seq`
+/// MFE folder. Returns the dot-bracket MFE structure of `seq`
 /// and its energy at `dangles=0`. The interior-loop search is bounded
-/// at `MAXLOOP = 30` to match Vienna's DP; structures with larger
+/// at `MAXLOOP = 30` unpaired bases; structures with larger
 /// interior loops are never produced by `fold` (use [`evaluate`] to
 /// score user-provided structures with such loops).
 pub fn fold(params: &Params, seq: &[u8]) -> Result<(String, Energy), FoldError> {
@@ -339,7 +338,7 @@ mod tests {
 
     #[test]
     fn loads_default_params() {
-        Params::load_default().expect("vendored rna_turner2004.par parses");
+        Params::load_default().expect("the built-in parameter table parses");
     }
 
     #[test]

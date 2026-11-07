@@ -1,8 +1,7 @@
 //! Traceback walkers for every recurrence in the codon DP.
 //!
-//! Mirrors v1's `traceback_e` / `traceback_e_h` / `traceback_e_s` /
-//! `traceback_e_b` / `traceback_e_i` / `traceback_e_m` /
-//! `traceback_m` / `traceback_n` / `traceback_o`. Each walker reads the
+//! One walker per table (`E`, `E_h`, `E_s`, `E_b`, `E_i`, `E_m`, `M`, `N`,
+//! `O`). Each walker reads the
 //! winning cell value at `(a, b, s, t, x, y)`, re-runs the matching
 //! candidate generator, finds the candidate whose value equals the cell,
 //! reads its trace record, pins the implied codon assignments on

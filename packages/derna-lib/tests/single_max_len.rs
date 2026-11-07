@@ -2,13 +2,13 @@
 //!
 //! The cap bounds how much unpaired sequence a bulge or internal loop may
 //! carry. It is an energy-model parameter rather than a search knob: interiors
-//! longer than it are unreachable, not penalized. The default matches
-//! ViennaRNA's `MAXLOOP` and is the only value at which the scan's optimum is
-//! comparable to the exact-DP and fold oracles. The cap is inclusive — a loop of
-//! exactly `MAXLOOP` unpaired is admitted — which `single_loop_cap_boundary.rs`
+//! longer than it are unreachable, not penalized. The default is 30 unpaired
+//! bases, the energy model's loop cap, and is the only value at which the scan's
+//! optimum is comparable to the exact-DP and fold oracles. The cap is inclusive —
+//! a loop of exactly 30 unpaired is admitted — which `single_loop_cap_boundary.rs`
 //! checks against the reference minimizer at every split of the boundary.
 //!
-//! Five properties anchor it. The default is Vienna's and is what a caller
+//! Five properties anchor it. The default is the energy model's and is what a caller
 //! naming no cap gets; naming it explicitly is the same run. Values outside the
 //! supported range are refused rather than folded. A narrowed cap is refused on
 //! the paths that carry their own fixed cap, so two energy models never combine
@@ -61,7 +61,7 @@ fn config(single_max_len: usize) -> ScanConfig {
 }
 
 #[test]
-fn the_default_is_viennas_maxloop() {
+fn the_default_is_the_energy_models_loop_cap() {
     assert_eq!(DEFAULT_SINGLE_MAX_LEN, 30);
     assert_eq!(ScanConfig::default().single_max_len, DEFAULT_SINGLE_MAX_LEN);
     assert!(ScanConfig::default().loop_cap_is_default());

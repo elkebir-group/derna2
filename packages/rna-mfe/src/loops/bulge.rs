@@ -1,12 +1,11 @@
 //! Bulge loop evaluator.
 //!
-//! A bulge has unpaired nucleotides on exactly one side of the loop.
-//! Vienna source: `eval_internal.c::vrna_E_internal`, the `case 0:`
-//! branch (`ns == 0`):
+//! A bulge has unpaired nucleotides on exactly one side of the loop
+//! (the short side has zero unpaired):
 //!
 //! - **size == 1**: `bulge[1] + stack[outer, inner_reversed]`. The
-//!   single-nucleotide bulge is "transparently stacked" — Vienna adds
-//!   the stack term *instead of* the per-branch terminal-AU penalties.
+//!   single-nucleotide bulge is "transparently stacked" — the evaluator
+//!   adds the stack term *instead of* the per-branch terminal-AU penalties.
 //! - **size >= 2**: `bulge[size] + per_branch_terminal_au` where the
 //!   per-branch correction adds `Misc.terminal_au_37` once per AU/UA/GU/UG
 //!   end, applied independently to the outer and inner closing pairs.

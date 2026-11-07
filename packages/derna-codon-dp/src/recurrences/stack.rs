@@ -1,7 +1,6 @@
 //! Stacking recurrence (E_s).
 //!
-//! Mirrors v1's `derna.codon_dp._recurrences.fill_e_s` — supplement.tex
-//! lines 170–188. The enclosed pair `(c, s', d, t')` is fully determined
+//! Follows supplement.tex lines 170–188. The enclosed pair `(c, s', d, t')` is fully determined
 //! by the closing pair: `nt_p = nt_i + 1`, `nt_q = nt_j - 1`, so there is
 //! no enumeration over enclosed-pair positions. The recurrence reads the
 //! inner cell `E[c, d, s', t', h, r]` and adds the BRD value of the

@@ -1,9 +1,8 @@
-//! `derna-codon-dp` — Pareto-optimal codon design via DERNA's BRD / PORD DPs.
+//! `derna-codon-dp` — Pareto-optimal codon design via the BRD / PORD DPs.
 //!
-//! Rust port of `derna.codon_dp`, paper-faithful and at `dangles = 0` only:
-//! the cell index `(a, b, s, t, x, y)` does not track the flanking codon
-//! context dangles would need, which matches DERNA C++ exactly. Composes
-//! against [`rna_mfe`] for per-loop Turner 2004 energies.
+//! Paper-faithful and at `dangles = 0` only: the cell index
+//! `(a, b, s, t, x, y)` does not track the flanking codon context dangles
+//! would need. Composes against [`rna_mfe`] for per-loop Turner 2004 energies.
 //!
 //! ## Public surface
 //!
@@ -12,7 +11,7 @@
 //! - [`solve_pord_with_telemetry`] — PORD solver plus per-λ timing.
 //! - [`solve_pord_reporting`] — PORD solver that reports each solve as it finishes.
 //! - [`solve_pord_on_cai_scale`] — the same, placing its λ values as a solver
-//!   with another CAI scale would (see [`CPP_CAI_SCALE`]).
+//!   with another CAI scale would (see [`REFERENCE_CAI_SCALE`]).
 //! - [`CodonUsage`] / [`load_codon_usage`] — Kazusa CSV loader.
 //! - [`BrdOptions`] — solver options (`dangling_5_prime`, `codon_mask`).
 //! - [`BrdSolution`] / [`ParetoPoint`] — result types.
@@ -21,9 +20,9 @@
 //! Internal modules ([`brd_value`], [`plan`], [`recurrences`], [`solve`])
 //! are `pub(crate)` and feed the test-only entry point [`testing`], which
 //! exposes the DP tables for per-cell checks. Fixed-λ correctness is
-//! anchored against the published DERNA C++ rather than against a
-//! reimplementation of it: the fixed-λ objective is carried unrounded, as
-//! the C++ carries it, so the two agree on the exact design.
+//! anchored against recorded reference designs: the fixed-λ objective is
+//! carried unrounded, so the solver and the reference agree on the exact
+//! design.
 
 pub mod cai;
 pub mod codon_table;
@@ -37,7 +36,7 @@ pub(crate) mod solve;
 pub use codon_usage::{load_codon_usage, CodonUsage};
 pub use solve::{
     solve_brd, solve_pord, solve_pord_on_cai_scale, solve_pord_reporting,
-    solve_pord_with_telemetry, OnSolve, CPP_CAI_SCALE,
+    solve_pord_with_telemetry, OnSolve, REFERENCE_CAI_SCALE,
 };
 
 use thiserror::Error;
@@ -49,7 +48,7 @@ use thiserror::Error;
 /// Solver options for [`solve_brd`] and [`solve_pord`].
 ///
 /// `dangling_5_prime` is always `false`, since the DP runs at `dangles = 0`; the field
-/// is retained for shape-parity with the Python v1 `BrdOptions`.
+/// is retained so the options keep their established shape.
 /// `codon_mask`, if set, restricts the codon space at each protein position
 /// via post-mask indices into `AMINO_ACIDS[aa].codons` — the test path used
 /// to build reduced-codon Pareto fixtures (top-2 codons per amino acid by
@@ -61,8 +60,6 @@ pub struct BrdOptions {
 }
 
 /// Result of [`solve_brd`] at one lambda.
-///
-/// Field shapes mirror Python v1 `BrdSolution`.
 #[derive(Debug, Clone)]
 pub struct BrdSolution {
     pub rna_seq: String,
@@ -74,8 +71,6 @@ pub struct BrdSolution {
 }
 
 /// One point of the Pareto front returned by [`solve_pord`].
-///
-/// Field shapes mirror Python v1 `ParetoPoint`.
 #[derive(Debug, Clone)]
 pub struct ParetoPoint {
     pub rna_seq: String,
@@ -178,12 +173,11 @@ pub enum FoldError {
 /// the single-loop fill driver populates.
 #[doc(hidden)]
 pub mod testing {
-    use std::collections::BTreeMap;
 
     use rna_mfe::Params;
 
     use crate::codon_usage::CodonUsage;
-    use crate::plan::{CellIdx, EStorageMode, Plan, PlanInputs, TableLayout};
+    use crate::plan::{EStorageMode, Plan, PlanInputs, TableLayout};
     use crate::{BrdOptions, BrdSolution, FoldError};
 
     /// Snapshot of the nine 6-D DP tables, flat in `(a, b, s, t, x, y)`
@@ -202,7 +196,7 @@ pub mod testing {
         pub o: Vec<f64>,
     }
 
-    /// Re-export of the BRD value function for driver-level parity tests.
+    /// Re-export of the BRD value function for driver-level tests.
     pub fn brd_value(lambda_: f64, mfe_dekacal: i32, cai_dekacal: f64) -> f64 {
         crate::brd_value::brd_value(lambda_, mfe_dekacal, cai_dekacal)
     }
@@ -310,33 +304,6 @@ pub mod testing {
         pub admitted: usize,
     }
 
-    /// Count of one tied `O` case set at prefix cells.
-    pub struct OPrefixTieSetCount {
-        pub cases: Vec<u8>,
-        pub count: usize,
-    }
-
-    /// Winning-case summary for legacy full-fill `O` prefix cells.
-    pub struct OPrefixWinningCaseCounts {
-        pub total_cells: usize,
-        pub finite_cells: usize,
-        pub inf_cells: usize,
-        pub no_winner_cells: usize,
-        pub case_at_min: [usize; 10],
-        pub strict_winner_case: [usize; 10],
-        pub tie_sets: Vec<OPrefixTieSetCount>,
-    }
-
-    impl OPrefixWinningCaseCounts {
-        pub fn case_at_min(&self, case: u8) -> usize {
-            self.case_at_min[usize::from(case)]
-        }
-
-        pub fn strict_winner_case(&self, case: u8) -> usize {
-            self.strict_winner_case[usize::from(case)]
-        }
-    }
-
     impl OuterGateCounts {
         pub fn total(&self) -> usize {
             self.gated + self.admitted
@@ -384,33 +351,6 @@ pub mod testing {
         Ok(counts)
     }
 
-    /// Fill with the legacy all-interval `O` recurrence and summarize which
-    /// cases attain the minimum at prefix cells (`a == 0 && s == 0`).
-    pub fn count_o_prefix_winning_cases(
-        inputs: FillInputs<'_>,
-    ) -> Result<OPrefixWinningCaseCounts, FoldError> {
-        let plan_inputs = PlanInputs {
-            dangling_5_prime: inputs.options.dangling_5_prime,
-            codon_mask: inputs.options.codon_mask.clone(),
-            lambda_: inputs.lambda_,
-            e_storage_mode: EStorageMode::CompactMotifWinners,
-            table_layout: TableLayout::PackedUpperTriangle,
-        };
-        let mut plan = Plan::new(
-            inputs.protein,
-            inputs.codon_usage,
-            &plan_inputs,
-            inputs.params,
-        )?;
-        let mut counts = OPrefixWinningCaseAccumulator::default();
-        crate::recurrences::fill_dp_tables_observing_legacy_o(&mut plan, |p, idx, scratch| {
-            if idx.0 == 0 && idx.2 == 0 {
-                counts.observe(p, idx, scratch);
-            }
-        });
-        Ok(counts.finish())
-    }
-
     fn count_ab_st_cells(
         plan: &Plan<'_>,
         ab: (usize, usize),
@@ -439,85 +379,6 @@ pub mod testing {
                 }
             }
         }
-    }
-
-    #[derive(Default)]
-    struct OPrefixWinningCaseAccumulator {
-        total_cells: usize,
-        finite_cells: usize,
-        inf_cells: usize,
-        no_winner_cells: usize,
-        case_at_min: [usize; 10],
-        strict_winner_case: [usize; 10],
-        tie_sets: BTreeMap<u16, usize>,
-    }
-
-    impl OPrefixWinningCaseAccumulator {
-        fn observe(
-            &mut self,
-            plan: &Plan<'_>,
-            idx: CellIdx,
-            scratch: &mut Vec<rna_mfe::loops::Nucleotide>,
-        ) {
-            let target = plan.tables.o[plan.tables.flat_index(idx)];
-            self.total_cells += 1;
-            if target < crate::plan::INF {
-                self.finite_cells += 1;
-            } else {
-                self.inf_cells += 1;
-            }
-            let mask = o_prefix_min_case_mask(plan, idx, target, scratch);
-            if mask == 0 {
-                self.no_winner_cells += 1;
-                return;
-            }
-            for case in 1..=9 {
-                if mask & (1 << case) != 0 {
-                    self.case_at_min[case] += 1;
-                }
-            }
-            if mask.count_ones() == 1 {
-                let case = mask.trailing_zeros() as usize;
-                self.strict_winner_case[case] += 1;
-            } else {
-                *self.tie_sets.entry(mask).or_default() += 1;
-            }
-        }
-
-        fn finish(self) -> OPrefixWinningCaseCounts {
-            OPrefixWinningCaseCounts {
-                total_cells: self.total_cells,
-                finite_cells: self.finite_cells,
-                inf_cells: self.inf_cells,
-                no_winner_cells: self.no_winner_cells,
-                case_at_min: self.case_at_min,
-                strict_winner_case: self.strict_winner_case,
-                tie_sets: self
-                    .tie_sets
-                    .into_iter()
-                    .map(|(mask, count)| OPrefixTieSetCount {
-                        cases: mask_to_cases(mask),
-                        count,
-                    })
-                    .collect(),
-            }
-        }
-    }
-
-    fn o_prefix_min_case_mask(
-        plan: &Plan<'_>,
-        idx: CellIdx,
-        target: f64,
-        scratch: &mut Vec<rna_mfe::loops::Nucleotide>,
-    ) -> u16 {
-        crate::recurrences::exterior::o_legacy_min_case_mask(plan, idx, target, scratch)
-    }
-
-    fn mask_to_cases(mask: u16) -> Vec<u8> {
-        (1..=9)
-            .filter(|&case| mask & (1 << case) != 0)
-            .map(|case| case as u8)
-            .collect()
     }
 
     fn snapshot(plan: &Plan<'_>) -> TablesSnapshot {

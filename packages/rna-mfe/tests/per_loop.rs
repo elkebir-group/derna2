@@ -15,9 +15,8 @@
 //! [`rna_mfe::decompose`]. This test pair-tables the dot-bracket, classifies
 //! each closed loop by counting immediately enclosed children, and add
 //! a `Misc.terminal_au_37` term per outermost AU / GU / UA / UG branch
-//! (Vienna's exterior-loop contribution at `dangles=0`, per
-//! `eval_exterior.c::vrna_E_exterior_stem` returning `TerminalAU` when
-//! `type > 2`).
+//! (the exterior-loop contribution at `dangles=0`: the terminal-AU
+//! penalty on every outermost pair other than `CG` / `GC`).
 
 use rna_mfe::loops::pair_from_nucleotides;
 use rna_mfe::params::BasePair;
@@ -213,9 +212,9 @@ impl<'a> Walker<'a> {
         )
     }
 
-    /// Vienna's `eval_exterior.c::vrna_E_exterior_stem` at `dangles=0`
-    /// reduces to `(type > 2 ? TerminalAU : 0)` per branch — no
-    /// `mismatch_ext` lookup, no `dangle*`. Mirrored here.
+    /// The exterior-stem contribution at `dangles=0` reduces to the
+    /// terminal-AU penalty per non-`CG`/`GC` branch — no `mismatch_ext`
+    /// lookup, no `dangle*`.
     fn exterior_branch(&self, i: usize) -> Energy {
         if self.pair_at(i).applies_terminal_au() {
             Energy(self.params.misc.terminal_au_37)

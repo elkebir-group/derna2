@@ -2,9 +2,25 @@ name: CI
 on:
   push:
   pull_request:
+  # macOS runs on these two events rather than on every push. See below.
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+# A newer push to the same branch makes the older run's answer worthless, so
+# the older run is cancelled rather than paid for.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  linux:
     runs-on: ubuntu-latest
+    # Well above the suite's own time and well below the six-hour default. A
+    # test that waits instead of working reports a timeout rather than a
+    # reason whatever the limit is, so the only thing this number buys is how
+    # long it takes to learn that — and six hours of it buys nothing.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.95.0
@@ -12,5 +28,33 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --release --workspace --all-targets -- -D warnings
-      - run: cargo test --release --workspace
+      # Tests build under the `ci` profile: release optimization without LTO,
+      # 1m58s against 13m57s for the same build under `--release`. The
+      # shipping binary is built once under `release` below, so the
+      # configuration users get is still shown to compile.
+      - run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
+      - run: cargo test --profile ci --workspace
+      - run: cargo build --release -p derna --bin derna
+
+  macos:
+    # macOS is tested because the support is conditional compilation — a
+    # jemalloc dependency and a thread-CPU clock that only Linux has — and
+    # conditional compilation that nothing builds stops compiling without
+    # anything failing. What it is *not* is a per-push gate: a macOS minute
+    # bills at ten times a Linux one, and the platform's own defects have all
+    # been in code that compiles for it and behaves differently when run, which
+    # a weekly run catches as surely as a per-push one.
+    #
+    # `workflow_dispatch` is the half that matters when a change touches the
+    # conditional code: run it then, rather than waiting for the Monday run.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
+      - run: cargo test --profile ci --workspace

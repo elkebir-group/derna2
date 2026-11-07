@@ -14,8 +14,8 @@
 //! compared.
 //!
 //! The split costs a clock read per compose and a pass over every product, so
-//! it is off unless the environment sets `DERNA_SERIAL_DETAIL`; the fold's
-//! answer does not depend on it either way.
+//! it is off unless a development build turns it on (`Setting::SerialDetail`);
+//! the fold's answer does not depend on it either way.
 
 use rna_mfe::Energy;
 
@@ -97,7 +97,7 @@ impl ComposeCount {
 
 /// Whether the environment asks for the split.
 pub(crate) fn enabled() -> bool {
-    std::env::var_os("DERNA_SERIAL_DETAIL").is_some()
+    crate::dev_env::var_os(crate::dev_env::Setting::SerialDetail).is_some()
 }
 
 /// How many products of `left ⊗ right`, shifted by `dmfe`, have energy at most

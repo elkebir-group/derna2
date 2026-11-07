@@ -176,7 +176,7 @@ impl Floor {
             .lock()
             .expect("the found designs")
             .push((energy, cai));
-        let _ = self.best.fetch_update(Relaxed, Relaxed, |bits| {
+        let _ = self.best.try_update(Relaxed, Relaxed, |bits| {
             (cai > f64::from_bits(bits)).then_some(cai.to_bits())
         });
     }

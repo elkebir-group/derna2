@@ -213,8 +213,9 @@ fn a_corner_or_exterior_filter_one_unit_too_tight_changes_an_answer() {
 /// multi-loop protein. Both run under the window alone: the exact credit
 /// empties so many cells that no position keeps enough closed pairs to fan
 /// out (measured: none of its positions does at 3 kcal/mol with the credit,
-/// 68 without), and so does a narrower box. With `DERNA_SERIAL_DETAIL` set
-/// the test also asserts that the eight-worker runs fanned out.
+/// 68 without), and so does a narrower box. Where a development build turns
+/// the serial detail on, the test also asserts that the eight-worker runs
+/// fanned out.
 #[test]
 fn worker_count_does_not_change_the_multiloop_answer() {
     let (params, usage) = fixtures();

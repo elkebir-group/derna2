@@ -117,11 +117,7 @@
     "front_size_d2": 3,
     "front_size_note": "Small fronts (d0=3, d2=3) are expected: the top-2 codon mask quantizes MFE into a small number of tiers, with one max-CAI survivor per tier. Verified against rungs 1 and 2 (2 + 2 points) \u2014 sub-linear growth is consistent.",
     "front_sort": "mfe_kcal_mol asc, cai desc, rna_seq asc",
-    "generator_command": "uv run --directory packages/derna-core python scripts/generate_reduced_pareto_fixtures.py",
-    "n_codon_combinations": 16384,
-    "param_file": "packages/derna-core/data/rna_turner2004.par",
-    "param_file_sha256": "0c671a7455f5686bc160fc655194b11888594ab7d506626cdad1470bcadd17d9",
-    "vienna_version": "2.7.2"
+    "n_codon_combinations": 16384
   },
   "protein": "MYGKIIFVLLLSGIV"
 }

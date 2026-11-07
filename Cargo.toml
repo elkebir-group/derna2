@@ -10,10 +10,21 @@ members = [
 [workspace.package]
 edition = "2021"
 rust-version = "1.95"
-authors = ["Xinyu Gu", "Max Leiserson", "Mohammed El-Kebir"]
+authors = ["Xinyu Gu", "Mark D. M. Leiserson", "Mohammed El-Kebir"]
 repository = "https://github.com/elkebir-group/derna2"
 
 [profile.release]
 lto = "thin"
 codegen-units = 1
 debug = "line-tables-only"
+
+# Optimized test builds without the link-time cost: the release optimization
+# level, no LTO, parallel codegen, no debug info. A test build of the
+# workspace took 13m57s under `--release` and 1m58s under this profile, both
+# from an empty target directory. The shipping binary is still built once with
+# `--release`, so the release configuration is shown to compile.
+[profile.ci]
+inherits = "release"
+lto = false
+codegen-units = 16
+debug = 0

@@ -102,38 +102,6 @@ pub(crate) fn motif_free_outside_pruned<'a>(
     Some(outside_of(product, params, lambda, Some(bound), Wraps::Sweep, threads)?.p)
 }
 
-/// The exact fold at `lambda` under `bound`: the optimum if it scores at or
-/// below the bound's ceiling, how many closed pairs the bound ruled out, and
-/// the fold's seconds.
-#[cfg(test)]
-pub(crate) fn fold_under(
-    product: &ProductDfa,
-    params: &Params,
-    lambda: f64,
-    bound: OutsideBound,
-) -> (Option<f64>, usize, f64) {
-    let started = std::time::Instant::now();
-    let mut f = Folder::new(
-        product,
-        params,
-        lambda,
-        Beam::exact(),
-        PairConstraint::inert(),
-        MustPairConstraint::inert(),
-        1,
-    );
-    f.bound = Some(bound);
-    let found = f.run().map(|q| {
-        let c = f.c[f.dfa.ix(f.dfa.end())][&q];
-        brd(c.mfe, c.cai, lambda)
-    });
-    (
-        found,
-        f.pruned.load(Ordering::Relaxed),
-        started.elapsed().as_secs_f64(),
-    )
-}
-
 /// The motif-free floors at one weight, from the outside pass over the
 /// constrained lattice: what a fold between two such weights prunes on
 /// ([`AwareSide::Pass`]).
@@ -455,8 +423,8 @@ fn inside<'a>(
 
 /// How [`reverse`] runs: the ceiling the fold was pruned under, if any; how
 /// it takes the multi-loop wraps; the threads its closed pairs are spread
-/// over; and the fold's seconds, for the timing line `DERNA_MAO_TIMES` asks
-/// for.
+/// over; and the fold's seconds, for the timing line a development build can
+/// ask for.
 struct Reverse {
     ceiling: Option<f64>,
     wraps: Wraps,
@@ -660,7 +628,7 @@ fn reverse<'a>(mut f: Folder<'a>, end_q: u32, lambda: f64, how: Reverse) -> Outs
     } else {
         pass(None);
     }
-    if std::env::var_os("DERNA_MAO_TIMES").is_some() {
+    if crate::dev_env::var_os(crate::dev_env::Setting::MaoTimes).is_some() {
         eprintln!("motif-free outside at λ {lambda}: inside {inside_s:.2} s, wraps {wraps_s:.2} s, pairs {pairs_s:.2} s, sweep skipped {skipped} positions");
     }
     // Under a prune, a pair whose every design scores above the ceiling may
@@ -1238,9 +1206,9 @@ impl LiveOpens {
 }
 
 /// Whether the reverse pass of a pruned fold passes over dead left
-/// positions ([`LiveOpens`]); `DERNA_SWEEP_SKIP=0` turns it off.
+/// positions ([`LiveOpens`]): yes, unless a development build turns it off.
 fn sweep_skip() -> bool {
-    std::env::var("DERNA_SWEEP_SKIP").map_or(true, |v| v != "0")
+    crate::dev_env::var(crate::dev_env::Setting::SweepSkip).map_or(true, |v| v != "0")
 }
 
 /// Run `body` over `items` on `pool` (serially without one), each worker

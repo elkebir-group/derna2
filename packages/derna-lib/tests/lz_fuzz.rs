@@ -24,10 +24,8 @@
 //! structure as a diagnostic. A unified single-branch pull with
 //! tie-break-preserving minima would restore full structure parity.
 //!
-//! Set `DERNA_LZ_STRICT_STRUCTURE=1` to re-arm the full structure assertion —
-//! a sharp dev-time detector for coverage gaps in the reduction (a dropped
-//! co-optimal candidate is invisible to the BRD check but flips a tie's
-//! structure).
+//! A development build can re-arm the full structure assertion
+//! ([`strict_structure`]).
 
 use derna_lib::{design_with_beam_mode, CodonUsage, Design, InternalLoopMode, Params};
 
@@ -75,8 +73,8 @@ fn random_protein(rng: &mut Rng, len: usize) -> String {
 }
 
 /// The oracle comparison: BRD optimum byte-exact (sequence + MFE + CAI),
-/// structure as a diagnostic (re-armed to a hard assertion under
-/// `DERNA_LZ_STRICT_STRUCTURE`).
+/// structure as a diagnostic (re-armed to a hard assertion by
+/// [`strict_structure`]).
 fn assert_byte_exact(naive: &Design, lz: &Design, protein: &str, lambda: f64, seed: u64) {
     let ctx = format!("seed={seed} λ={lambda} protein={protein}");
     // Translatable: identical to the validated reference's spelled CDS.
@@ -100,10 +98,16 @@ fn assert_byte_exact(naive: &Design, lz: &Design, protein: &str, lambda: f64, se
             naive.structure, lz.structure,
         );
         assert!(
-            std::env::var_os("DERNA_LZ_STRICT_STRUCTURE").is_none(),
-            "structure mismatch under DERNA_LZ_STRICT_STRUCTURE: {ctx}",
+            !strict_structure(),
+            "structure mismatch under the strict structure check: {ctx}",
         );
     }
+}
+
+/// Whether a structure divergence fails the test: never, in a build that
+/// reads no development setting.
+fn strict_structure() -> bool {
+    false
 }
 
 /// Run one protein × all λ through both modes and assert byte-exact parity.

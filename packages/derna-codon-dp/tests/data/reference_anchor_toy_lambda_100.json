@@ -2,11 +2,11 @@
   "cai": 0.634588,
   "dangling_5_prime": false,
   "lambda_": 1.0,
-  "lambda_cpp": 1.0,
+  "lambda_raw": 1.0,
   "mfe_kcal_mol": -8.2,
   "name": "toy_lambda_100",
   "protein": "GLAGPR",
   "rna_seq": "GGGCUCGCUGGGCCCCGU",
-  "source": "derna-cpp",
+  "source": "reference",
   "structure": "((((((...))))))..."
 }

@@ -2720,9 +2720,9 @@ where
         }
     };
     let build_s = started.elapsed().as_secs_f64();
-    // `DERNA_WALK_MARK`: a file created as the walk starts, so a profiler
+    // In a development build, a file created as the walk starts, so a profiler
     // started with collection off can begin at the walk rather than the build.
-    if let Some(mark) = std::env::var_os("DERNA_WALK_MARK") {
+    if let Some(mark) = crate::dev_env::var_os(crate::dev_env::Setting::WalkMark) {
         let _ = std::fs::write(mark, b"");
     }
     forest.node_dedup = node_dedup;
@@ -3105,8 +3105,6 @@ pub enum ExactFold {
     /// The Zuker DP (`rna_mfe::fold`).
     #[default]
     Zuker,
-    /// LinearFold at an unbounded beam.
-    LinearFold,
     /// The sparse Zuker fold (`rna_mfe::dp::fold_sparse`), no cut.
     Sparse,
     /// The sparse fold under a Carrillo–Lipman cut at the design's

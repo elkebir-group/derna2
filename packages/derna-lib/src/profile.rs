@@ -14,8 +14,8 @@
 //!
 //! Two properties bound what the numbers mean.
 //!
-//! **It is off unless [`Profile::from_env`] finds `DERNA_PROFILE` set.** The
-//! variable is read once, when the scan builds its profile, so the hot-path
+//! **It is off unless a development build turns it on ([`Profile::from_env`]).**
+//! The setting is read once, when the scan builds its profile, so the hot-path
 //! branch is a predictable load of an already-resolved `bool` rather than an
 //! environment lookup. A disabled profile takes no clock reading at all and
 //! every phase reads zero.
@@ -312,12 +312,15 @@ impl FanTally {
 }
 
 impl Profile {
-    /// A profile enabled iff `DERNA_PROFILE` is present in the environment.
+    /// A profile enabled iff a development build asks for one (`Setting::Profile`).
     ///
     /// The lookup happens here and nowhere else, so the scan's hot path never
     /// touches the environment.
     pub fn from_env(threads: usize) -> Self {
-        Self::new(std::env::var_os("DERNA_PROFILE").is_some(), threads)
+        Self::new(
+            crate::dev_env::var_os(crate::dev_env::Setting::Profile).is_some(),
+            threads,
+        )
     }
 
     /// A profile with the gate set explicitly, for tests and callers that do not

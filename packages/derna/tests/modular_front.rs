@@ -241,8 +241,25 @@ fn the_report_says_when_each_task_ran_and_what_memory_it_left() {
         assert!(num("start_s") <= num("end_s"), "{t}");
         assert!(num("cpu_s") >= 0.0, "{t}");
         assert!(num("workers") >= 1.0, "{t}");
-        assert!(num("rss_kb") > 0.0, "{t}");
-        assert!(num("peak_rss_kb") >= num("rss_kb"), "{t}");
+        // The two memory fields are not a pair. The peak comes from
+        // `getrusage` and is readable on every Unix; the current size is read
+        // from `/proc`, so it is `null` wherever that is absent — which is
+        // what `CURRENT_RSS_READABLE` says. Asserting they appear together
+        // asserts a Linux shape, and `(null, 34000)` is the right answer on
+        // macOS rather than a defect.
+        let peak = t["peak_rss_kb"]
+            .as_f64()
+            .unwrap_or_else(|| panic!("a peak reading on any Unix: {t}"));
+        assert!(peak > 0.0, "{t}");
+        if derna_lib::task_clock::CURRENT_RSS_READABLE {
+            let rss = t["rss_kb"]
+                .as_f64()
+                .unwrap_or_else(|| panic!("this platform reads /proc: {t}"));
+            assert!(rss > 0.0, "{t}");
+            assert!(peak >= rss, "the peak is below the current size: {t}");
+        } else {
+            assert!(t["rss_kb"].is_null(), "no /proc, so no current size: {t}");
+        }
     }
 }
 

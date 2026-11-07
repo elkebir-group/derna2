@@ -3,7 +3,7 @@
 //! Two invocations of `solve_pord` with identical arguments must
 //! produce identical `Vec<ParetoPoint>` results — field-by-field,
 //! float bits included. This is load-bearing for downstream parity
-//! measurements against DERNA C++: non-deterministic output would
+//! measurements against reference fronts: non-deterministic output would
 //! make hull-diff regression tests flaky.
 //!
 //! Likely sources of non-determinism (none of which the implementation

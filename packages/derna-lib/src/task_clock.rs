@@ -47,7 +47,19 @@ pub struct ThreadCpu {
 }
 
 impl ThreadCpu {
+    /// Whether a thread's CPU time can be read from another thread here.
+    ///
+    /// It takes a clock id that names a *particular* thread, which
+    /// `pthread_getcpuclockid` returns and which not every platform has —
+    /// macOS does not. `CLOCK_THREAD_CPUTIME_ID` is not a substitute: it
+    /// names whichever thread reads it, so a watcher asking for the solving
+    /// thread's CPU time would be told its own, and a watcher that only
+    /// sleeps reads nearly zero. That is a wrong number rather than a missing
+    /// one, so callers test this and do without the reading instead.
+    pub const AVAILABLE: bool = cfg!(all(target_os = "linux", target_env = "gnu"));
+
     /// The calling thread's CPU clock, from now.
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
     pub fn here() -> Self {
         let mut clock: libc::clockid_t = libc::CLOCK_THREAD_CPUTIME_ID;
         // SAFETY: `clock` is a valid, writable `clockid_t`; on failure it is
@@ -59,9 +71,24 @@ impl ThreadCpu {
         }
     }
 
+    /// [`Self::here`] where no clock names another thread. [`Self::AVAILABLE`]
+    /// is false, so nothing should reach this; it keeps the type available to
+    /// code that is compiled on every platform and gated at the point of use.
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    pub fn here() -> Self {
+        ThreadCpu { clock: 0, start: 0 }
+    }
+
     /// The thread's CPU seconds since [`Self::here`]; read only while the
     /// thread runs, since a clock outlives its thread as a stale id.
+    ///
+    /// `NaN` where [`Self::AVAILABLE`] is false — a reading that cannot be
+    /// taken is not a reading of zero, and a caller that ignored the flag
+    /// should see that rather than a plausible small number.
     pub fn seconds(&self) -> f64 {
+        if !Self::AVAILABLE {
+            return f64::NAN;
+        }
         clock_ns(self.clock).saturating_sub(self.start) as f64 * 1e-9
     }
 }
@@ -159,27 +186,66 @@ pub fn spawn_built<'scope, 'env, T: Send + 'scope>(
     builder.spawn_scoped(scope, charged(f))
 }
 
-/// A field of `/proc/self/status` in KiB; 0 where unread.
-fn status_kb(field: &str) -> u64 {
+/// Whether the process's resident memory **now** can be read here.
+///
+/// It comes from `/proc`, which only Linux has — and which a Linux process can
+/// still be without, in a container or a sandbox that does not mount it, so
+/// this says what the platform offers and the reading itself still answers
+/// whether it was taken. A memory budget that cannot read resident memory is a
+/// budget that never binds: the reading comes back absent, the comparison is
+/// false, and the run continues past the limit it was given. A caller refuses
+/// such a limit rather than accepting one that does nothing.
+///
+/// The **peak** is a different question, and [`peak_rss_kb`] answers it on
+/// every Unix.
+pub const CURRENT_RSS_READABLE: bool = cfg!(target_os = "linux");
+
+/// A field of `/proc/self/status` in KiB, or `None` where it cannot be read —
+/// which is not the same as a process holding nothing.
+fn status_kb(field: &str) -> Option<u64> {
     std::fs::read_to_string("/proc/self/status")
-        .ok()
-        .and_then(|s| {
-            s.lines()
-                .find(|l| l.starts_with(field))
-                .and_then(|l| l.split_whitespace().nth(1))
-                .and_then(|v| v.parse().ok())
-        })
-        .unwrap_or(0)
+        .ok()?
+        .lines()
+        .find(|l| l.starts_with(field))
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|v| v.parse().ok())
 }
 
-/// The process's resident set size now, in KiB (`VmRSS`); 0 where unread.
-pub fn rss_kb() -> u64 {
+/// The process's resident set size now, in KiB (`VmRSS`), or `None` where it
+/// cannot be read.
+pub fn rss_kb() -> Option<u64> {
     status_kb("VmRSS:")
 }
 
-/// The process's peak resident set size, in KiB (`VmHWM`); 0 where unread.
-pub fn peak_rss_kb() -> u64 {
-    status_kb("VmHWM:")
+/// The process's peak resident set size, in KiB, or `None` where it cannot be
+/// read.
+///
+/// `VmHWM` where `/proc` has it. Elsewhere `getrusage`'s `ru_maxrss`, which
+/// every Unix reports and which is the same quantity — the high-water mark of
+/// resident memory — so a peak is readable on macOS even though the current
+/// size is not. The units are not the same: Linux gives kilobytes and Darwin
+/// gives bytes, which is the kind of difference that silently reports a run as
+/// 1024x smaller than it was.
+pub fn peak_rss_kb() -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        status_kb("VmHWM:")
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+        // SAFETY: `usage` is a valid, writable `rusage` for the call.
+        if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) } != 0 {
+            return None;
+        }
+        let max = u64::try_from(usage.ru_maxrss).ok()?;
+        // Darwin reports bytes, every other Unix kilobytes.
+        Some(if cfg!(target_vendor = "apple") {
+            max / 1024
+        } else {
+            max
+        })
+    }
 }
 
 #[cfg(test)]
@@ -293,40 +359,81 @@ mod tests {
 
     #[test]
     fn a_thread_cpu_clock_reads_its_thread_from_another() {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let (burned_tx, burned_rx) = std::sync::mpsc::channel::<u64>();
-        let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
         std::thread::scope(|s| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let (burned_tx, burned_rx) = std::sync::mpsc::channel::<u64>();
+            // Every channel is created inside the scope so that an assertion
+            // below drops its sender. The thread outlives the read by waiting
+            // on `done`, and a sender held in the enclosing frame could not
+            // be dropped until the scope returned — which is the scope
+            // waiting for a thread waiting for the scope. A test that hangs
+            // on failure reports a timeout instead of a reason.
+            let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
             s.spawn(move || {
                 let cpu = ThreadCpu::here();
                 tx.send(cpu).unwrap();
                 let start = thread_cpu_ns();
                 burn(40_000_000);
                 burned_tx.send(thread_cpu_ns() - start).unwrap();
-                done_rx.recv().unwrap();
+                // A disconnect says the reader is gone, which is this
+                // thread's cue to end as much as a message is.
+                let _ = done_rx.recv();
             });
             let mine = thread_cpu_ns();
             let cpu = rx.recv().unwrap();
             let burned = burned_rx.recv().unwrap() as f64 * 1e-9;
             let seen = cpu.seconds();
             let own = (thread_cpu_ns() - mine) as f64 * 1e-9;
-            // The reader blocked while the other thread burned: the clock it
-            // read holds the burn, far more than the reader's own time.
-            assert!(
-                seen >= burned,
-                "read {seen} s, the thread burned {burned} s"
-            );
-            assert!(own < 0.5 * burned, "the reader spent {own} s of {burned} s");
-            done_tx.send(()).unwrap();
+            if ThreadCpu::AVAILABLE {
+                // The reader blocked while the other thread burned: the clock
+                // it read holds the burn, far more than the reader's own time.
+                assert!(
+                    seen >= burned,
+                    "read {seen} s, the thread burned {burned} s"
+                );
+                assert!(own < 0.5 * burned, "the reader spent {own} s of {burned} s");
+            } else {
+                // Where no clock names another thread, the reading is not a
+                // number. That is the contract callers gate on, and it is
+                // what this test has to assert instead: `NaN >= burned` is
+                // false, so the reading-is-the-burn assertion would fail here
+                // and say the clock was wrong rather than absent.
+                assert!(
+                    seen.is_nan(),
+                    "no clock names another thread here, so there is no reading: {seen}"
+                );
+            }
+            // The thread is still waiting; a disconnect would end it too, so
+            // nothing is asserted on the send.
+            let _ = done_tx.send(());
         });
     }
 
     #[test]
     fn memory_marks_read_the_process() {
-        // Current first: tests allocating in parallel can raise it between
-        // the reads, and only a later peak bounds an earlier current.
-        let rss = rss_kb();
-        assert!(rss > 0);
-        assert!(peak_rss_kb() >= rss);
+        // The current size is read first and the peak second, because the
+        // order is what makes the comparison sound: a peak read at the later
+        // moment is the maximum over everything up to it, so it bounds a
+        // current size read before it whatever else allocated in between.
+        // Read the other way round, a test allocating in parallel between the
+        // two reads leaves a current size above the earlier peak, and the
+        // assertion fails on a process that never did anything wrong.
+        // The peak is readable on every Unix; the current size needs `/proc`.
+        let current = rss_kb();
+        let peak = peak_rss_kb().expect("a peak reading on any Unix");
+        assert!(peak > 0, "a running process has held some memory");
+        match current {
+            Some(rss) => {
+                assert!(rss > 0, "a reading was taken and came back as nothing held");
+                assert!(peak >= rss, "the peak is below the current size");
+            }
+            // Absent is the answer where no `/proc` holds it, and a defect
+            // where one does. Written as a guard rather than as an assertion
+            // over the constant, which is constant on any one platform.
+            None if CURRENT_RSS_READABLE => {
+                panic!("this platform reports resident memory and the reading was still absent")
+            }
+            None => {}
+        }
     }
 }

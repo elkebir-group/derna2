@@ -610,9 +610,8 @@ impl Dfa {
 
     /// Best cost-to-go CAI log-weight for the best DFA path from `start` to
     /// `end`: the partial units at the span's ends plus every whole unit in
-    /// between, each at its best available weight. Mirrors LinearDesign's
-    /// `get_broken_codon_score`, with the whole units summed rather than
-    /// assumed zero.
+    /// between, each at its best available weight, with the whole units
+    /// summed rather than assumed zero.
     ///
     /// A span crossing a unit boundary separates as
     /// [`Self::span_head_cai`]`(start) + `[`Self::span_tail_cai`]`(end)`, each
@@ -951,8 +950,7 @@ impl Dfa {
     }
 
     /// Best-CAI nucleotide path spelling the codons between `start` and
-    /// `end`, used by traceback to fill loop interiors. Mirrors
-    /// LinearDesign's `get_nuc_from_dfa_cai`.
+    /// `end`, used by traceback to fill loop interiors.
     pub fn broken_codon_seq(&self, start: Node, end: Node) -> Vec<Nucleotide> {
         if start.pos >= end.pos {
             return Vec::new();
@@ -1398,8 +1396,8 @@ fn position_has_partner(dfa: &Dfa, pos: u32, open: Nucleotide) -> bool {
 }
 
 /// Splice codon position `i`'s lattice into the protein DFA at nucleotide
-/// positions `cds_start + 3i .. cds_start + 3i+3`. Mirrors LinearDesign's
-/// `get_dfa`; `cds_start` is the 5′-UTR offset (`0` for a CDS-only graph).
+/// positions `cds_start + 3i .. cds_start + 3i+3`; `cds_start` is the
+/// 5′-UTR offset (`0` for a CDS-only graph).
 fn splice_codon_unit(dfa: &mut Dfa, cds_start: u32, i: u32) {
     let base = cds_start + i * 3;
     add_node(dfa, Node::new(base, 0));

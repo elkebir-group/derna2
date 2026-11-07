@@ -54,12 +54,12 @@ fn every_dangles_zero_fixture_matches_evaluator() {
 }
 
 /// Compare a computed [`Energy`] (integer dekacal) against a fixture's
-/// `f64 kcal/mol` value at exact integer-dekacal equality. Vienna's
-/// fixture energies are stored to 0.01 kcal/mol precision, so a
+/// `f64 kcal/mol` value at exact integer-dekacal equality. The reference
+/// energies are stored to 0.01 kcal/mol precision, so a
 /// successful round-trip means `(computed.dekacal() / 100.0).round()`
 /// equals the fixture's recorded value when expressed as dekacal.
 fn exact_dekacal(computed: Energy, fixture_kcal: f64) -> bool {
-    // Vienna writes fixture energies as `%6.2f` → dekacal is exactly
+    // Reference energies are written as `%6.2f` → dekacal is exactly
     // 100 × the kcal value (within the smallest representable f64
     // increment). Round-trip via i32 to compare integers, not floats.
     let fixture_dekacal = (fixture_kcal * 100.0).round() as i32;

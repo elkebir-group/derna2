@@ -35,8 +35,8 @@ use derna_lib::motif_front::{
     motif_front_walk_run, MotifFrontSpec, MotifResume, MotifRun, MotifWalk, WalkBudget,
 };
 use derna_lib::{
-    design_front_walk_per_stop, design_front_walk_run, BeamError, FrontPoint, HullPoint, Params,
-    PassGrid, UtrSpec, WalkOptions, WalkResume, WalkRun, WalkedFront,
+    design_front_walk_per_stop, design_front_walk_run, BeamError, FrontPoint, HullPoint, PassGrid,
+    UtrSpec, WalkOptions, WalkResume, WalkRun, WalkedFront,
 };
 use serde_json::{json, Map, Value};
 
@@ -167,7 +167,13 @@ Budget
                             partial front, naming the boxes left open
                             [default: no limit]
   --max-rss-gb G            stop the walk at G GB resident and return the
-                            partial front [default: no limit]
+                            partial front (Linux only, resident memory being
+                            read from /proc) [default: no limit]
+  --max-gap-folds N         stop the walk after N gap folds and return the
+                            partial front, naming the boxes left open: a
+                            fixed amount of work on any machine, so --resume
+                            continues a long front in pieces [default: no
+                            limit]
   --shed-on-memory          (with --modular --max-rss-gb) at G GB end only
                             the walks running then, leaving their regions
                             open, and go on; stop only if memory stays over
@@ -293,6 +299,13 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
             "--structurally-optimal" => return Err(crate::args::renamed(&flag).into()),
             "--max-secs" => args.budget.max_secs = Some(positive(&flag, &mut flags)?),
             "--max-rss-gb" => args.budget.max_rss_gb = Some(positive(&flag, &mut flags)?),
+            "--max-gap-folds" => {
+                let n: usize = flags.parsed(&flag)?;
+                if n == 0 {
+                    return Err(format!("{flag} {n}: give a count of 1 or more").into());
+                }
+                args.budget.max_gap_folds = Some(n);
+            }
             "--shed-on-memory" => args.budget.shed_on_memory = true,
             "--front-from" => once(&mut args.front_from, &flag, &mut flags)?,
             "--front-out" => once(&mut args.front_out, &flag, &mut flags)?,
@@ -441,6 +454,13 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
         )
         .into());
     }
+    if args.budget.max_rss_gb.is_some() && !derna_lib::task_clock::CURRENT_RSS_READABLE {
+        return Err(
+            "derna front: --max-rss-gb needs the process's resident memory, \
+                    which this platform does not report; the limit would never bind"
+                .into(),
+        );
+    }
     if args.checkpoint && args.no_checkpoint {
         return Err("derna front: --checkpoint and --no-checkpoint ask for opposite things".into());
     }
@@ -483,6 +503,13 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
         return Err(
             "derna front: --max-secs and --max-rss-gb budget a walk, and --front-from \
                     runs none: it reads a front this command wrote earlier"
+                .into(),
+        );
+    }
+    if args.budget.max_gap_folds.is_some() && (args.modular || args.front_from.is_some()) {
+        return Err(
+            "derna front: --max-gap-folds stops the walk of a front, and with --modular \
+                    or --front-from the walk is not what the run returns"
                 .into(),
         );
     }
@@ -753,8 +780,8 @@ fn positive(flag: &str, flags: &mut Flags) -> Result<f64> {
     }
 }
 
-/// The pass grid this molecule's length selects, unless
-/// `DERNA_WALK_PASS_GRID` gives its segments as `until:step,...`.
+/// The pass grid this molecule's length selects, unless a development build
+/// gives its segments as `until:step,...`.
 ///
 /// One function, read by the walk and by the header that reports it: a header
 /// recomputing the choice could come to say what the walk did not do.
@@ -769,7 +796,7 @@ fn positive(flag: &str, flags: &mut Flags) -> Result<f64> {
 pub fn pass_grid(m: &Molecule) -> PassGrid {
     // The grid is picked from the molecule's length rather than given: a
     // spacing that suits one length makes folds much slower at another.
-    std::env::var("DERNA_WALK_PASS_GRID")
+    derna_lib::dev_env::var(derna_lib::dev_env::Setting::WalkPassGrid)
         .ok()
         .and_then(|g| PassGrid::parse(&g))
         .unwrap_or_else(|| PassGrid::for_residues(m.protein.sequence.len()))
@@ -807,7 +834,7 @@ fn walk_options(m: &Molecule, budget: Budget) -> WalkOptions {
             max_secs: budget.max_secs,
             max_rss_gb: budget.max_rss_gb,
         },
-        gap_folds: gap_folds(),
+        gap_folds: budget.max_gap_folds.or_else(gap_folds),
         pass_grid: Some(pass_grid(m)),
         ..WalkOptions::for_residues(m.protein.sequence.len())
     }
@@ -820,7 +847,7 @@ pub fn walk_run(
     budget: Budget,
     run: WalkRun<'_>,
 ) -> Result<WalkedFront> {
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let options = walk_options(m, budget);
     Ok(design_front_walk_run(
         &params,
@@ -860,7 +887,7 @@ pub fn motif_walk(
         resident_share: None,
         resident_passes: resident_passes(),
         stop_open_share: stop_open_share(),
-        gap_folds: gap_folds(),
+        gap_folds: budget.max_gap_folds.or_else(gap_folds),
         probe_skip: None,
         probe_learn: None,
         fold_threads: 1,
@@ -880,7 +907,7 @@ pub fn motif_walk_run(
     threads: usize,
     run: MotifRun<'_>,
 ) -> Result<MotifWalk> {
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let fixed = |spec: UtrSpec| match spec {
         UtrSpec::Fixed(s) => Ok(s),
         _ => Err("derna front: a motif front takes fixed flanks only"),
@@ -1197,7 +1224,7 @@ fn run_each(args: &FrontArgs, started: Instant, arms: &[String]) -> Result<()> {
     } else {
         args.budget
     };
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let fronts = design_front_walk_per_stop(
         &params,
         &m.designed_protein(),
@@ -1582,7 +1609,7 @@ fn run_motifs(args: &FrontArgs, m: &Molecule, threads: usize, started: Instant) 
         resident_share: None,
         resident_passes: resident_passes(),
         stop_open_share: stop_open_share(),
-        gap_folds: gap_folds(),
+        gap_folds: args.budget.max_gap_folds.or_else(gap_folds),
         probe_skip: None,
         probe_learn: None,
         fold_threads: args.fold_threads.unwrap_or(1),
@@ -1724,7 +1751,7 @@ fn write_motif_modular(
     let header = Value::Object(header);
     let mut w = result::open_output(args.shared.out.as_deref(), args.overwrite())?;
     result::write_lines(w.as_mut(), std::slice::from_ref(&header))?;
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     for batch in front.points.chunks(EMIT_BATCH.max(threads)) {
         let lines = modular_front::points(m, &params, batch, (threads, 0.0))?;
         result::write_lines(w.as_mut(), &result::with_metrics(&header, lines))?;
@@ -2202,6 +2229,9 @@ fn write_motif_report(path: &Path, walked: &MotifWalk, force: bool) -> Result<()
         "passes": walked.passes.iter().map(|p| json!({
             "lambda": p.lambda,
             "secs": p.secs,
+            // `null`, not 0, where the reading could not be taken: a pass
+            // that held nothing and a reading that was not taken are
+            // different facts, and 0 reads as the first.
             "rss_kb": p.rss_kb,
             "aware_secs": p.aware_secs,
             "aware_folds": p.aware_folds,
@@ -2308,7 +2338,7 @@ fn read_anchors(m: &Molecule, path: &Path, threads: usize, epsilon: f64) -> Resu
             Ok((seq.to_string(), cai))
         })
         .collect::<Result<_>>()?;
-    let params = derna_lib::Params::load_default()?;
+    let params = m.params.clone();
     let (cds, table) = (m.cds(), m.table());
     let workers = threads.clamp(1, points.len().max(1));
     // Each worker's anchors within `epsilon` as (mfe, cai_log, sequence).
@@ -2507,7 +2537,7 @@ fn write_modular(
     let header = front_header(m, walked, threads, args, started, extra, None);
     let mut w = result::open_output(args.shared.out.as_deref(), args.overwrite())?;
     result::write_lines(w.as_mut(), std::slice::from_ref(&header))?;
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let emitting = Instant::now();
     // The gaps are known only once each point is folded, after the header is
     // out, so their histogram goes to stderr; the points' own `gap` fields
@@ -2702,21 +2732,24 @@ fn write_report(path: &Path, walked: &WalkedFront, force: bool) -> Result<()> {
     Ok(())
 }
 
-/// The most grid passes a motif walk holds without a memory budget:
-/// `DERNA_MOTIF_PASS_RESIDENT`, unset to hold every pass. Meant beside
-/// `DERNA_MOTIF_PASS_CACHE`, which reads a dropped pass back from disk.
+/// The most grid passes a motif walk holds without a memory budget: every
+/// pass, unless a development build sets a number, meant beside its pass
+/// cache, which reads a dropped pass back from disk.
 fn resident_passes() -> Option<usize> {
-    std::env::var("DERNA_MOTIF_PASS_RESIDENT")
+    derna_lib::dev_env::var(derna_lib::dev_env::Setting::MotifPassResident)
         .ok()?
         .parse()
         .ok()
 }
 
 /// The share of the front's energy span left in unsettled boxes at which a
-/// motif walk stops: `DERNA_MOTIF_STOP_OPEN`, unset to run until done or out
-/// of budget.
+/// motif walk stops: none, running until done or out of budget, unless a
+/// development build sets one.
 fn stop_open_share() -> Option<f64> {
-    std::env::var("DERNA_MOTIF_STOP_OPEN").ok()?.parse().ok()
+    derna_lib::dev_env::var(derna_lib::dev_env::Setting::MotifStopOpen)
+        .ok()?
+        .parse()
+        .ok()
 }
 
 /// The widest first range of a motif walk's gap folds, in dekacalories, when
@@ -2736,10 +2769,14 @@ fn motif_slice_width() -> Option<i32> {
 }
 
 /// How many gap folds a walk solves before it stops, keeping each stopped
-/// gap's rest (a motif walk's ranges, a plain walk's slices):
-/// `DERNA_MOTIF_GAP_FOLDS`, unset for no such limit.
+/// gap's rest (a motif walk's ranges, a plain walk's slices), when
+/// `--max-gap-folds` does not say: no such limit, unless a development build
+/// sets one.
 fn gap_folds() -> Option<usize> {
-    std::env::var("DERNA_MOTIF_GAP_FOLDS").ok()?.parse().ok()
+    derna_lib::dev_env::var(derna_lib::dev_env::Setting::MotifGapFolds)
+        .ok()?
+        .parse()
+        .ok()
 }
 
 /// Whether a motif walk seeds its sweep with the optima its aware passes
@@ -2860,7 +2897,16 @@ mod tests {
 
     #[test]
     fn a_budget_takes_a_walk_and_a_positive_number() {
-        for flag in ["--max-secs", "--max-rss-gb"] {
+        // The budget every platform takes is the clock. `--max-rss-gb` is
+        // refused where resident memory cannot be read, so asserting that it
+        // parses would assert a Linux fact everywhere; that refusal is
+        // `a_memory_limit_is_taken_only_where_it_can_bind`'s subject.
+        let budgets: &[&str] = if derna_lib::task_clock::CURRENT_RSS_READABLE {
+            &["--max-secs", "--max-rss-gb"]
+        } else {
+            &["--max-secs"]
+        };
+        for &flag in budgets {
             // A budget stops a walk, and every front this command walks takes
             // one; a front read back from a file is not walked.
             assert!(parse(words(&["--protein", "MK", flag, "1"])).is_ok());
@@ -2937,14 +2983,28 @@ mod tests {
     }
 
     #[test]
-    fn a_flag_the_front_cannot_act_on_is_refused_not_ignored() {
-        let e = parse(words(&["--protein", "MK", "--beam-first", "50"]))
-            .unwrap_err()
-            .to_string();
-        assert!(
-            e.contains("not checked") || e.contains("are not checked"),
-            "{e}"
-        );
+    fn a_memory_limit_is_taken_only_where_it_can_bind() {
+        // `--max-rss-gb` is enforced by reading the process's resident memory
+        // and comparing. Where that reading cannot be taken the comparison is
+        // false every time, so the flag used to be accepted and then never
+        // fire: the run continued past the limit it was given, reporting
+        // nothing. The flag now tracks whether the reading exists.
+        //
+        // One of the two branches is dead on any one platform, which is the
+        // point — the assertion is that the flag and the reading agree, and
+        // it is checked wherever this runs rather than only where the refusal
+        // happens to fire.
+        let argv = words(&["--protein", "MK", "--max-rss-gb", "4"]);
+        if derna_lib::task_clock::CURRENT_RSS_READABLE {
+            assert!(
+                parse(argv).is_ok(),
+                "resident memory is readable here, so the limit can bind"
+            );
+        } else {
+            let e = parse(argv).unwrap_err().to_string();
+            assert!(e.contains("--max-rss-gb"), "{e}");
+            assert!(e.contains("never bind"), "{e}");
+        }
     }
 
     #[test]

@@ -53,10 +53,6 @@ use thiserror::Error;
 use crate::region::{PairClass, PairConstraint, Region, RegionConstraints, Verdict};
 use crate::Design;
 
-/// A beam wide enough that the folder runs the exact lattice, matching the
-/// `b → ∞` convention of the fold-parity oracles.
-const EXACT_BEAM: usize = 1 << 20;
-
 /// The CDS's position window within a whole-mRNA sequence: `[start, end)` in
 /// nucleotides, where `start` is the length of the 5′ UTR and `end - start` is
 /// three times the protein length.
@@ -247,9 +243,11 @@ pub enum FreeFoldError {
     /// The emitted structure could not be re-scored under the energy model.
     #[error("re-scoring the emitted structure failed: {0}")]
     Evaluate(#[from] EvalError),
-    /// The unconstrained fold of the emitted sequence failed.
-    #[error("free fold of the emitted sequence failed: {0}")]
-    Fold(#[from] rna_linearfold::FoldError),
+    /// A byte of the sequence is not a nucleotide, so nothing can be folded.
+    /// The message is the one the fold itself reported when the parse was
+    /// reached through it.
+    #[error("free fold of the emitted sequence failed: invalid nucleotide byte: {0:?}")]
+    InvalidNucleotide(u8),
     /// The Zuker fold of the emitted sequence failed.
     #[error("Zuker fold of the emitted sequence failed: {0}")]
     Zuker(#[from] rna_mfe::FoldError),
@@ -632,33 +630,13 @@ pub fn sequence_mfe_within_reusing(
     Ok((so, mfes))
 }
 
-/// The exact unconstrained MFE of `sequence`, in dekacalories, by LinearFold
-/// at an unbounded beam. One exact fold. Not the check's free half, which is
-/// [`sequence_free_fold_zuker`]: this fold caps a multiloop's leading unpaired
-/// run at 30, so it can read a free MFE above the molecule's.
-pub fn sequence_free_mfe(params: &Params, sequence: &str) -> Result<Energy, FreeFoldError> {
-    Ok(sequence_free_fold(params, sequence)?.1)
-}
-
-/// [`sequence_free_mfe`] with the MFE structure, in dot-bracket.
-pub fn sequence_free_fold(
-    params: &Params,
-    sequence: &str,
-) -> Result<(String, Energy), FreeFoldError> {
-    Ok(rna_linearfold::fold(
-        params,
-        sequence.as_bytes(),
-        EXACT_BEAM,
-    )?)
-}
-
-/// [`sequence_free_fold`] by the Zuker DP instead of LinearFold at an
-/// unbounded beam: the same energy model, interior loops capped at the same
-/// 30 unpaired bases, at a fraction of the cost. The free MFE is the same
-/// except where the optimum opens a multiloop with more than 30 unpaired
-/// bases before its first branch: LinearFold caps that run and this fold does
-/// not, so its MFE is never higher. Where the MFE is degenerate the two may
-/// return different co-optimal structures.
+/// The exact unconstrained MFE of `sequence` and its MFE structure, in
+/// dot-bracket, by the Zuker DP: interior loops are capped at 30 unpaired
+/// bases, while a multiloop's leading unpaired run is not capped, so a
+/// multiloop with more than 30 unpaired bases before its first branch is
+/// reachable. A fold that caps that run can only read the same MFE or a higher
+/// one. Where the MFE is degenerate, two exact folds may return different
+/// co-optimal structures.
 ///
 /// Run as the sparse fold with no cut ([`rna_mfe::dp::fold_sparse`]), which
 /// is the dense fold's ([`rna_mfe::fold`]) MFE exactly while iterating only
@@ -889,11 +867,7 @@ fn constrained_mfe(
     seq: &[u8],
     constraint: PairConstraint,
 ) -> Result<f64, FreeFoldError> {
-    let bad_byte = || {
-        FreeFoldError::Fold(rna_linearfold::FoldError::InvalidNucleotide(
-            seq.first().copied().unwrap_or(b'?'),
-        ))
-    };
+    let bad_byte = || FreeFoldError::InvalidNucleotide(seq.first().copied().unwrap_or(b'?'));
     let nts = crate::parse_utr(std::str::from_utf8(seq).map_err(|_| bad_byte())?)
         .map_err(|_| bad_byte())?;
     let graph = crate::dfa::build_fixed_mrna(&nts);

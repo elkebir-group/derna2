@@ -1,12 +1,11 @@
 //! The 5′→3′ CKY scan over DFA nodes.
 //!
-//! A direct generalization of `rna-linearfold`'s position-indexed Zuker
-//! DP to the codon DFA: the same six tables, the same Turner-2004 loop
-//! energies (from `rna-mfe`, so a λ=1 single-path scan reproduces
-//! `rna_linearfold::fold` exactly), now traversing DFA edges instead of
-//! incrementing a sequence position. Each closed-pair cell additionally
-//! keys on its boundary nucleotides, and a CAI accumulator rides
-//! alongside the energy. Loop interiors that the grammar jumps over are
+//! A position-indexed MFE DP generalized to the codon DFA: six tables
+//! and the Turner-2004 loop energies (from `rna-mfe`, so a λ=1
+//! single-path scan on the exact lattice computes the sequence's MFE),
+//! now traversing DFA edges instead of incrementing a sequence position.
+//! Each closed-pair cell additionally keys on its boundary nucleotides,
+//! and a CAI accumulator rides alongside the energy. Loop interiors that the grammar jumps over are
 //! filled by the best-CAI DFA path between their boundaries (the
 //! broken-codon bookkeeping); on a single-path DFA that path is unique,
 //! so the energies are exact.
@@ -237,14 +236,16 @@ struct Constraints {
     values_only: bool,
 }
 
-/// Whether a scan in `mode` runs the column fill: the `Lz` default
-/// (`DERNA_PUSH_SCAN` selects the push scan instead); in `Naive` mode the push
-/// is the default and `DERNA_PULL_FILL` selects the fill. Independent of the
+/// Whether a scan in `mode` runs the column fill: the `Lz` default (a
+/// development build can select the push scan instead); in `Naive` mode the
+/// push is the default and a development build can select the fill. Independent of the
 /// lattice, so it is read before one is monomorphized over.
 fn fills(mode: InternalLoopMode) -> bool {
     match mode {
-        InternalLoopMode::Lz => std::env::var_os("DERNA_PUSH_SCAN").is_none(),
-        InternalLoopMode::Naive => std::env::var_os("DERNA_PULL_FILL").is_some(),
+        InternalLoopMode::Lz => crate::dev_env::var_os(crate::dev_env::Setting::PushScan).is_none(),
+        InternalLoopMode::Naive => {
+            crate::dev_env::var_os(crate::dev_env::Setting::PullFill).is_some()
+        }
     }
 }
 
@@ -295,7 +296,7 @@ fn scan_tables(
     };
     // The column fill fans out up to three times per position; one pool for
     // the whole scan replaces a thread start per worker per fan-out.
-    let push_pool = std::env::var_os("DERNA_PUSH_POOL").is_some();
+    let push_pool = crate::dev_env::var_os(crate::dev_env::Setting::PushPool).is_some();
     if (fills(config.mode) || push_pool) && config.threads > 1 {
         Pool::scoped(config.threads - 1, |p| run(Some(p)))
     } else {
@@ -428,16 +429,18 @@ impl<'a, const S: usize> Scan<'a, S> {
             dfa,
             mode: config.mode,
             threads: config.threads.max(1),
-            validate_oneside: std::env::var_os("DERNA_ONESIDE_VALIDATE").is_some(),
+            validate_oneside: crate::dev_env::var_os(crate::dev_env::Setting::OnesideValidate)
+                .is_some(),
             pull_fill: fills(config.mode),
             fan_pool,
-            fan_all: std::env::var_os("DERNA_FILL_FAN_ALL").is_some(),
-            serial_index: std::env::var_os("DERNA_FILL_SERIAL_INDEX").is_some(),
+            fan_all: crate::dev_env::var_os(crate::dev_env::Setting::FillFanAll).is_some(),
+            serial_index: crate::dev_env::var_os(crate::dev_env::Setting::FillSerialIndex)
+                .is_some(),
             ninio_skew,
             fill_n1_hi: pull_fill::fill_n1_hi(config.single_max_len, &fill_shapes),
             fill_shapes,
             one_by_n: OneByNRows::of(params),
-            fan_workers_cap: std::env::var("DERNA_FAN_WORKERS")
+            fan_workers_cap: crate::dev_env::var(crate::dev_env::Setting::FanWorkers)
                 .ok()
                 .and_then(|v| v.parse::<usize>().ok())
                 .filter(|&cap| cap >= 1),
@@ -584,25 +587,25 @@ struct Scan<'a, const S: usize> {
     /// the BRD is the energy alone, so a cell's stored CAI is order-dependent
     /// there); the column fill keeps one tie order at every thread count.
     threads: usize,
-    /// Dev-only gate (`DERNA_ONESIDE_VALIDATE`): when set, every skewed
+    /// Development-only gate (`Setting::OnesideValidate`): when on, every skewed
     /// one-sided generic closure asserts its factored BRD equals the full
     /// corner enumeration — the de-risk check for the lever-3 reduction, read
     /// once so the hot-path branch stays predictable.
     validate_oneside: bool,
     /// Fill each `P` column with one owner per target cell ([`pull_fill`])
     /// instead of the push and the inner-dealt pull: on by default in `Lz`
-    /// mode (off under `DERNA_PUSH_SCAN`), off by default in `Naive` mode (on
-    /// under `DERNA_PULL_FILL`). Read once, so the hot path never touches the
-    /// environment.
+    /// mode, off by default in `Naive` mode; a development build can switch
+    /// either (`Setting::PushScan`, `Setting::PullFill`). Read once, so the hot
+    /// path never touches the environment.
     pull_fill: bool,
     /// The scan's workers, kept for the whole scan; `None` at one thread and
-    /// on the push scan unless `DERNA_PUSH_POOL` is set.
+    /// on the push scan unless a development build asks (`Setting::PushPool`).
     fan_pool: Option<&'a Pool>,
-    /// Dev-only gate (`DERNA_FILL_FAN_ALL`): every column-fill site fans out
+    /// Development-only gate (`Setting::FillFanAll`): every column-fill site fans out
     /// above one thread whatever its size, so a test on small lattices still
     /// runs the fanned paths. Read once.
     fan_all: bool,
-    /// Dev-only gate (`DERNA_FILL_SERIAL_INDEX`): index each finalized column
+    /// Development-only gate (`Setting::FillSerialIndex`): index each finalized column
     /// serially after the bifurcation instead of beside it, so the overlap
     /// can be timed against its absence in one binary. Read once.
     serial_index: bool,
@@ -616,7 +619,7 @@ struct Scan<'a, const S: usize> {
     fill_n1_hi: Vec<Option<usize>>,
     /// Which closing pairs' `1×n` loops score the same at every corner.
     one_by_n: OneByNRows,
-    /// Dev-only cap (`DERNA_FAN_WORKERS`) on the workers a fan-out starts,
+    /// Development-only cap (`Setting::FanWorkers`) on the workers a fan-out starts,
     /// below `threads`. At `1` the threaded code path runs on one worker,
     /// which separates what the parallel decomposition costs from what the
     /// workers cost each other. Read once, so the hot path never touches the
@@ -1933,8 +1936,8 @@ impl<const S: usize> Scan<'_, S> {
         ))
     }
 
-    /// De-risk gate for the lever-3 one-sided reduction
-    /// (`DERNA_ONESIDE_VALIDATE`): assert the **skewed one-sided** closure's
+    /// De-risk gate for the lever-3 one-sided reduction, development builds
+    /// only (`Setting::OnesideValidate`): assert the **skewed one-sided** closure's
     /// factored corner minimum equals the full `lefts × rights` enumeration.
     ///
     /// When exactly one flank is large (`≥ 5`, so it separates over a codon

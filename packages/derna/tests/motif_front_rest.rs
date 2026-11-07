@@ -1,10 +1,6 @@
 //! `derna front --motif` stopped with gaps solved part way: the header gives
 //! each partly solved box the energy its gap is solved up to and the best
 //! adaptation there, and `--resume` continues each box from that rest.
-//!
-//! A test binary of its own, because the stop it needs is set through the
-//! environment (`DERNA_MOTIF_GAP_FOLDS`, with `DERNA_MOTIF_GAP_BUDGET` forcing
-//! every gap into slices), which every test in one binary would share.
 
 use derna_cli::front;
 use derna_cli::show;
@@ -68,9 +64,14 @@ fn objectives(p: &serde_json::Value) -> (i64, f64, bool) {
 #[test]
 fn a_front_stopped_inside_its_gaps_resumes_from_the_header_to_the_whole_front() {
     let (_, whole) = front_file(&[], "whole.jsonl");
-    std::env::set_var("DERNA_MOTIF_GAP_BUDGET", "20");
-    std::env::set_var("DERNA_MOTIF_GAP_FOLDS", "1");
-    let (mut from, mut walk) = front_file(&[], "round-0.jsonl");
+    let (mut from, mut walk) = front_file(&["--max-gap-folds", "1"], "round-0.jsonl");
+    // The stop is real: the first round returned less than the whole front.
+    assert!(
+        walk.points.len() < whole.points.len(),
+        "one gap fold returned {} of {} points",
+        walk.points.len(),
+        whole.points.len()
+    );
     let dekacal = |kcal: f64| (kcal * 100.0).round() as i64;
     let mut rests_before = std::collections::HashMap::new();
     let mut part_way = 0;
@@ -104,12 +105,10 @@ fn a_front_stopped_inside_its_gaps_resumes_from_the_header_to_the_whole_front() 
         rests_before = rests;
         rounds += 1;
         assert!(rounds < 500, "the rounds do not finish");
-        let resume = ["--resume", from.to_str().unwrap()];
+        let resume = ["--resume", from.to_str().unwrap(), "--max-gap-folds", "1"];
         let next = front_file(&resume, &format!("round-{rounds}.jsonl"));
         (from, walk) = next;
     }
-    std::env::remove_var("DERNA_MOTIF_GAP_FOLDS");
-    std::env::remove_var("DERNA_MOTIF_GAP_BUDGET");
     std::fs::remove_dir_all(from.parent().unwrap()).unwrap();
     assert!(
         part_way > 0,

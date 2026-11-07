@@ -9,8 +9,8 @@
 mod common;
 
 use derna_lib::{
-    design_front_walk_run, CodonUsage, Params, PassGrid, RegionConstraints, UtrSpec, WalkBudget,
-    WalkOptions, WalkResume, WalkRun,
+    design_front_walk_run, task_clock::CURRENT_RSS_READABLE, CodonUsage, Params, PassGrid,
+    RegionConstraints, UtrSpec, WalkBudget, WalkOptions, WalkResume, WalkRun,
 };
 
 /// A protein whose walk settles several gaps, so a budget has something to
@@ -63,6 +63,13 @@ fn walk(budget: WalkBudget) -> derna_lib::WalkedFront {
 /// splits, and the walk never reaches the code that replaces a pair by the two
 /// it refines into. This set does reach it.
 fn bisecting(budget: WalkBudget, run: WalkRun<'_>) -> derna_lib::WalkedFront {
+    bisecting_on(2, budget, run)
+}
+
+/// [`bisecting`] on a chosen number of workers. With one, the walk reaches its
+/// checkpoints in an order no scheduling can change, so a test that counts
+/// what its checkpoints held sees the same count on a loaded machine.
+fn bisecting_on(threads: usize, budget: WalkBudget, run: WalkRun<'_>) -> derna_lib::WalkedFront {
     let params = Params::load_default().unwrap();
     let usage = CodonUsage::load_default().unwrap();
     let options = WalkOptions {
@@ -79,7 +86,7 @@ fn bisecting(budget: WalkBudget, run: WalkRun<'_>) -> derna_lib::WalkedFront {
         1e-4,
         0.999,
         options,
-        2,
+        threads,
         run,
     )
     .expect("the bisecting walk answers under a budget")
@@ -196,8 +203,17 @@ fn a_budget_returns_front_points_and_names_what_is_open() {
 
 /// A memory cap below what the process already holds stops the walk too, and
 /// says so: the two budgets are read by the same check and reported apart.
+///
+/// The cap is compared against the process's resident size, which not every
+/// platform reports ([`CURRENT_RSS_READABLE`]). Where it does not, no reading
+/// ever exceeds the cap and the walk runs to the end, which is the stated
+/// behaviour of a budget that cannot bind rather than something to assert
+/// against; the command refuses such a cap before a walk is reached.
 #[test]
 fn a_memory_cap_stops_the_walk_by_memory() {
+    if !CURRENT_RSS_READABLE {
+        return;
+    }
     let stopped = walk(WalkBudget {
         max_rss_gb: Some(1e-9),
         ..WalkBudget::default()
@@ -687,7 +703,7 @@ fn every_checkpoint_of_a_bisecting_walk_resumes_to_the_whole_front() {
 /// handed: a walk killed while it continues another loses neither.
 #[test]
 fn every_checkpoint_of_a_resumed_walk_resumes_to_the_whole_front() {
-    let whole = bisecting(WalkBudget::default(), WalkRun::default());
+    let whole = bisecting_on(1, WalkBudget::default(), WalkRun::default());
     let (first, rest) = whole.gaps.split_first().expect("a walk with gaps");
     let on_hull = |p: &derna_lib::FrontPoint| {
         [first.a, first.b]
@@ -714,7 +730,8 @@ fn every_checkpoint_of_a_resumed_walk_resumes_to_the_whole_front() {
     };
     assert!(given.open.len() >= 2, "{} box(es) open", given.open.len());
     let resume = |r: &WalkResume| {
-        bisecting(
+        bisecting_on(
+            1,
             WalkBudget::default(),
             WalkRun {
                 resume: Some(r),
@@ -723,7 +740,8 @@ fn every_checkpoint_of_a_resumed_walk_resumes_to_the_whole_front() {
         )
     };
     let (resumed, taken) = checkpointed(|run| {
-        bisecting(
+        bisecting_on(
+            1,
             WalkBudget::default(),
             WalkRun {
                 resume: Some(&given),

@@ -1,7 +1,6 @@
 //! Canonical dumper: [`Params`] → text that the parser round-trips.
 //!
-//! The output is a *subset* of upstream `rna_turner2004.par`: only the
-//! sections this crate parses are emitted. Skipped sections
+//! Only the sections this crate reads are emitted. Skipped sections
 //! (enthalpies, dangles, mismatch_multi, mismatch_exterior) are
 //! intentionally absent — feeding the dump back through the parser
 //! produces the same `Params`, which is the load-bearing round-trip
@@ -10,8 +9,8 @@
 //! The dump format is intentionally minimal — no row labels, no column
 //! headers, only `# section_name` followed by whitespace-separated
 //! integers — because the parser ignores comments and headers anyway,
-//! and this keeps the dumper trivially correct. Comparing to upstream
-//! requires tokenizing both sides; see `tests/round_trip.rs`.
+//! and this keeps the dumper trivially correct. The built-in table,
+//! `data/turner2004.params`, is written in exactly this layout.
 
 use std::fmt::Write;
 
@@ -23,7 +22,7 @@ const VALUES_PER_LINE: usize = 10;
 
 pub fn dump_canonical(params: &Params) -> String {
     let mut out = String::new();
-    out.push_str("## RNAfold parameter file v2.0 (rna-mfe canonical dump)\n");
+    out.push_str("## rna-mfe energy parameters, canonical layout (dekacal/mol at 37 C)\n");
 
     write_int_section(&mut out, "stack", params.stack.flat.iter().copied());
     write_int_section(

@@ -1,8 +1,7 @@
-//! Zuker DP table representations.
+//! MFE DP table representations.
 //!
-//! Five tables drive the recurrence — see Vienna's `mfe/mfe.c::fill_arrays`
-//! (v2.7.0 lines 478–510) for the canonical fill order. Their meanings
-//! at `dangles=0`:
+//! Five tables drive the recurrence (fill order is documented in
+//! [`super::fill`]). Their meanings at `dangles=0`:
 //!
 //! | Table  | Meaning                                                                                                |
 //! |--------|--------------------------------------------------------------------------------------------------------|
@@ -15,8 +14,7 @@
 //! ## Indexing convention
 //!
 //! All `(i, j)` indices are **closed-inclusive, zero-based** —
-//! `V[i, j]` covers `seq[i..=j]`. This matches Vienna's source
-//! (which is 1-based but also closed-inclusive) most closely; the
+//! `V[i, j]` covers `seq[i..=j]`. The
 //! diagonal `i == j` is reserved for empty / unpaired single bases
 //! and the upper triangle `j < i` is unused.
 //!
@@ -24,14 +22,11 @@
 //!
 //! Each pairwise table is a flat `Vec<i32>` of length `n * (n + 1) / 2`,
 //! holding only the lower-triangular cells with `0 <= i <= j < n`.
-//! Cells are addressed via [`TriangleTable::idx`] as `indx[j] + i`,
-//! mirroring Vienna's `c[indx[j] + i]` layout (see
-//! ViennaRNA v2.7.0 `src/ViennaRNA/utils/utils.c::vrna_idx_col_wise` lines
-//! 333–342). `indx[j] = j * (j + 1) / 2` is the 0-based equivalent of
-//! Vienna's 1-based `idx[j] = j * (j - 1) / 2`. The "no valid structure"
-//! sentinel is `TriangleTable::INF = 10_000_000` (matching Vienna's
-//! `vrna_constants.h::INF`); accessor methods round-trip to
-//! `Option<Energy>` for caller convenience.
+//! Cells are addressed via [`TriangleTable::idx`] as `indx[j] + i`, a
+//! column-wise packing with `indx[j] = j * (j + 1) / 2` (the 0-based
+//! form of the 1-based `idx[j] = j * (j - 1) / 2`). The "no valid
+//! structure" sentinel is `TriangleTable::INF = 10_000_000`; accessor
+//! methods round-trip to `Option<Energy>` for caller convenience.
 //!
 //! Two cache wins versus the prior `n * n` row-major `Vec<Option<Energy>>`:
 //!
@@ -48,9 +43,7 @@
 //! `Some(Energy::ZERO)` (empty prefix has zero free energy at
 //! `dangles=0`); `F[j]` for `j >= 1` is the MFE of `seq[0..j]`
 //! (note: open-end on `F` only — `F[j]` covers the first `j` bases,
-//! so `F[n]` is the MFE of the whole sequence). This off-by-one
-//! aligns with Vienna's `f5` array where `f5[length]` returns the
-//! whole-sequence MFE.
+//! so `F[n]` is the MFE of the whole sequence).
 
 use crate::loops::Energy;
 
@@ -65,8 +58,7 @@ pub struct TriangleTable {
 }
 
 impl TriangleTable {
-    /// Sentinel for "no valid structure". Matches ViennaRNA's
-    /// `vrna_constants.h::INF = 10_000_000`. Comfortably below
+    /// Sentinel for "no valid structure". Comfortably below
     /// `i32::MAX / 2`, so a handful of `INF + small` additions cannot
     /// overflow even if the caller forgets to short-circuit on the
     /// sentinel — the `get`/`set` shims on this type round-trip
@@ -75,8 +67,7 @@ impl TriangleTable {
 
     /// Fresh `n * (n + 1) / 2`-cell table with all cells initialized
     /// to `INF`. The companion `indx` array of length `n` is computed
-    /// once at construction (mirroring Vienna's `vrna_idx_col_wise`,
-    /// adjusted for 0-based indexing).
+    /// once at construction.
     pub fn empty(n: usize) -> Self {
         let cells = vec![Self::INF; n * (n + 1) / 2];
         let indx = (0..n).map(|j| j * (j + 1) / 2).collect();
@@ -105,8 +96,7 @@ impl TriangleTable {
     /// Element `k` of the returned slice is the raw `i32` of `T[k, j]`
     /// (with `INF` for empty cells), for `k` in `0..=j`. Used by the
     /// flat zip-add-min kernel in [`super::multi`] to read varying-`i`
-    /// fixed-`j` cells contiguously, mirroring Vienna's `c[indx[j] + k]`
-    /// pattern in `mfe/mfe_multibranch.c::mfe_multibranch_m2_fast`.
+    /// fixed-`j` cells contiguously.
     pub fn raw_col(&self, j: usize) -> &[i32] {
         debug_assert!(j < self.n, "raw_col({j}) out of bounds for n={}", self.n);
         let start = self.indx[j];
@@ -123,7 +113,7 @@ impl TriangleTable {
     }
 }
 
-/// Bundle of all five Zuker DP tables for a sequence of length `n`.
+/// Bundle of all five MFE DP tables for a sequence of length `n`.
 /// `f` carries `n + 1` cells (prefix indexing); the other four tables
 /// pack the `i <= j` triangle into `n * (n + 1) / 2` cells each.
 #[derive(Debug, Clone)]
@@ -138,8 +128,7 @@ pub struct DpTables {
 
 impl DpTables {
     /// Allocate empty tables sized for a sequence of length `n`.
-    /// `F[0]` is initialized to `Some(Energy::ZERO)` per Vienna's
-    /// `mfe/mfe_exterior.c::vrna_mfe_exterior_f5` (line 156: `f5[0] = 0`).
+    /// `F[0]` is initialized to `Some(Energy::ZERO)` (the empty prefix).
     pub fn empty(n: usize) -> Self {
         let mut f = vec![None; n + 1];
         f[0] = Some(Energy::ZERO);
@@ -154,17 +143,14 @@ impl DpTables {
     }
 }
 
-/// Minimum unpaired count between a hairpin's closing pair —
-/// Vienna's `TURN = 3` (`src/ViennaRNA/params/constants.h`). A pair
+/// Minimum unpaired count between a hairpin's closing pair. A pair
 /// `(i, j)` can close a hairpin only when `j - i - 1 >= MIN_HAIRPIN_LOOP`.
 pub const MIN_HAIRPIN_LOOP: usize = 3;
 
-/// Largest unpaired count (per side or summed) Vienna allows in
+/// Largest unpaired count (per side or summed) the fold allows in
 /// bulge/internal loops before the size table runs out and would have
-/// to extrapolate — `MAXLOOP = 30` (same `constants.h`). Bulges cap on
-/// the single-side count; internal loops cap on the total
-/// `u1 + u2 <= MAX_LOOP_SIZE` per `mfe/mfe_internal.c::mfe_internal_loop`
-/// (line 573 — Vienna writes `last_k + u2 > i + 1 + MAXLOOP`).
+/// to extrapolate (`MAXLOOP = 30`). Bulges cap on the single-side
+/// count; internal loops cap on the total `u1 + u2 <= MAX_LOOP_SIZE`.
 pub const MAX_LOOP_SIZE: usize = 30;
 
 #[cfg(test)]
@@ -173,7 +159,7 @@ mod tests {
 
     /// Every `(i, j)` with `0 <= i <= j < n` maps to a unique flat
     /// index in `[0, n * (n + 1) / 2)`. Catches any off-by-one in
-    /// `indx[]` (e.g., porting Vienna's 1-based formula straight over).
+    /// `indx[]` (e.g., using the 1-based formula unadjusted).
     #[test]
     fn idx_is_injective_and_dense() {
         let n = 10;

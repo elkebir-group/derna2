@@ -6,8 +6,8 @@
 //! [`special_hairpin`] and is invoked from inside [`hairpin_energy`]
 //! when the loop size is 3, 4, or 6.
 //!
-//! Energies flow as integer dekacalories (`Energy(i32)`) internally to
-//! match Vienna's `i32`-dekacal arithmetic; convert to `f64 kcal/mol`
+//! Energies flow as integer dekacalories (`Energy(i32)`) internally, so
+//! sums and roundings are exact integer arithmetic; convert to `f64 kcal/mol`
 //! at the public boundary via [`Energy::to_kcal_mol`].
 
 use crate::params::{BasePair, Nuc5};
@@ -28,10 +28,10 @@ pub use multi::{multi_loop_energy, MultiLoop};
 pub use stack::{stack_energy, StackPair};
 
 /// Logarithmic factor for size-table extrapolation of internal /
-/// hairpin / bulge loops with size > 30. Hardcoded in Vienna's
-/// `src/ViennaRNA/params/default.c` as `lxc37 = 107.856` (kcal/mol
-/// per ln-unit; integer dekacal after multiply). It is *not* parsed
-/// from `rna_turner2004.par`; see [`crate::params::MiscParams`] for
+/// hairpin / bulge loops with size > 30: `lxc37 = 107.856` (kcal/mol
+/// per ln-unit; integer dekacal after multiply), a compiled-in constant
+/// of the Turner 2004 model. It is *not* parsed
+/// from the parameter file; see [`crate::params::MiscParams`] for
 /// context on where the parser draws the file/constant boundary.
 pub const LXC_37: f64 = 107.856;
 
@@ -60,9 +60,8 @@ pub(crate) fn extrapolation(size: usize) -> i32 {
     table.get(size).copied().unwrap_or_else(|| formula(size))
 }
 
-/// Free energy in integer dekacalories (Vienna's internal unit:
-/// 10 × kcal/mol). Construct via per-motif evaluators; convert at the
-/// boundary to floating-point kcal/mol when comparing against fixture
+/// Free energy in integer dekacalories (10 × kcal/mol). Construct via
+/// per-motif evaluators; convert at the boundary to floating-point kcal/mol when comparing against fixture
 /// records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Energy(pub i32);
@@ -131,7 +130,7 @@ impl Nucleotide {
     }
 
     /// Lift to the 5-slot encoding used by `mismatch_*` / `int11` /
-    /// `int21`, where index 0 is reserved for Vienna's `N` sentinel.
+    /// `int21`, where index 0 is reserved for the `N` sentinel.
     pub const fn to_nuc5(self) -> Nuc5 {
         match self {
             Nucleotide::A => Nuc5::A,

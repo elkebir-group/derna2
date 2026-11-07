@@ -1,7 +1,7 @@
 //! The single-branch loop cap at its boundary, against the reference minimizer.
 //!
 //! A single-branch (bulge / internal) loop may carry `n1 + n2 <= SINGLE_MAX_LEN`
-//! unpaired bases in total — Vienna's `MAXLOOP`, `rna_mfe`'s `MAX_LOOP_SIZE`.
+//! unpaired bases in total — `rna_mfe`'s `MAX_LOOP_SIZE`, 30 by default.
 //! The scan splits these loops across several families (the push closures, the
 //! direct pull, the two one-sided reductions, the skewed size sweep), each with
 //! its own bound on the flanks, so the cap is checked per split rather than once.

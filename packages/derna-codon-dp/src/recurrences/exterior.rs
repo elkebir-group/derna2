@@ -2,15 +2,14 @@
 //!
 //! Codon-axis lift of the single-sequence MFE `W` table — computes the BRD value of an
 //! exterior loop on RNA segment `v[σ(a, s), σ(b, t)]` with codons `x` at
-//! AA `a` and `y` at AA `b` pinned. Mirrors v1's
-//! `derna.codon_dp._recurrences_exterior` (main paper lines 292–320).
+//! AA `a` and `y` at AA `b` pinned (main paper lines 292–320).
 //!
 //! Nine cases (1-based `s, t` in the paper translated to 0-based):
 //!
 //! 1. Single-codon base case (`a == b, x == y`): `−(1−λ) log_cai[a, x]`.
 //! 2. Impossible base case (`a == b, x != y`): `INF`.
 //! 3. Within-cell left shift (`s ∈ {0, 1}, a < b`): `O[a, b, s+1, t, x, y]`.
-//!    Production prefix cells omit this case because the equivalent optima
+//!    Prefix cells omit this case because the equivalent optima
 //!    are reached through right shifts, boundary crosses, and bifurcations.
 //! 4. Within-cell right shift (`t ∈ {1, 2}, a < b`): `O[a, b, s, t-1, x, y]`.
 //! 5. Left codon-boundary cross (`s == 2, a < b`): pick `x' ∈ S(w_{a+1})`
@@ -161,43 +160,20 @@ fn emit_shift<F: FnMut(Candidate)>(plan: &Plan<'_>, case: u8, inner_idx: CellIdx
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum OCasePolicy {
-    Production,
-    LegacyAllCases,
-}
-
-struct OCandidateContext<'p, 'a> {
-    plan: &'p Plan<'a>,
-    idx: CellIdx,
-    policy: OCasePolicy,
-}
-
-impl<'p, 'a> OCandidateContext<'p, 'a> {
-    fn new(plan: &'p Plan<'a>, idx: CellIdx, policy: OCasePolicy) -> Self {
-        Self { plan, idx, policy }
-    }
-}
-
-fn allow_prefix_left_shift(policy: OCasePolicy, idx: CellIdx) -> bool {
+/// Whether case 3 (the within-cell left shift) is taken. A prefix cell
+/// (`a == 0 && s == 0`) omits it: the same optima are reached through right
+/// shifts, boundary crosses and bifurcations.
+fn allow_prefix_left_shift(idx: CellIdx) -> bool {
     let (a, _b, s, _t, _x, _y) = idx;
-    match policy {
-        OCasePolicy::Production => !(a == 0 && s == 0),
-        OCasePolicy::LegacyAllCases => true,
-    }
+    !(a == 0 && s == 0)
 }
 
-fn o_within_cell_shift<F: FnMut(Candidate)>(
-    plan: &Plan<'_>,
-    idx: CellIdx,
-    policy: OCasePolicy,
-    emit: &mut F,
-) {
+fn o_within_cell_shift<F: FnMut(Candidate)>(plan: &Plan<'_>, idx: CellIdx, emit: &mut F) {
     let (a, b, s, t, x, y) = idx;
     if a >= b {
         return;
     }
-    if s < 2 && allow_prefix_left_shift(policy, idx) {
+    if s < 2 && allow_prefix_left_shift(idx) {
         emit_shift(plan, 3, (a, b, s + 1, t, x, y), emit);
     }
     if t > 0 {
@@ -469,34 +445,24 @@ pub(crate) fn o_candidates<F: FnMut(Candidate)>(
     _scratch: &mut Vec<Nucleotide>,
     emit: F,
 ) {
-    o_candidates_for_policy(
-        OCandidateContext::new(plan, idx, OCasePolicy::Production),
-        emit,
-    );
+    let mut emit = emit;
+    emit_o_candidates(plan, idx, &mut emit);
 }
 
-fn o_candidates_for_policy<F: FnMut(Candidate)>(ctx: OCandidateContext<'_, '_>, mut emit: F) {
-    o_candidates_with_policy(ctx, &mut emit);
-}
-
-fn o_candidates_with_policy<F: FnMut(Candidate)>(ctx: OCandidateContext<'_, '_>, emit: &mut F) {
-    let (a, b, _s, _t, _x, _y) = ctx.idx;
+fn emit_o_candidates<F: FnMut(Candidate)>(plan: &Plan<'_>, idx: CellIdx, emit: &mut F) {
+    let (a, b, _s, _t, _x, _y) = idx;
     if a >= b {
         return;
     }
-    o_within_cell_shift(ctx.plan, ctx.idx, ctx.policy, emit);
-    o_boundary_cross(ctx.plan, ctx.idx, CrossSide::Left, emit);
-    o_boundary_cross(ctx.plan, ctx.idx, CrossSide::Right, emit);
+    o_within_cell_shift(plan, idx, emit);
+    o_boundary_cross(plan, idx, CrossSide::Left, emit);
+    o_boundary_cross(plan, idx, CrossSide::Right, emit);
     {
-        let mut bif_ctx = BifContext {
-            plan: ctx.plan,
-            idx: ctx.idx,
-            emit,
-        };
+        let mut bif_ctx = BifContext { plan, idx, emit };
         o_within_codon_bifurcation(&mut bif_ctx);
         o_between_codon_bifurcation(&mut bif_ctx);
     }
-    o_closure(ctx.plan, ctx.idx, emit);
+    o_closure(plan, idx, emit);
 }
 
 /// Fill `O[idx]`. Base cases at `a == b`; `min` over candidates otherwise.
@@ -507,18 +473,6 @@ fn o_candidates_with_policy<F: FnMut(Candidate)>(ctx: OCandidateContext<'_, '_>,
 /// `recurrences::sweep_cells_in_order` can pass the outer scratch
 /// through uniformly.
 pub(crate) fn fill_o(plan: &mut Plan<'_>, idx: CellIdx, _scratch: &mut Vec<Nucleotide>) {
-    fill_o_with_policy(plan, idx, OCasePolicy::Production);
-}
-
-pub(crate) fn fill_o_legacy_all_cases(
-    plan: &mut Plan<'_>,
-    idx: CellIdx,
-    _scratch: &mut Vec<Nucleotide>,
-) {
-    fill_o_with_policy(plan, idx, OCasePolicy::LegacyAllCases);
-}
-
-fn fill_o_with_policy(plan: &mut Plan<'_>, idx: CellIdx, policy: OCasePolicy) {
     let (a, b, _s, _t, x, y) = idx;
     let i = plan.tables.flat_index(idx);
     if a == b {
@@ -533,34 +487,6 @@ fn fill_o_with_policy(plan: &mut Plan<'_>, idx: CellIdx, policy: OCasePolicy) {
             best = c.value;
         }
     };
-    o_candidates_with_policy(OCandidateContext { plan, idx, policy }, &mut keep_best);
+    emit_o_candidates(plan, idx, &mut keep_best);
     plan.tables.o[i] = best;
-}
-
-pub(crate) fn o_legacy_min_case_mask(
-    plan: &Plan<'_>,
-    idx: CellIdx,
-    target: f64,
-    _scratch: &mut Vec<Nucleotide>,
-) -> u16 {
-    let (a, b, _s, _t, x, y) = idx;
-    if a == b {
-        return if x == y { 1 << 1 } else { 1 << 2 };
-    }
-    if target >= INF {
-        return 0;
-    }
-    let mut mask = 0u16;
-    o_candidates_for_policy(
-        OCandidateContext::new(plan, idx, OCasePolicy::LegacyAllCases),
-        |cand| {
-            if cand.value == target {
-                let Trace::O(trace) = cand.trace else {
-                    unreachable!("O candidate generator emits only O traces");
-                };
-                mask |= 1 << trace.case;
-            }
-        },
-    );
-    mask
 }

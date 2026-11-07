@@ -1,13 +1,9 @@
-//! Tokenizer for `rna_turner2004.par`.
+//! Tokenizer for parameter files.
 //!
 //! The file is line-oriented. Sections start with `# section_name`
 //! (single `#`); lines starting with `##` are comments (the file header
-//! is `## RNAfold parameter file v2.0`); per-line C-style `/* ... */`
-//! comments may appear anywhere on a line. The terminator is `#END`.
-//!
-//! See ViennaRNA 2.7.0 `src/ViennaRNA/params/io.c`:
-//! - `ignore_comment` (line 1141): excise `/* ... */` from a line.
-//! - `gettype` / `settype` (≈ line 1735–1850): the `# foo` → enum map.
+//! is one); per-line C-style `/* ... */` comments may appear anywhere on
+//! a line. The terminator is `#END`.
 
 /// A single section as parsed from the file: the header name (e.g.
 /// `"stack"`, `"int22"`), and the body lines (with `/* ... */`
@@ -66,9 +62,9 @@ fn section_header(line: &str) -> Option<&str> {
     }
 }
 
-/// Remove a single `/* ... */` C-style comment if present. Mirrors
-/// ViennaRNA's `ignore_comment` (only one comment per line, no
-/// nesting, no multi-line spans).
+/// Remove a single `/* ... */` C-style comment if present (the `.par`
+/// format allows only one comment per line, no nesting, no multi-line
+/// spans).
 fn strip_comment(line: &str) -> String {
     if let Some(start) = line.find("/*") {
         let after_open = &line[start + 2..];

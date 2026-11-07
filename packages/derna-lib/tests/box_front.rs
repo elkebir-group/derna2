@@ -18,6 +18,8 @@ use derna_lib::{
     TaskKind, UtrProfile, UtrSpec, WalkBudget, WalkOptions,
 };
 
+use derna_lib::task_clock::ThreadCpu;
+
 mod common;
 use common::{CASES, WIDE_CASES};
 
@@ -1277,6 +1279,11 @@ const WATCH_TRIES: usize = 6;
 /// cut by a chord between two passes with three or more slices asks, for the
 /// boundary before its second slice, and changes there or later: every such
 /// ask is queued, so a change here is a queued pass taken by the fold.
+///
+/// The ask itself needs a clock that names another thread, which
+/// [`ThreadCpu::AVAILABLE`] reports and macOS does not have; the walk runs
+/// the watched options everywhere regardless, so the front stays under test
+/// on every platform and only the ask is asserted where it can happen.
 #[test]
 fn a_fold_asking_for_its_pass_during_a_slice_keeps_the_whole_front() {
     let (params, usage) = fixtures();
@@ -1291,6 +1298,12 @@ fn a_fold_asking_for_its_pass_during_a_slice_keeps_the_whole_front() {
     };
     for protein in CASES.iter().chain(WIDE_CASES.iter()) {
         watched_walk(&params, &usage, protein, &watching);
+    }
+    // Without a clock naming another thread the watch does not run at all,
+    // so no fold can ask and there is nothing here to assert. The walks above
+    // have already checked the front is whole under the same options.
+    if !ThreadCpu::AVAILABLE {
+        return;
     }
     // The watcher must read a slice while it runs, so the watched case is one
     // long enough that its slices can outlast the watcher's first read.
