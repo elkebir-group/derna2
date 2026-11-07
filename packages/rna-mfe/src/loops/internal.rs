@@ -1,9 +1,7 @@
 //! Internal loop evaluator.
 //!
 //! An internal loop has unpaired nucleotides on *both* sides of the
-//! loop. Vienna's reference is
-//! `src/ViennaRNA/eval/eval_internal.c::vrna_E_internal` (v2.7.0
-//! branch); the long axis count `nl = max(n1, n2)` and short count
+//! loop. The long axis count `nl = max(n1, n2)` and short count
 //! `ns = min(n1, n2)` drive the dispatch.
 //!
 //! Sections consulted (per shape):
@@ -17,17 +15,14 @@
 //! | `(2, 3) \| (3, 2)`           | `interior[5]` (hardcoded), `mismatch_interior_23`, `NINIO` (hardcoded `ninio_37`) |
 //! | other (`ns >= 2 && nl >= 4`) | `interior` (size table), `mismatch_interior`, `NINIO`                             |
 //!
-//! ## OQ1 resolution — `mismatch_interior_1n` cutoff
+//! ## `mismatch_interior_1n` cutoff
 //!
-//! Vienna applies `mismatch_interior_1n` for `(1, n)` only when
-//! `n >= 3` (equivalently `(ns, nl) = (1, nl >= 3)`). The `(1, 2)` /
-//! `(2, 1)` cases route to `int21` instead — see the `case 1:` branch
-//! of `eval_internal.c::vrna_E_internal` (v2.7.0
-//! `eval_internal.c:141-159`). The `1xn` else-arm fires only after
+//! `mismatch_interior_1n` applies to `(1, n)` only when `n >= 3`
+//! (equivalently `(ns, nl) = (1, nl >= 3)`). The `(1, 2)` / `(2, 1)`
+//! cases route to `int21` instead. The `1xn` arm fires only after
 //! `nl == 1` (1×1) and `nl == 2` (1×2 / 2×1) are handled, so any
 //! `(1, n)` shape with `n >= 3` falls through to the generic
-//! `interior` size table plus the `mismatch1nI` (= this crate's
-//! `mismatch_interior_1n`) lookup.
+//! `interior` size table plus the `mismatch_interior_1n` lookup.
 
 use super::{Energy, Nucleotide, MAX_TABULATED_SIZE};
 use crate::params::{BasePair, Int11Key, Int21Key, Int22Key, Params, Triplet37, INF as PARAM_INF};
@@ -46,15 +41,14 @@ pub struct InternalLoop<'a> {
 }
 
 /// All inputs to [`internal_energy_scalar`] except the parameter
-/// table. Each parameter name follows the C++ `Zuker.cpp:1207-1229`
-/// convention for the boundary nts of an internal loop:
+/// table. The boundary nts of an internal loop are named:
 ///
-/// * `boundary_left5p` is the loop's 5' opening flank at `i+1` (`xi_`).
+/// * `boundary_left5p` is the loop's 5' opening flank at `i+1`.
 /// * `boundary_left3p` is the loop's 3' closure on the left strand at
-///   `p-1` (`_hi`). Equals `boundary_left5p` when `n1 == 1`.
+///   `p-1`. Equals `boundary_left5p` when `n1 == 1`.
 /// * `boundary_right5p` is the loop's 5' opening flank on the right
-///   strand at `q+1` (`kj_`).
-/// * `boundary_right3p` is the loop's 3' closure at `j-1` (`_yj`).
+///   strand at `q+1`.
+/// * `boundary_right3p` is the loop's 3' closure at `j-1`.
 ///   Equals `boundary_right5p` when `n2 == 1`.
 ///
 /// `n1` / `n2` are the left / right unpaired-stretch lengths.
@@ -120,7 +114,7 @@ pub fn internal_energy_scalar(params: &Params, b: &InternalLoopScalar) -> Energy
     }
 }
 
-/// Vienna `int11[type][type_2][si1][sj1]`. When `n2 == 1`, the
+/// `int11[type][type_2][si1][sj1]`. When `n2 == 1`, the
 /// `right[0]` read in [`internal_energy`] is the loop's only
 /// right-side mismatch nucleotide — equivalently
 /// `boundary_right5p`, which the caller's convention forces to equal
@@ -135,7 +129,7 @@ fn energy_int11_scalar(params: &Params, b: &InternalLoopScalar) -> Energy {
     }))
 }
 
-/// Vienna `int21` covers `(1, 2)` and `(2, 1)` symmetrically.
+/// `int21` covers `(1, 2)` and `(2, 1)` symmetrically.
 /// `single_on_left = true` for `(1, 2)`: the singleton-strand
 /// nucleotide is `boundary_left5p` and the two-unpaired side feeds
 /// `(boundary_right5p, boundary_right3p)`. `false` flips both.
@@ -161,8 +155,8 @@ fn energy_int21_scalar(params: &Params, b: &InternalLoopScalar, single_on_left: 
     Energy(params.int21.get(key))
 }
 
-/// Vienna `int22[type][type_2][si1][sp1][sq1][sj1]`. Non-canonical
-/// closing pairs return the Vienna `INF` sentinel.
+/// `int22[type][type_2][si1][sp1][sq1][sj1]`. Non-canonical
+/// closing pairs return the parameter `INF` sentinel.
 #[inline]
 fn energy_int22_scalar(params: &Params, b: &InternalLoopScalar) -> Energy {
     let Some(outer_idx) = b.outer.as_int22_index() else {
@@ -194,7 +188,7 @@ fn energy_one_by_n_scalar(params: &Params, b: &InternalLoopScalar, n: usize) -> 
         + mismatch_sum_scalar(&params.mismatch_interior_1n, b)
 }
 
-/// `(2, 3)` / `(3, 2)` share Vienna's hardcoded
+/// `(2, 3)` / `(3, 2)` share the fixed
 /// `interior_loop[5] + ninio_37` decomposition.
 #[inline]
 fn energy_two_by_three_scalar(params: &Params, b: &InternalLoopScalar) -> Energy {
@@ -234,10 +228,9 @@ fn mismatch_sum_scalar(table: &Triplet37, b: &InternalLoopScalar) -> Energy {
 }
 
 /// The `size > MAX_TABULATED_SIZE` (`lxc`) branch is reachable only via
-/// [`crate::evaluate`] on user-provided structures: the Zuker DP search
-/// in [`crate::dp`] caps interior loops at `MAX_TABULATED_SIZE = 30`
-/// (Vienna's `MAXLOOP`), matching `RNAfold` — universal across Vienna,
-/// DERNA C++, LinearFold, and LinearDesign.
+/// [`crate::evaluate`] on user-provided structures: the DP search in
+/// [`crate::dp`] caps interior loops at `MAX_TABULATED_SIZE = 30`
+/// unpaired bases (`MAXLOOP`).
 fn interior_size_penalty(params: &Params, size: usize) -> Energy {
     if size <= MAX_TABULATED_SIZE {
         return Energy(params.interior.values[size]);
@@ -246,8 +239,8 @@ fn interior_size_penalty(params: &Params, size: usize) -> Energy {
     Energy(params.interior.values[MAX_TABULATED_SIZE] + extrapolation)
 }
 
-/// `MIN2(MAX_NINIO, |n1 - n2| * ninio_37)` — Vienna's NINIO term in
-/// `eval_internal.c`. `ninio_37` is `P->ninio[2]` at 37°C.
+/// `min(MAX_NINIO, |n1 - n2| * ninio_37)` — the NINIO asymmetry term.
+/// `ninio_37` is the 37°C asymmetry coefficient.
 fn ninio_asymmetry(params: &Params, asymmetry: usize) -> Energy {
     let raw = (asymmetry as i32) * params.ninio.ninio_37;
     Energy(raw.min(params.ninio.max_ninio))

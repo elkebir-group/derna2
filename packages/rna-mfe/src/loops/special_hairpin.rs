@@ -1,13 +1,8 @@
 //! Special-hairpin bonus lookup (`Triloops` / `Tetraloops` / `Hexaloops`).
 //!
-//! Vienna's `E_Hairpin` (`include/ViennaRNA/eval/hairpin.h::E_Hairpin`,
-//! v2.7.0 lines 376–404) probes the size-3 / size-4 / size-6 special-hairpin
-//! tables and **returns the bonus value directly** on a hit:
-//!
-//! ```text
-//! if ((ts = strstr(P->Tetraloops, tl)))
-//!     return P->Tetraloop_E[(ts - P->Tetraloops) / 7] + salt_correction;
-//! ```
+//! The hairpin evaluator probes the size-3 / size-4 / size-6
+//! special-hairpin tables and **returns the bonus value directly** on a
+//! hit.
 //!
 //! That short-circuit means the bonus value *replaces* the entire generic
 //! hairpin formula — `hairpin[size]`, the AU/GU `terminal_au_37` penalty,
@@ -15,7 +10,7 @@
 //! At default salt the entries on disk are the total free energies of the
 //! special hairpin, not deltas to add on top.
 //!
-//! The lookup key Vienna constructs is `closing_5'-side + loop_seq +
+//! The lookup key is `closing_5'-side + loop_seq +
 //! closing_3'-side` — i.e., the 5-/6-/8-character window of the sequence
 //! starting at the 5' base of the closing pair and ending at the 3' base.
 //! That matches the format of the entries in

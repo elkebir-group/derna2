@@ -1,8 +1,8 @@
-//! Zuker DP fold — sequence → MFE structure.
+//! MFE DP fold — sequence → MFE structure.
 //!
 //! Composes against [`crate::loops`] for per-loop energy lookups and
-//! produces what Vienna's `RNAfold -d 0` produces. The DP shape and
-//! recurrence citations live in [`fill`] (V leaf cases + W + F) and
+//! returns the `dangles=0` MFE structure and energy. The DP shape and
+//! recurrence notes live in [`fill`] (V leaf cases + W + F) and
 //! [`multi`] (M / M1 cells + V multi-loop closing); the table types
 //! live in [`tables`].
 

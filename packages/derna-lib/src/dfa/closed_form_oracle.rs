@@ -751,8 +751,8 @@ fn the_exact_answers_do_not_depend_on_the_shift() {
 /// (asserted), so a pool seed carrying the bare partial codon instead of
 /// `span_head_cai` moves the design (the column fill's seed) or the fast
 /// outside pass's edge values (its replay and its `M2` tails). The push scan's
-/// seed is the same term on a path only `DERNA_PUSH_SCAN` selects, which a unit
-/// test cannot set without leaking into its neighbours.
+/// seed is the same term on a path only a development setting selects, which a
+/// unit test cannot set without leaking into its neighbours.
 #[test]
 fn the_multi_loop_pool_does_not_depend_on_the_shift() {
     use crate::{Beam, Params, RegionConstraints, ScanConfig};

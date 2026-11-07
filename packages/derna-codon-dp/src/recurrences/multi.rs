@@ -1,8 +1,7 @@
 //! Multi-branch loop candidate generators and fillers (`E_m`, `M`, `N`).
 //!
-//! Mirrors v1's `derna.codon_dp._recurrences_multi` — supplement.tex lines
-//! 252–325. The codon-axis Zuker multi-loop recurrence splits across three
-//! cooperating sub-tables:
+//! Follows supplement.tex lines 252–325. The codon-axis multi-loop
+//! recurrence splits across three cooperating sub-tables:
 //!
 //! * `E_m[idx]` — multi-loop closure entry. Min over four cases keyed on
 //!   whether `σ(a, s) + 1` and / or `σ(b, t) − 1` cross codon boundaries.
@@ -19,7 +18,7 @@
 //!   `s` descending / `t` ascending order); N4 / N5 cross a codon
 //!   boundary unpaired; N6 / N7 bifurcate.
 //!
-//! Paper typos handled here (matching v1's reference):
+//! Paper typos handled here:
 //!
 //! * E_m case 4 — the formula prints
 //!   `λA − (1 − λ) g(w_a, x) + g(w_b, y)` without parens; both `g(...)`
@@ -31,7 +30,7 @@
 //!   (0-based) — by symmetry with case 4 the boundary-cross step lands
 //!   at the previous codon's last nucleotide.
 //! * N case 6's prose says correction `+(1 − λ) g(w_c, x')` but the
-//!   formula uses `y'`; this port uses `y'` since both halves share the codon
+//!   formula uses `y'`; this code uses `y'` since both halves share the codon
 //!   at AA `c`.
 //!
 //! Each recurrence is a candidate generator (`*_candidates`) plus a
@@ -72,9 +71,9 @@ fn closing_pair_at(plan: &Plan<'_>, idx: CellIdx) -> Option<BasePair> {
 }
 
 /// Per-stem flank credit at `dangles=0`: `MLintern + (terminal_au if
-/// the pair is AU / UA / GU / UG)`. Equivalent to Vienna's
-/// `E_MLstem(type, -1, -1, P)` under `dangles=0`, which is what v1's
-/// `ml_closing(i, j)` and `ml_stem(i, j)` both reduce to (with `pair`
+/// the pair is AU / UA / GU / UG)`. Under `dangles=0` both the closing-pair
+/// credit `ml_closing(i, j)` and the stem credit `ml_stem(i, j)` reduce to
+/// this (with `pair`
 /// in sequence order for `ml_stem`, reversed for `ml_closing` — but the
 /// terminal-AU check is orientation-agnostic at the [`BasePair`] level,
 /// so the same expression covers both).
@@ -229,8 +228,8 @@ fn em_one_side<F: FnMut(Candidate)>(plan: &Plan<'_>, site: EmSite, side: EmSide,
 }
 
 /// E_m case 4 — both boundaries cross. Charges CAI at both `a` and `b`
-/// (paper prints the two `g` terms without shared parens; v1 and the
-/// Rust port inherit the corrected form).
+/// (paper prints the two `g` terms without shared parens; the corrected form
+/// is used).
 fn em_case_4<F: FnMut(Candidate)>(plan: &Plan<'_>, site: EmSite, emit: &mut F) {
     let (a, b, s, t, x, y) = site.idx;
     let both_cross = s == 2 && t == 0;
@@ -320,7 +319,7 @@ struct MSite {
 }
 
 fn m_split_iter(nt_a: usize, nt_b: usize) -> impl Iterator<Item = MSplit> {
-    // Python's `range(nt_a + 1, nt_b - 1)` is `k ∈ [nt_a + 1, nt_b - 2]`.
+    // Split points `k ∈ [nt_a + 1, nt_b - 2]`.
     let lo = nt_a.saturating_add(1);
     let hi = nt_b.saturating_sub(1);
     (lo..hi).map(|k| MSplit {
@@ -538,8 +537,8 @@ fn n_cross_inner_idx(idx: CellIdx, side: NSide, pinned: usize) -> CellIdx {
 /// N cases 4 / 5 — codon-boundary-crossing unpaired bump.
 ///
 /// Case 5 paper typo: inner `t` should be `3` (1-based) = `2` (0-based)
-/// — the last nucleotide of codon `b − 1` — not the outer `t = 0`. v1
-/// and the Rust port read `(a, b - 1, s, 2, x, y')`.
+/// — the last nucleotide of codon `b − 1` — not the outer `t = 0`. This
+/// code reads `(a, b - 1, s, 2, x, y')`.
 fn n_boundary_cross<F: FnMut(Candidate)>(plan: &Plan<'_>, idx: CellIdx, side: NSide, emit: &mut F) {
     let (a, b, s, t, x, y) = idx;
     if a + 1 >= b {
@@ -601,8 +600,8 @@ fn n_case_6_for_split<F: FnMut(Candidate)>(
 /// N case 6 — within-codon bifurcation at AA `c`, codon-internal split
 /// position `k ∈ {0, 1}`. Both halves charge `log_cai[c, y']` along
 /// their descent, so the candidate adds `+(1 − λ) · log_cai[c, y']` to
-/// undo one charge. Paper prose says `g(w_c, x')`; this port uses `y'` to match
-/// the bifurcation's shared-AA codon (v1's reference does the same).
+/// undo one charge. Paper prose says `g(w_c, x')`; this code uses `y'` to match
+/// the bifurcation's shared-AA codon.
 fn n_case_6<F: FnMut(Candidate)>(plan: &Plan<'_>, idx: CellIdx, emit: &mut F) {
     let (a, b, _s, _t, _x, _y) = idx;
     if a + 1 >= b {

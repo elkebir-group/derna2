@@ -11,7 +11,6 @@ use crate::codon_usage::CodonUsage;
 /// Floor for `log(0)` in CAI: a Kazusa-zero codon that is still a valid
 /// synonym maps to `log((usage + EPSILON) / max_freq)` rather than `-inf`,
 /// keeping the score finite without distorting non-zero weights.
-/// Matches Python `derna.constants.EPSILON`.
 pub const EPSILON: f64 = 1e-5;
 
 /// Log-scaled CAI lookup tables derived from a [`CodonUsage`].

@@ -12,11 +12,11 @@ use std::sync::Mutex;
 use std::time::Instant;
 
 use derna_lib::{
-    design_composite, BeamError, CompositeSpec, Design, MotifWindow, Params, ScanConfig, UtrProfile,
+    design_composite, BeamError, CompositeSpec, Design, MotifWindow, ScanConfig, UtrProfile,
 };
 use serde_json::{json, Map, Value};
 
-use crate::args::{Flags, Shared, SHARED_HELP};
+use crate::args::{shared_help, Flags, Shared};
 use crate::free_check::{self, Checked};
 use crate::molecule::Molecule;
 use crate::result;
@@ -45,12 +45,13 @@ pub struct Solved {
 
 /// Help text for `derna design`.
 pub fn help() -> String {
+    let shared = shared_help();
     format!(
         "derna design — the best design at given trade-off weights λ\n\n\
          Usage: derna design --protein P --lambda L[,L...] [options]\n\n\
          Weights\n  \
          --lambda L[,L...]         trade-off weights in (0, 1), comma-separated\n\n\
-         {SHARED_HELP}\n\
+         {shared}\n\
          Save and resume\n  \
          --checkpoint              save each weight's design to OUT.design.jsonl as\n                            \
          it settles, so running the same command again\n                            \
@@ -190,7 +191,7 @@ fn solve_each(
     beam_first: Option<usize>,
     mut each: impl FnMut(Solved) -> Result<()>,
 ) -> Result<()> {
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let (utr5, utr3) = (m.utr5_spec(), m.utr3_spec());
     let table = m.table();
     // `design` enforces one window over the set, so a pattern carrying its own

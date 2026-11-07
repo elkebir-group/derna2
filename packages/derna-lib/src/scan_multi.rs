@@ -832,7 +832,7 @@ pub(crate) fn scan_multi<const K: usize>(
         "the lane scan runs the exact Lz scan only"
     );
     assert!(
-        std::env::var_os("DERNA_PUSH_SCAN").is_none(),
+        crate::dev_env::var_os(crate::dev_env::Setting::PushScan).is_none(),
         "the lane scan runs the column fill only"
     );
     let ninio_skew = {

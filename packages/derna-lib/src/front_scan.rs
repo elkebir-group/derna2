@@ -55,7 +55,7 @@ use crate::state::{MultiOpenKey, PairKey};
 
 /// No-sharp-turn rule: a hairpin has `>= 3` unpaired bases.
 const MIN_HAIRPIN_LOOP: u32 = 3;
-/// Vienna `MAXLOOP`: the largest total unpaired count in a single-branch loop.
+/// The loop-size cap: the largest total unpaired count in a single-branch loop.
 /// **This bound is fixed while [`crate::scan`]'s is not.** That module's
 /// equivalent is [`crate::ScanConfig::single_max_len`], settable per run
 /// (default [`crate::DEFAULT_SINGLE_MAX_LEN`]); this one is a constant because
@@ -947,7 +947,7 @@ struct Dp<'a> {
     fanned: AtomicUsize,
     /// Whether to tally inside the fanned-out phases; see [`FanDetail`].
     fan_detail: bool,
-    /// A cap on the workers a fan-out starts (`DERNA_FAN_WORKERS`).
+    /// A cap on the workers a fan-out starts, set only in development builds.
     fan_cap: Option<usize>,
     /// The fold's workers, kept for its whole length; absent on one thread.
     pool: Option<&'a Pool>,

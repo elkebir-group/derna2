@@ -23,7 +23,7 @@ fn csv_sha256() {
 }
 
 // ---------------------------------------------------------------------------
-// Loader round-trip parity vs Python
+// Loader round-trip parity vs the reference dump
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -32,7 +32,7 @@ fn load_default_succeeds() {
 }
 
 #[test]
-fn parity_vs_python_v1() {
+fn matches_reference_codon_usage_dump() {
     use serde::Deserialize;
 
     #[derive(Deserialize)]
@@ -40,17 +40,17 @@ fn parity_vs_python_v1() {
         table: Vec<Vec<f64>>,
     }
 
-    let json_str = include_str!("data/v1_codon_usage_dump.json");
-    let dump: Dump = serde_json::from_str(json_str).expect("parse v1 dump");
+    let json_str = include_str!("data/reference_codon_usage_dump.json");
+    let dump: Dump = serde_json::from_str(json_str).expect("parse reference dump");
     let usage = CodonUsage::load_default().expect("load default");
 
     for aa in 0..20 {
         for ci in 0..6 {
             let rust_val = usage.fraction(aa, ci);
-            let py_val = dump.table[aa][ci];
+            let ref_val = dump.table[aa][ci];
             assert_eq!(
-                rust_val, py_val,
-                "mismatch at aa={aa} ci={ci}: rust={rust_val} py={py_val}"
+                rust_val, ref_val,
+                "mismatch at aa={aa} ci={ci}: rust={rust_val} reference={ref_val}"
             );
         }
     }

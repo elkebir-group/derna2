@@ -1,11 +1,9 @@
 //! Exterior-loop evaluator.
 //!
 //! The exterior loop is the parent of the outermost base pairs (no
-//! enclosing pair). Vienna's `vrna_E_exterior_stem`
-//! (`include/ViennaRNA/eval/exterior.h`, with the `dangles=0` reduction
-//! mirroring `E_MLstem` from `multibranch.h:163–184`) scores each
-//! outermost stem at `dangles=0` as `(type > 2 ? TerminalAU : 0)` — no
-//! `mismatchE`, no `dangle*`. There is no init term and no per-branch
+//! enclosing pair). At `dangles=0` each outermost stem scores the
+//! terminal-AU penalty if its pair is not `CG` / `GC`, and nothing
+//! otherwise — no `mismatchE`, no `dangle*`. There is no init term and no per-branch
 //! `MLintern` term: the exterior loop is *not* a multi-loop.
 //!
 //! Final formula:

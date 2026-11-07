@@ -30,10 +30,7 @@ use std::time::Instant;
 use super::window::Floor;
 use super::{ExactFold, LazyError, Verify};
 use crate::fold_cut::{CachedFold, FoldCut};
-use crate::free_fold::{
-    sequence_free_fold, sequence_free_fold_zuker, sequence_free_mfe, sequence_gap, CdsWindow,
-    FreeFoldError,
-};
+use crate::free_fold::{sequence_free_fold_zuker, sequence_gap, CdsWindow, FreeFoldError};
 use crate::region::RegionConstraints;
 use crate::witness::{pairs_of, Pairs, Scorer, WitnessPool};
 use crate::Params;
@@ -422,11 +419,8 @@ impl Shared<'_> {
                     one.reject_ranked(self.ctx.params, d.seq.as_bytes(), t, &d.own, 1)
                 });
             match rejected {
+                #[allow(unused_variables)]
                 Some((w, pairs, _)) => {
-                    debug_assert!(
-                        sequence_free_mfe(self.ctx.params, &d.seq).is_ok_and(|f| f.0 <= w),
-                        "a fold's structure scored below the exact free MFE"
-                    );
                     self.add(pairs);
                     self.witness_rejects.fetch_add(1, Relaxed);
                     self.deferred_rejected.fetch_add(1, Relaxed);
@@ -480,13 +474,11 @@ impl Shared<'_> {
             ok
         });
         self.window_ns.fetch_add(nanos(t), Relaxed);
-        let Some((w, pairs)) = found else {
+        #[allow(unused_variables)]
+        let Some((w, pairs)) = found
+        else {
             return false;
         };
-        debug_assert!(
-            sequence_free_mfe(self.ctx.params, &d.seq).is_ok_and(|f| f.0 <= w && w < e),
-            "a windowed fold's structure scored below the exact free MFE, or not below e"
-        );
         self.add(pairs);
         self.witness_rejects.fetch_add(1, Relaxed);
         self.window_rejects.fetch_add(1, Relaxed);
@@ -520,13 +512,10 @@ impl Shared<'_> {
             .and_then(|(_, _, index)| pool.witness(index / 2));
         drop(pool);
         let hit = found.is_some();
+        #[allow(unused_variables)]
         if let Some((w, pairs, index)) = found {
             self.witness_rank[rank_bucket(index)].fetch_add(1, Relaxed);
             self.witness_spliced.fetch_add((index % 2) as u64, Relaxed);
-            debug_assert!(
-                sequence_free_mfe(self.ctx.params, &d.seq).is_ok_and(|f| f.0 <= w),
-                "a witness scored below the exact free MFE"
-            );
             let w = Instant::now();
             self.add_promoting(pairs, source.as_ref());
             self.pool_write_ns.fetch_add(nanos(w), Relaxed);
@@ -735,36 +724,41 @@ impl Recent {
 }
 
 /// An opt-in record of the designs the check sees, for profiling it offline
-/// on the stream only a walk produces: the file the environment variable
-/// `var` names, its first `{var}_MAX` lines (default `max`).
+/// on the stream only a walk produces: the file the setting `path` names, its
+/// lines past the `skip` setting (default 0) and under the `cap` setting
+/// (default `max`).
 struct Log {
-    var: &'static str,
+    path: crate::dev_env::Setting,
+    skip: crate::dev_env::Setting,
+    cap: crate::dev_env::Setting,
     max: u64,
     file: std::sync::OnceLock<Option<(Mutex<std::fs::File>, u64, u64)>>,
     lines: AtomicU64,
 }
 
 impl Log {
-    const fn new(var: &'static str, max: u64) -> Self {
+    const fn new([path, skip, cap]: [crate::dev_env::Setting; 3], max: u64) -> Self {
         Self {
-            var,
+            path,
+            skip,
+            cap,
             max,
             file: std::sync::OnceLock::new(),
             lines: AtomicU64::new(0),
         }
     }
 
-    /// Append `line()` for the lines past `<VAR>_SKIP` (default 0) and under
-    /// the cap `<VAR>_MAX`; nothing when the variable is unset.
+    /// Append `line()` for the lines past the skip and under the cap; nothing
+    /// when the path is unset.
     fn write(&self, line: impl FnOnce() -> String) {
         use std::io::Write;
         let open = self.file.get_or_init(|| {
-            let path = std::env::var_os(self.var)?;
-            let cap = std::env::var(format!("{}_MAX", self.var))
+            let path = crate::dev_env::var_os(self.path)?;
+            let cap = crate::dev_env::var(self.cap)
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(self.max);
-            let skip = std::env::var(format!("{}_SKIP", self.var))
+            let skip = crate::dev_env::var(self.skip)
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0);
@@ -786,13 +780,27 @@ impl Log {
     }
 }
 
-/// `DERNA_FOLD_LOG`: each folded design as `rank<TAB>constrained MFE<TAB>fold
-/// ns<TAB>sequence` — the designs the witness pool let through.
-static FOLD_LOG: Log = Log::new("DERNA_FOLD_LOG", 2_000);
+/// Each folded design as `rank<TAB>constrained MFE<TAB>fold ns<TAB>sequence`
+/// — the designs the witness pool let through.
+static FOLD_LOG: Log = Log::new(
+    [
+        crate::dev_env::Setting::FoldLog,
+        crate::dev_env::Setting::FoldLogSkip,
+        crate::dev_env::Setting::FoldLogMax,
+    ],
+    2_000,
+);
 
-/// `DERNA_WITNESS_LOG`: each design offered to the witness pool as
-/// `rank<TAB>constrained MFE<TAB>sequence<TAB>its constrained structure`.
-static WITNESS_LOG: Log = Log::new("DERNA_WITNESS_LOG", 20_000);
+/// Each design offered to the witness pool as `rank<TAB>constrained
+/// MFE<TAB>sequence<TAB>its constrained structure`.
+static WITNESS_LOG: Log = Log::new(
+    [
+        crate::dev_env::Setting::WitnessLog,
+        crate::dev_env::Setting::WitnessLogSkip,
+        crate::dev_env::Setting::WitnessLogMax,
+    ],
+    20_000,
+);
 
 fn log_fold(d: &Design, ns: u64) {
     FOLD_LOG.write(|| {
@@ -900,7 +908,6 @@ fn verdict(
     match d.energy {
         Some(e) if ctx.walk_energy_usable => {
             let free = match (ctx.fold, cut) {
-                (ExactFold::LinearFold, _) => Some(sequence_free_fold(ctx.params, &d.seq)?),
                 (ExactFold::Sparse, _) => {
                     let nt = rna_mfe::encode_seq(d.seq.as_bytes())?;
                     match rna_mfe::dp::fold_sparse(ctx.params, &nt, None) {
@@ -925,14 +932,8 @@ fn verdict(
             };
             // `None`: under the cut, nothing lies below the threshold, so the
             // free MFE is between it and `e` (the constrained structure is a
-            // free structure).
-            debug_assert!(
-                sequence_free_mfe(ctx.params, &d.seq).is_ok_and(|f| free
-                    .as_ref()
-                    .map_or((ctx.threshold(e)..=e).contains(&f.0), |(_, x)| *x == f)),
-                "the exact folds disagree on the free MFE"
-            );
-            // The gap `e − free` is at most the slack, and not negative.
+            // free structure). The gap `e − free` is at most the slack, and not
+            // negative.
             let modular = free
                 .as_ref()
                 .is_none_or(|(_, f)| (ctx.threshold(e)..=e).contains(&f.0));

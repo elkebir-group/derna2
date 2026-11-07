@@ -1,7 +1,6 @@
 //! Internal-loop recurrence (E_i).
 //!
-//! Mirrors v1's `derna.codon_dp._recurrences.fill_e_i` — supplement.tex
-//! lines 228–250. For each enclosed-pair position `(nt_p, nt_q)`, the
+//! Follows supplement.tex lines 228–250. For each enclosed-pair position `(nt_p, nt_q)`, the
 //! recurrence enumerates the four flank AAs `(a1, b1, c1, d1)` and the
 //! four loop boundary nucleotides at positions
 //! `(nt_i + 1, nt_p − 1, nt_q + 1, nt_j − 1)`. The CAI bookkeeping
@@ -28,11 +27,9 @@
 //!   boundary nucleotides stays consistent. The other strand still
 //!   uses nt-level enumeration.
 //!
-//! The four-deep boundary-nt enumeration mirrors the C++ Zuker reference
-//! at `docs/reference/_cpp/derna-main/src/Zuker.cpp:1207-1229`; the
-//! reachability bitmask is the analog of C++'s `ava_nucle_p` /
-//! `ava_nucle_m` precompute at `Zuker.cpp:80-98`. Dedup happens by
-//! construction: every emitted boundary tuple is distinct on its own
+//! The reachability bitmask is precomputed once per plan: for each AA and
+//! codon position, the set of nucleotides some synonym spells there. Dedup
+//! happens by construction: every emitted boundary tuple is distinct on its own
 //! axis, so there is no need for a post-hoc memoization layer.
 
 use rna_mfe::loops::{pair_from_nucleotides, Nucleotide};
@@ -56,9 +53,8 @@ struct InternalSite {
 }
 
 /// The four loop boundary nucleotides at flank positions
-/// `(nt_i + 1, nt_p − 1, nt_q + 1, nt_j − 1)`. Naming mirrors
-/// `Zuker.cpp:1207-1229`: `xi_` = nt_i+1, `hi_` = nt_p-1,
-/// `kj_` = nt_q+1, `yj_` = nt_j-1.
+/// `(nt_i + 1, nt_p − 1, nt_q + 1, nt_j − 1)`: `xi_` = nt_i+1,
+/// `hi_` = nt_p-1, `kj_` = nt_q+1, `yj_` = nt_j-1.
 #[derive(Debug, Clone, Copy)]
 struct BoundaryNts {
     xi_: u8,
@@ -169,8 +165,8 @@ fn build_inner_scope(
 }
 
 /// Read the closing and enclosed base pairs from the four pinned codons.
-/// Returns `None` if either pair is non-canonical (Vienna `NN`); the
-/// site is then dropped from candidate emission (mirrors v1).
+/// Returns `None` if either pair is non-canonical; the site is then
+/// dropped from candidate emission.
 fn read_base_pairs(
     plan: &Plan<'_>,
     isite: InternalSite,
@@ -296,9 +292,9 @@ struct FlankSlot {
 }
 
 /// One strand's CAI bookkeeping: the two flank slots plus the
-/// AAs that zero out each slot's charge (mirrors v1's `_internal_cai`
-/// indicator-function order: `[a, c]` / `[c, a, a1]` for the left
-/// strand, `[b, d]` / `[d, b, b1]` for the right).
+/// AAs that zero out each slot's charge (indicator-function order:
+/// `[a, c]` / `[c, a, a1]` for the left strand, `[b, d]` / `[d, b, b1]`
+/// for the right).
 ///
 /// `first_override` is `Some(ci)` only when the joint flank-AA
 /// enumeration fires (`a1 == c1` on the left or `b1 == d1` on the
@@ -340,7 +336,7 @@ fn strand_cai_charge(plan: &Plan<'_>, strand: StrandCai) -> f64 {
 }
 
 /// Closing-pair CAI contribution, hoisted once per `emit_for_inner`
-/// call. Mirrors v1's `cai_term(a, x, [c]) + cai_term(b, y, [d])`.
+/// call: `cai_term(a, x, [c]) + cai_term(b, y, [d])`.
 #[inline]
 fn cai_closing_charge(plan: &Plan<'_>, scope: InnerScope) -> f64 {
     let (a, b, c, d) = scope.pair_aas;
@@ -369,7 +365,7 @@ struct InnerEmit {
 
 /// Per-strand layout bundling everything `strand_charge` needs at
 /// one fully-resolved boundary tuple: the strand's pinned AA pair
-/// (outer + enclosed), the two flank slots in v1 charge order, and the
+/// (outer + enclosed), the two flank slots in indicator-function order, and the
 /// optional joint-codon override at the first slot.
 ///
 /// Left strand: `closing = (a, c)`, `first = (a1, xi_, oa)`,

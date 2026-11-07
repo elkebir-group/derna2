@@ -48,15 +48,11 @@
 use rna_mfe::Params;
 
 use crate::coords::Layout;
-use crate::free_fold::{for_each_pair, FreeFoldError};
+use crate::free_fold::FreeFoldError;
 use crate::must_pair::MustPairConstraint;
 use crate::region::{PairConstraint, RegionConstraints};
 use crate::structure::StructureConstraints;
 use crate::Beam;
-
-/// A beam wide enough that the folder runs the exact lattice, matching the
-/// `b → ∞` convention of the fold-parity oracles.
-const EXACT_BEAM: usize = 1 << 20;
 
 /// Energies are integer dekacalories under the model, so equality is exact up to
 /// the `/100.0` float division.
@@ -130,58 +126,6 @@ impl RealizationVerdict {
     }
 }
 
-/// Measure `sequence` against the positional `constraints` it was designed
-/// under, over the molecule `layout` describes.
-///
-/// Costs `2 + |required pairs|` exact folds of one fixed sequence: the free
-/// fold, the fold honouring everything, and one per required pair. No design
-/// work — the graph is lane-of-one, so the codon lattice is empty and the
-/// adaptation half of the objective is identically zero.
-///
-/// With an inert constraint set the report is trivially realized: the honouring
-/// fold *is* the free fold, the gap is zero, and no pair is required or
-/// reinstated.
-pub fn realization_verdict(
-    params: &Params,
-    sequence: &str,
-    layout: &Layout,
-    constraints: &StructureConstraints,
-) -> Result<RealizationVerdict, FreeFoldError> {
-    let seq = sequence.as_bytes();
-    let (free_structure, free_energy) = rna_linearfold::fold(params, seq, EXACT_BEAM)?;
-    let free = free_energy.to_kcal_mol();
-    let honoured = honouring_mfe(params, sequence, layout, constraints, Beam::exact())?;
-
-    // One pair at a time, so a verdict names which element the molecule
-    // declined rather than only that it declined something.
-    let required = constraints
-        .required_pairs()
-        .into_iter()
-        .map(|(open, close)| {
-            let mut only = StructureConstraints::none(layout.len());
-            only.require_pair(layout, open, close).expect(
-                "a pair already recorded in a valid constraint set is well-formed on its own",
-            );
-            let cost = honouring_mfe(params, sequence, layout, &only, Beam::exact())? - free;
-            Ok(RequiredPairVerdict {
-                open,
-                close,
-                realized: cost.abs() < EXACT,
-                cost_kcal_mol: cost,
-            })
-        })
-        .collect::<Result<Vec<_>, FreeFoldError>>()?;
-
-    Ok(RealizationVerdict {
-        free_mfe_kcal_mol: free,
-        honoured_mfe_kcal_mol: honoured,
-        gap_kcal_mol: honoured - free,
-        required,
-        reinstated: reinstated_pairs(&free_structure, constraints),
-        free_structure,
-    })
-}
-
 /// The best energy over structures of `sequence` that `constraints` honours, via
 /// a lane-of-one scan at `λ = 1` (pure MFE — the CAI half is identically zero
 /// over a graph with no codon lattice), under the CKY column policy `beam`.
@@ -206,11 +150,8 @@ pub fn honouring_mfe(
     constraints: &StructureConstraints,
     beam: Beam,
 ) -> Result<f64, FreeFoldError> {
-    let bad_byte = || {
-        FreeFoldError::Fold(rna_linearfold::FoldError::InvalidNucleotide(
-            sequence.as_bytes().first().copied().unwrap_or(b'?'),
-        ))
-    };
+    let bad_byte =
+        || FreeFoldError::InvalidNucleotide(sequence.as_bytes().first().copied().unwrap_or(b'?'));
     let nts = crate::parse_utr(sequence).map_err(|_| bad_byte())?;
     let graph = crate::dfa::build_fixed_mrna(&nts);
     let region = PairConstraint::for_cds(
@@ -232,166 +173,4 @@ pub fn honouring_mfe(
         must,
     );
     Ok(tables.c[graph.ix(graph.end())].map_or(f64::INFINITY, |best| best.mfe.to_kcal_mol()))
-}
-
-/// The free fold's pairs that the positional mask forbids, ascending.
-fn reinstated_pairs(structure: &str, constraints: &StructureConstraints) -> Vec<(u32, u32)> {
-    let mask = constraints.pair_mask();
-    let mut hits = Vec::new();
-    for_each_pair(structure, |i, j| {
-        let (open, close) = (i as u32, j as u32);
-        if !mask.allows(open, close) {
-            hits.push((open, close));
-        }
-    });
-    hits.sort_unstable();
-    hits
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A hairpin whose own optimum is the stem it looks like.
-    const HAIRPIN: &str = "GGGGGAAAACCCCC";
-
-    fn params() -> Params {
-        Params::load_default().expect("params")
-    }
-
-    /// A layout over `n` nucleotides of pure flank. A verdict folds a fixed
-    /// sequence over a lane-of-one graph, which carries no codons, so "all
-    /// flank" is the faithful shape — and unlike a CDS layout it spans any length
-    /// rather than only multiples of three.
-    fn layout(n: u32) -> Layout {
-        Layout::new(n, 0, 0)
-    }
-
-    #[test]
-    fn an_inert_constraint_set_is_trivially_realized() {
-        let l = layout(HAIRPIN.len() as u32);
-        let sc = StructureConstraints::none(l.len());
-        let v = realization_verdict(&params(), HAIRPIN, &l, &sc).expect("folds");
-        assert!(v.is_realized());
-        assert_eq!(v.gap_kcal_mol, 0.0);
-        assert!(v.required.is_empty());
-        assert!(v.reinstated.is_empty());
-        assert_eq!(v.realization_rate(), None, "no rate without a requirement");
-    }
-
-    /// A pair the sequence's own optimum already forms costs nothing and is
-    /// reported realized.
-    #[test]
-    fn a_pair_the_free_fold_already_forms_is_realized() {
-        let l = layout(HAIRPIN.len() as u32);
-        let mut sc = StructureConstraints::none(l.len());
-        sc.require_pair(&l, 0, 13).expect("well-formed");
-        let v = realization_verdict(&params(), HAIRPIN, &l, &sc).expect("folds");
-        assert!(v.is_realized(), "gap {}", v.gap_kcal_mol);
-        assert_eq!(v.required.len(), 1);
-        assert!(v.required[0].realized);
-        assert_eq!(v.required[0].cost_kcal_mol, 0.0);
-        assert_eq!(v.realization_rate(), Some(1.0));
-        assert_eq!(v.omitted_count(), 0);
-    }
-
-    /// A pair the molecule declines: it is *spellable* — both endpoints can
-    /// pair — but forming it costs energy, so no free-optimal fold contains it.
-    /// This is the case the whole verdict exists for.
-    #[test]
-    fn a_pair_the_free_fold_declines_is_reported_omitted_with_its_cost() {
-        let l = layout(HAIRPIN.len() as u32);
-        let mut sc = StructureConstraints::none(l.len());
-        // A register shift: `(0, 12)` is spellable `G · C`, but taking it costs
-        // the stem a pair and widens the loop, so no free-optimal fold forms it.
-        sc.require_pair(&l, 0, 12).expect("well-formed");
-        let v = realization_verdict(&params(), HAIRPIN, &l, &sc).expect("folds");
-        assert!(!v.is_realized(), "gap {}", v.gap_kcal_mol);
-        assert!(v.gap_kcal_mol > 0.0);
-        assert_eq!(v.omitted_count(), 1);
-        assert!(v.required[0].cost_kcal_mol > 0.0);
-        assert_eq!(v.realization_rate(), Some(0.0));
-    }
-
-    /// The gap is a claim about optima, so it never goes negative: insisting on
-    /// something cannot make a sequence fold better than it freely would.
-    #[test]
-    fn the_gap_is_never_negative() {
-        let l = layout(HAIRPIN.len() as u32);
-        for (open, close) in [(0u32, 13u32), (1, 12), (4, 9), (2, 11)] {
-            let mut sc = StructureConstraints::none(l.len());
-            sc.require_pair(&l, open, close).expect("well-formed");
-            let v = realization_verdict(&params(), HAIRPIN, &l, &sc).expect("folds");
-            assert!(
-                v.gap_kcal_mol >= -EXACT,
-                "({open}, {close}) gave a negative gap {}",
-                v.gap_kcal_mol
-            );
-        }
-    }
-
-    /// The forbidding direction, keyed by position: an `x` over a stem position
-    /// is reinstated by the free fold, and the gap prices it.
-    #[test]
-    fn a_forbidden_position_the_free_fold_pairs_is_reported_reinstated() {
-        let l = layout(HAIRPIN.len() as u32);
-        let mut sc = StructureConstraints::none(l.len());
-        sc.require_unpaired(&l, 0, 1).expect("well-formed");
-        let v = realization_verdict(&params(), HAIRPIN, &l, &sc).expect("folds");
-        assert!(!v.is_realized());
-        assert!(
-            v.reinstated.iter().any(|&(i, _)| i == 0 || i == 1),
-            "the free fold pairs a position marked x: {} / {:?}",
-            v.free_structure,
-            v.reinstated
-        );
-        assert!(v.required.is_empty(), "x requires nothing");
-    }
-
-    /// A required pair the sequence cannot spell at all is unrealizable rather
-    /// than merely unrealized, and the infinite cost says so instead of
-    /// panicking on an unreachable end node.
-    #[test]
-    fn a_pair_the_sequence_cannot_spell_reports_an_infinite_cost() {
-        let l = layout(HAIRPIN.len() as u32);
-        let mut sc = StructureConstraints::none(l.len());
-        // Both endpoints are `G`, and `G · G` is not a canonical pair.
-        sc.require_pair(&l, 0, 4).expect("well-formed as a request");
-        let v = realization_verdict(&params(), HAIRPIN, &l, &sc).expect("folds");
-        assert!(v.gap_kcal_mol.is_infinite());
-        assert!(!v.required[0].realized);
-        assert!(v.required[0].cost_kcal_mol.is_infinite());
-    }
-
-    /// The per-pair verdicts are decided by energy, not by reading the recovered
-    /// structure — so a pair some co-optimal fold forms counts as realized even
-    /// where the traceback shows a different one.
-    ///
-    /// `GGGGAAAACCCCAAAAGGGGAAAACCCC` has two identical hairpins; the exterior
-    /// can also close them into one larger arrangement at equal cost, so at
-    /// least one required pair here is realized without appearing in every
-    /// optimal traceback.
-    #[test]
-    fn a_verdict_is_read_off_energies_rather_than_one_traceback() {
-        const TWO: &str = "GGGGAAAACCCCAAAAGGGGAAAACCCC";
-        let l = layout(TWO.len() as u32);
-        let mut sc = StructureConstraints::none(l.len());
-        sc.require_pair(&l, 0, 11).expect("well-formed");
-        sc.require_pair(&l, 16, 27).expect("well-formed");
-        let v = realization_verdict(&params(), TWO, &l, &sc).expect("folds");
-        for pv in &v.required {
-            let in_traceback = v.free_structure.as_bytes()[pv.open as usize] == b'('
-                && v.free_structure.as_bytes()[pv.close as usize] == b')';
-            if pv.realized {
-                continue;
-            }
-            assert!(
-                !in_traceback,
-                "({}, {}) is in the recovered fold but was called omitted",
-                pv.open, pv.close
-            );
-        }
-        // Whatever the traceback shows, the two verdicts agree with the gap.
-        assert_eq!(v.is_realized(), v.omitted_count() == 0);
-    }
 }

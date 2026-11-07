@@ -1,12 +1,12 @@
 //! The six node-keyed CKY tables and their BRD-merged updates.
 //!
-//! Re-keyed from LinearFold's sequence positions to DFA boundary nodes:
-//! the closed-pair tables (`P`, `Multi`) additionally key on the pair's
+//! Keyed on DFA boundary nodes rather than sequence positions: the
+//! closed-pair tables (`P`, `Multi`) additionally key on the pair's
 //! boundary nucleotides, while the multi-branch tables (`M`, `M2`) and
 //! the exterior table (`C`) key on nodes alone. Each cell keeps the
 //! lowest combined-BRD derivation; the `(table, outer, key)` coordinate
-//! is the equivalence class, exactly LinearFold's state packing extended
-//! with a CAI accumulator.
+//! is the equivalence class, a position-indexed fold's state packing
+//! extended with a CAI accumulator.
 
 use rna_mfe::Energy;
 

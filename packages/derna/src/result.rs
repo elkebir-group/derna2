@@ -333,11 +333,14 @@ pub fn replace_lines(path: &Path, lines: &[Value]) -> Result<()> {
     Ok(())
 }
 
-/// This process's peak resident set, in kB, or `None` where `/proc` is absent.
+/// This process's peak resident set, in kB, or `None` where no platform
+/// facility reports one.
+///
+/// The library's reading, not a second one. This read `/proc/self/status`
+/// itself and so answered `None` on a platform that has no `/proc` — while
+/// `task_clock` answered the same question from `getrusage` and returned a
+/// figure. One run then printed `peak n/a` in a header and a real peak in its
+/// own timeline.
 pub fn peak_rss_kb() -> Option<u64> {
-    let status = std::fs::read_to_string("/proc/self/status").ok()?;
-    status
-        .lines()
-        .find_map(|l| l.strip_prefix("VmHWM:"))
-        .and_then(|v| v.trim().trim_end_matches("kB").trim().parse().ok())
+    derna_lib::task_clock::peak_rss_kb()
 }

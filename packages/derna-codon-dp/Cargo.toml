@@ -1,7 +1,7 @@
 [package]
 name = "derna-codon-dp"
 version = "0.1.0"
-description = "Pareto-optimal codon design via DERNA's BRD / PORD dynamic programs"
+description = "Pareto-optimal codon design via the BRD / PORD dynamic programs"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true

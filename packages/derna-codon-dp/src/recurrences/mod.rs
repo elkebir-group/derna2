@@ -44,8 +44,7 @@ pub(crate) struct Candidate {
 }
 
 /// Trace records carried by [`Candidate`]. One variant per recurrence;
-/// field shapes mirror v1's per-recurrence trace dataclasses so the
-/// traceback walker can dispatch case-by-case from the stored record.
+/// each records what its recurrence chose, so the traceback walker can dispatch case-by-case from the stored record.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Trace {
     Hairpin(HairpinTrace),
@@ -85,8 +84,7 @@ pub(crate) struct BulgeTrace {
 /// its boundary nucleotide.
 ///
 /// `xi_` / `hi_` / `kj_` / `yj_` are the four loop boundary nucleotides
-/// at positions `(nt_i + 1, nt_p − 1, nt_q + 1, nt_j − 1)`; naming
-/// mirrors C++'s `Zuker.cpp:1207-1229`. `h` / `r` are the enclosed-pair
+/// at positions `(nt_i + 1, nt_p − 1, nt_q + 1, nt_j − 1)`. `h` / `r` are the enclosed-pair
 /// codon indices (same shape as the other two-pair traces). The
 /// traceback walker recovers the optimal flank codon at each AA by
 /// looking up [`crate::plan::Plan::best_synonym_idx`]; the joint
@@ -411,8 +409,8 @@ pub(crate) fn fill_single_loop_tables(plan: &mut Plan<'_>) {
 /// Fill every single-loop sub-table plus the multi-loop tables (`M`,
 /// `E_m`, `N`) at every cell, in dependency order.
 ///
-/// Three intra-cell steps per `(a, b)` AA pair, matching v1's `_fill_cell`
-/// minus its fourth `fill_o` pass:
+/// Three intra-cell steps per `(a, b)` AA pair (the full fill's four
+/// minus the `fill_o` pass):
 ///
 /// 1. `fill_m` for every `(s, t, x, y)`. `M` reads `N` at strictly
 ///    smaller AA spans (already populated by the outer span loop) and is
@@ -489,7 +487,7 @@ fn fill_one_cell_through_multi(plan: &mut Plan<'_>, idx: CellIdx, scratch: &mut 
 
 /// Fill every DP table at every cell, in dependency order.
 ///
-/// Four intra-cell steps per `(a, b)` AA pair, matching v1's `_fill_cell`:
+/// Four intra-cell steps per `(a, b)` AA pair:
 ///
 /// 1. `fill_m` for every `(s, t, x, y)`. `M` reads `N` at strictly
 ///    smaller AA spans (already populated by the outer span loop) and is
@@ -545,40 +543,6 @@ fn fill_o_prefix_cells(plan: &mut Plan<'_>, ab: (usize, usize), scratch: &mut Ve
             }
         }
     }
-}
-
-pub(crate) fn fill_dp_tables_observing_legacy_o<F>(plan: &mut Plan<'_>, mut observe_o: F)
-where
-    F: FnMut(&Plan<'_>, CellIdx, &mut Vec<Nucleotide>),
-{
-    let n_aa = plan.n_aa();
-    let mut scratch: Vec<Nucleotide> = Vec::with_capacity(plan.default_seq.len());
-    for span in 0..n_aa {
-        for a in 0..(n_aa - span) {
-            fill_ab_cell_full_observing_legacy_o(plan, (a, a + span), &mut scratch, &mut observe_o);
-        }
-    }
-}
-
-fn fill_ab_cell_full_observing_legacy_o<F>(
-    plan: &mut Plan<'_>,
-    ab: (usize, usize),
-    scratch: &mut Vec<Nucleotide>,
-    observe_o: &mut F,
-) where
-    F: FnMut(&Plan<'_>, CellIdx, &mut Vec<Nucleotide>),
-{
-    sweep_cells_in_order(plan, ab, &ST_BY_NT_SPAN, multi::fill_m);
-    sweep_cells_in_order(plan, ab, &ST_BY_NT_SPAN, |p, idx| {
-        fill_one_cell_through_multi(p, idx, scratch);
-    });
-    sweep_cells_in_order(plan, ab, &ST_BY_NT_SPAN_FOR_N, |p, idx| {
-        multi::fill_n(p, idx, scratch);
-    });
-    sweep_cells_in_order(plan, ab, &ST_BY_NT_SPAN_FOR_N, |p, idx| {
-        exterior::fill_o_legacy_all_cases(p, idx, scratch);
-        observe_o(p, idx, scratch);
-    });
 }
 
 #[cfg(test)]

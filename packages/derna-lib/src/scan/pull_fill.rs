@@ -1,5 +1,5 @@
-//! A single-writer fill of one `P` column: the `Lz` default (`DERNA_PUSH_SCAN`
-//! selects the push scan), and opt-in in `Naive` mode (`DERNA_PULL_FILL`).
+//! A single-writer fill of one `P` column: the `Lz` default, and in `Naive`
+//! mode an option of development builds.
 //!
 //! The default scan produces a `P[pos]` cell from three directions: hairpins
 //! seeded up front, the stack / bulge / tabulated-small closures **pushed** from

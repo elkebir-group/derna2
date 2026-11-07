@@ -28,16 +28,16 @@ pub const INF: f64 = 1.0e9;
 
 /// Multiplier placing log-CAI on the same scale as dekacal energies, so that
 /// one λ weighs comparable magnitudes. It is a change of units and nothing is
-/// rounded to it; the published C++ leaves log-CAI unscaled, which is the same
-/// objective under the reparametrization `λ' = λ / (100 − 99λ)`.
+/// rounded to it; leaving log-CAI unscaled gives the same objective under the
+/// reparametrization `λ' = λ / (100 − 99λ)`.
 pub const CAI_DEKACAL_SCALE: f64 = 100.0;
 
-/// Vienna's `TURN`: minimum hairpin loop size. Lifted from
+/// `TURN`: minimum hairpin loop size. Lifted from
 /// [`rna_mfe::dp::tables::MIN_HAIRPIN_LOOP`]; aliased here so the codon
 /// DP recurrences can read it without naming the substrate's `dp` module.
 pub const TURN: usize = rna_mfe::dp::tables::MIN_HAIRPIN_LOOP;
 
-/// Vienna's `MAXLOOP`: largest interior-loop side count the size table
+/// `MAXLOOP`: largest interior-loop side count the size table
 /// covers. Lifted from [`rna_mfe::dp::tables::MAX_LOOP_SIZE`].
 pub const MAXLOOP: usize = rna_mfe::dp::tables::MAX_LOOP_SIZE;
 
@@ -59,7 +59,7 @@ pub(crate) enum EStorageMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TableLayout {
     /// Store the full logical `[n, n, 3, 3, max_codons, max_codons]` shape.
-    /// This mode is retained for v1 parity snapshots.
+    /// This mode is retained for the reference table snapshots.
     DenseMaxRectangles,
     /// Store only `a <= b` endpoint pairs, and store each endpoint pair's
     /// actual `len(codons[a]) * len(codons[b])` codon rectangle.
@@ -374,14 +374,14 @@ pub(crate) struct Plan<'p> {
     pub tables: Tables,
     pub trace: Trace,
     pub params: &'p Params,
-    /// Multi-loop closing constant `A` (Vienna's `MLclosing`) in dekacal.
-    /// Cached once at plan construction; sequence-independent so the
-    /// multi-loop recurrences don't re-fetch it per candidate.
+    /// Multi-loop closing constant `A` in dekacal. Cached once at plan
+    /// construction; sequence-independent so the multi-loop recurrences
+    /// don't re-fetch it per candidate.
     pub ml_closing_const: i32,
-    /// Multi-loop per-unpaired-nucleotide constant `B` (Vienna's `MLbase`)
-    /// in dekacal. Cached once at plan construction alongside
-    /// [`Self::ml_closing_const`]; the N recurrence's unpaired-bump cases
-    /// (2 / 3 / 4 / 5) pay this constant per step.
+    /// Multi-loop per-unpaired-nucleotide constant `B` in dekacal. Cached
+    /// once at plan construction alongside [`Self::ml_closing_const`]; the N
+    /// recurrence's unpaired-bump cases (2 / 3 / 4 / 5) pay this constant per
+    /// step.
     pub ml_base_const: i32,
 }
 
@@ -389,7 +389,7 @@ impl<'p> Plan<'p> {
     /// Construct a [`Plan`] for a given protein, codon-usage, solver
     /// inputs (`λ`, `dangling_5_prime`, optional codon mask), and shared
     /// [`Params`]. Returns `Err` for unknown amino-acid letters; an
-    /// empty protein is rejected early to mirror v1's `_validate_protein`.
+    /// empty protein is rejected early.
     pub fn new(
         protein: &str,
         codon_usage: &CodonUsage,
@@ -484,8 +484,7 @@ pub fn aa_of_nt(nt: usize) -> usize {
 /// pairs. If `p` is in `constraints`, yields exactly the pinned `ci`
 /// (forced-assignment); otherwise yields every `ci` in `0..n_codons(p)`.
 ///
-/// Mirrors v1's `consistent_choices`: the first matching constraint
-/// short-circuits the result.
+/// The first matching constraint short-circuits the result.
 pub(crate) fn consistent_choices(
     plan: &Plan<'_>,
     p: usize,

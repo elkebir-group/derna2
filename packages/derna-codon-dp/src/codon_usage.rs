@@ -149,7 +149,7 @@ fn check_complete(seen: &[u8; FAMILIES]) -> Result<(), CodonUsageError> {
     }
 }
 
-/// Convenience wrapper matching the Python `load_codon_usage(path)` signature.
+/// Convenience wrapper: load a codon-usage table from `path`.
 pub fn load_codon_usage(path: &Path) -> Result<CodonUsage, CodonUsageError> {
     CodonUsage::load_from_path(path)
 }

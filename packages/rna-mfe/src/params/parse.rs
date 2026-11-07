@@ -1,9 +1,13 @@
-//! `rna_turner2004.par` → [`Params`] section parsers.
+//! Parameter file → [`Params`] section parsers.
 //!
-//! Each section's expected token count is wired in from ViennaRNA's
-//! `src/ViennaRNA/params/io.c` `case <SECTION>:` branches. Skipped
-//! sections (enthalpies, dangles, mismatch_multi, mismatch_exterior)
-//! are walked-and-discarded so the section order check still works.
+//! Two layouts are read: this crate's canonical layout
+//! ([`super::Params::dump_canonical`]) and the ViennaRNA `.par` format, of
+//! which the canonical layout is a subset (the same section headers and
+//! dimensions, without the sections this crate does not read). Each
+//! section's expected token count is fixed by the `.par` format's
+//! per-section dimensions. Skipped sections (enthalpies, dangles,
+//! mismatch_multi, mismatch_exterior) are walked-and-discarded with their
+//! lengths checked.
 
 use thiserror::Error;
 
@@ -31,6 +35,11 @@ pub enum ParseError {
     BadToken { name: String, token: String },
     #[error("missing required section `{0}`")]
     MissingSection(&'static str),
+    #[error("cannot read parameter file {path}: {source}")]
+    Read {
+        path: String,
+        source: std::io::Error,
+    },
 }
 
 /// Per-section expected token count for the skipped sections that
@@ -39,7 +48,7 @@ const DANGLE_LEN: usize = N_PAIRS * N_NUCS;
 
 /// Top-level entry. Walks every section in source order, dispatches
 /// known sections to their parsers, and discards skipped sections
-/// after asserting their length matches Vienna's layout.
+/// after asserting their length matches the `.par` format's layout.
 pub fn parse_params(source: &str) -> Result<Params, ParseError> {
     let sections = split_sections(source);
     let mut builder = Builder::default();
@@ -139,7 +148,7 @@ impl Builder {
 /// 37°C and dangles=0 only, so enthalpies / dangles / mismatch_multi /
 /// mismatch_exterior are read-and-discarded with their expected
 /// length validated. An unrecognised section header is a parser bug
-/// (or a Vienna upgrade introduced new sections).
+/// (or a newer `.par` format revision introduced new sections).
 fn skip_unparsed(section: &Section<'_>, name: &str) -> Result<(), ParseError> {
     let expected = match name {
         "stack_enthalpies" => STACK_LEN,

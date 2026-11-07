@@ -47,6 +47,9 @@ static MEMORY_STOPPED: AtomicBool = AtomicBool::new(false);
 pub struct Budget {
     pub max_secs: Option<f64>,
     pub max_rss_gb: Option<f64>,
+    /// Stop the walk after this many gap folds, keeping each stopped gap's
+    /// rest: a fixed amount of work, whatever the machine's speed.
+    pub max_gap_folds: Option<usize>,
     /// At the memory budget, end the walks running then and go on, rather
     /// than end the search; the search ends only if memory stays over the
     /// budget once they have let go of theirs.
@@ -79,7 +82,7 @@ pub fn compute(
     if let Some(gb) = budget.max_rss_gb {
         watch_memory(gb, budget.shed_on_memory);
     }
-    let params = Params::load_default()?;
+    let params = m.params.clone();
     let utr5 = m.utr5.as_ref().map_or("", |u| u.sequence.as_str());
     let utr3 = flank3(m);
     let budget_s = (budget.max_secs.unwrap_or(f64::INFINITY), threads);
@@ -734,6 +737,7 @@ mod tests {
             stop: crate::molecule::Stop::Given("UAA".into()),
             constraint: crate::constraint::resolve(None, None, true, true).unwrap(),
             codons: crate::input::read_codon_usage(None).unwrap(),
+            params: derna_lib::Params::load_default().unwrap(),
         };
         // GG | AUG | (C|U) U (U|C|A|G) | UAA | C: leucine is CUN or UUR.
         let fixed: Vec<bool> = "111110101111".chars().map(|c| c == '1').collect();

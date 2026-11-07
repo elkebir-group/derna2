@@ -96,10 +96,10 @@ use std::collections::hash_map::Entry;
 /// meter makes it, in two modes that are **mutually exclusive by
 /// construction**, because each destroys what the other measures:
 ///
-/// - **Timing**, on `DERNA_PROFILE` beside the phase clock: splits the
+/// - **Timing**, on the phase clock's development setting: splits the
 ///   single-branch closure sweep into time inside the span primitives and time
 ///   around them, and reports the whole fold's in-span total beside it.
-/// - **Counting**, on `DERNA_SPAN_COUNT`: counts calls against distinct
+/// - **Counting**, on its own development setting: counts calls against distinct
 ///   `(from, q_from, to)` tuples and takes no clock reading at all. Inserting
 ///   into a hash set on every call makes the timings meaningless, so a cell
 ///   wanting both numbers is run twice.
@@ -164,24 +164,24 @@ mod span_meter {
         static METER: RefCell<Meter> = RefCell::new(Meter::default());
     }
 
-    /// Read an environment flag once per process; the primitives are hot enough
+    /// Read a development flag once per process; the primitives are hot enough
     /// that a `var_os` per call would itself be the measurement.
-    fn env_flag(name: &str, cache: &'static OnceLock<bool>) -> bool {
-        *cache.get_or_init(|| std::env::var_os(name).is_some())
+    fn env_flag(setting: crate::dev_env::Setting, cache: &'static OnceLock<bool>) -> bool {
+        *cache.get_or_init(|| crate::dev_env::var_os(setting).is_some())
     }
 
     /// Whether calls are being counted — exact, machine-independent, and
     /// incompatible with any timing.
     pub(super) fn counting() -> bool {
         static ON: OnceLock<bool> = OnceLock::new();
-        env_flag("DERNA_SPAN_COUNT", &ON)
+        env_flag(crate::dev_env::Setting::SpanCount, &ON)
     }
 
     /// Whether time is being charged. Shares the phase clock's gate and yields
     /// to counting, so the two modes cannot be on together.
     pub(super) fn timing() -> bool {
         static ON: OnceLock<bool> = OnceLock::new();
-        env_flag("DERNA_PROFILE", &ON) && !counting()
+        env_flag(crate::dev_env::Setting::Profile, &ON) && !counting()
     }
 
     /// A live measurement of one span-primitive call: charges the call on
@@ -597,15 +597,18 @@ fn nuc_from_index(i: u8) -> Nucleotide {
 /// `var_os` per call would itself be the measurement.
 fn eager_spans() -> bool {
     static ON: OnceLock<bool> = OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("DERNA_SPAN_EAGER").is_some())
+    *ON.get_or_init(|| crate::dev_env::var_os(crate::dev_env::Setting::SpanEager).is_some())
 }
 
 /// Whether internal loops with both flanks free score their corners
-/// separately ([`Folder::separated_internal`]): `DERNA_CONSTRAINED_SEPARATE=1`,
-/// read once per process.
+/// separately ([`Folder::separated_internal`]): off unless a development build
+/// turns it on (`Setting::ConstrainedSeparate`), read once per process.
 fn separate_free_loops() -> bool {
     static ON: OnceLock<bool> = OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("DERNA_CONSTRAINED_SEPARATE").is_some_and(|v| v == "1"))
+    *ON.get_or_init(|| {
+        crate::dev_env::var_os(crate::dev_env::Setting::ConstrainedSeparate)
+            .is_some_and(|v| v == "1")
+    })
 }
 
 /// The shortest flank whose corners separate: its first and last nucleotides
@@ -648,11 +651,14 @@ fn free_runs(product: &ProductDfa<'_>) -> Vec<u32> {
 
 /// Whether skewed internal loops on free flanks are taken from their size
 /// diagonal ([`Folder::pull_skewed`]) rather than pushed pair by pair:
-/// `DERNA_CONSTRAINED_LZ=1`, read once per process. It scores corners as
+/// off unless a development build turns it on (`Setting::ConstrainedLz`), read
+/// once per process. It scores corners as
 /// [`separate_free_loops`] does.
 fn diagonal_free_loops() -> bool {
     static ON: OnceLock<bool> = OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("DERNA_CONSTRAINED_LZ").is_some_and(|v| v == "1"))
+    *ON.get_or_init(|| {
+        crate::dev_env::var_os(crate::dev_env::Setting::ConstrainedLz).is_some_and(|v| v == "1")
+    })
 }
 
 /// For each layer, how many edges the free run ending there spans: [`free_runs`]
@@ -1455,11 +1461,12 @@ struct Folder<'a> {
     diag: DiagIndex,
     /// Outer pairs the pull wrote.
     pulled: AtomicUsize,
-    /// Where this fold's time went, when `DERNA_PROFILE` asks.
+    /// Where this fold's time went, when a development build asks.
     clock: PhaseClock,
 }
 
-/// Per-phase wall clock for one constrained fold, gated on `DERNA_PROFILE`.
+/// Per-phase wall clock for one constrained fold, on in development builds
+/// that ask (`Setting::Profile`).
 ///
 /// The folder's six steps differ in what they iterate over: `seed_hairpins` and
 /// `p_push` sweep span endpoints, while `m_extend` / `c_extend` / `m2_beam`
@@ -1487,7 +1494,7 @@ const PHASE_NAMES: [&str; 6] = [
 impl PhaseClock {
     fn from_env() -> Self {
         Self {
-            on: std::env::var_os("DERNA_PROFILE").is_some(),
+            on: crate::dev_env::var_os(crate::dev_env::Setting::Profile).is_some(),
             spent: Default::default(),
         }
     }
@@ -2824,7 +2831,8 @@ impl<'a> Folder<'a> {
 
     /// Fill every span slot a worker can address — those within the
     /// single-branch loop window, see [`Self::prefill_from`] — before the fold
-    /// starts, when `DERNA_SPAN_EAGER` asks, or unconditionally when
+    /// starts, when a development build asks (`Setting::SpanEager`), or
+    /// unconditionally when
     /// `self.threads > 1`.
     ///
     /// The multi-threaded phases read the span memo through [`Self::fill_span_ro`]
@@ -2833,7 +2841,7 @@ impl<'a> Folder<'a> {
     /// [`Self::fill_span`] does. Forcing the eager fill first (still
     /// single-threaded, before any worker spawns) is what lets those reads be
     /// plain shared borrows with no lock: every slot a worker could ask for is
-    /// already stored by the time one exists. `DERNA_SPAN_EAGER` at
+    /// already stored by the time one exists. An eager fill at
     /// `threads = 1` is unaffected — that path never calls the `_ro` accessors.
     fn prefill_spans(&mut self) {
         if !eager_spans() && self.threads <= 1 {

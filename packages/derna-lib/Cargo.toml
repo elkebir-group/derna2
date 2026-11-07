@@ -1,7 +1,7 @@
 [package]
 name = "derna-lib"
 version = "0.1.0"
-description = "Beam-search codon design: a codon-DFA composed with a LinearFold-style 5'-to-3' CKY scan"
+description = "Beam-search codon design: a codon-DFA composed with a left-to-right CKY scan"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -11,22 +11,32 @@ publish = false
 [lib]
 path = "src/lib.rs"
 
+
 [dependencies]
 rna-mfe = { path = "../rna-mfe" }
 derna-codon-dp = { path = "../derna-codon-dp" }
 thiserror = "2.0"
 serde_json = "1"
 smallvec = "1"
+libc = "0.2"
+
+# jemalloc is a Linux/glibc concern here and only there. What it is for is the
+# memory budget: `release_freed` hands freed pages back before resident memory
+# is read, and resident memory is read from `/proc`, which no other platform
+# has — so on macOS the crates would be built to serve a mechanism that cannot
+# run. `tikv-jemalloc-sys` also builds jemalloc from C, which is the first
+# thing to fail when cross-compiling.
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
+# The research bins and examples install `Jemalloc` as their global allocator.
 tikv-jemallocator = "0.6"
 # The purge in `motif_front` calls `mallctl` through this crate rather than
 # through an `extern` block of its own, so that the crate providing the symbol
 # is a real dependency of this library and is not dropped from the link.
 tikv-jemalloc-sys = "0.6"
-libc = "0.2"
 
 [features]
 # Diagnostic builds; neither changes an answer.
-# `alloc-census`: link the allocation census (`DERNA_ALLOC_COUNT`) over
+# `alloc-census`: link the allocation census over
 # jemalloc.
 alloc-census = []
 # `system-alloc`: run under the system allocator instead of jemalloc.
@@ -35,3 +45,4 @@ system-alloc = []
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+

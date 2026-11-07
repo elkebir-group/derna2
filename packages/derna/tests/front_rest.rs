@@ -2,10 +2,6 @@
 //! gives the box the energy its gap is solved up to and the best adaptation
 //! there, as a motif front's does, and `--resume` continues the box from that
 //! rest to the whole front.
-//!
-//! A test binary of its own, because the stop it needs is set through the
-//! environment (`DERNA_MOTIF_GAP_FOLDS`), which every test in one binary would
-//! share.
 
 use derna_cli::front;
 use derna_cli::show;
@@ -55,19 +51,24 @@ fn a_plain_front_stopped_inside_a_gap_resumes_from_the_header_to_the_whole_front
     };
     let mut stopped = None;
     for k in 1..80 {
-        std::env::set_var("DERNA_MOTIF_GAP_FOLDS", k.to_string());
         let name = format!("stopped-{k}.jsonl");
-        let r = front_file(&[], &name);
+        let r = front_file(&["--max-gap-folds", &k.to_string()], &name);
         if r.header["complete"] == true {
             break;
         }
         assert_eq!(r.header["stopped_by"], "folds");
+        // The stop is real: the run returned less than the whole front.
+        assert!(
+            r.points.len() < whole.points.len(),
+            "stopped after {k} gap folds with {} of {} points",
+            r.points.len(),
+            whole.points.len()
+        );
         if part_way(&r) {
             stopped = Some(name);
             break;
         }
     }
-    std::env::remove_var("DERNA_MOTIF_GAP_FOLDS");
     let name = stopped.expect("some count stops a gap between its slices");
     let dir = std::env::temp_dir().join(format!("derna-front-rest-{}", std::process::id()));
     let from = dir.join(&name);

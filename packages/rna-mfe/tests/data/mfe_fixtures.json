@@ -847,8 +847,5 @@
       "structure": "((((.((...))))))"
     }
   ],
-  "generator_command": "uv run --directory packages/derna-core python scripts/generate_fixtures.py",
-  "param_file": "packages/derna-core/data/rna_turner2004.par",
-  "param_file_sha256": "0c671a7455f5686bc160fc655194b11888594ab7d506626cdad1470bcadd17d9",
-  "vienna_version": "2.7.0"
+  "generator_command": "uv run --directory packages/derna-core python scripts/generate_fixtures.py"
 }

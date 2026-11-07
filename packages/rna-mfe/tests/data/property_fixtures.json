@@ -3463,7 +3463,7 @@
       ]
     },
     "lxc_cases": {
-      "note": "evaluate-only: structure is template-constructed, not MFE. Vienna MAXLOOP=30 means RNAfold never produces these structures; fold test (property_fold.rs) excludes this section.",
+      "note": "evaluate-only: structure is template-constructed, not MFE. loops are capped at 30 unpaired bases, so a fold never produces these structures; fold test (property_fold.rs) excludes this section.",
       "fixture_count": 20,
       "fixtures": [
         {

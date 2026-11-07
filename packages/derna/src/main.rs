@@ -7,13 +7,15 @@
 //! binary.
 
 /// `--features jemalloc` builds the binary on jemalloc; see that feature in
-/// `Cargo.toml` for what it changes.
-#[cfg(feature = "jemalloc")]
+/// `Cargo.toml` for what it changes. The crate is a dependency only where
+/// jemalloc is built, so the feature asks for nothing elsewhere and the
+/// binary runs on the system allocator.
+#[cfg(all(feature = "jemalloc", target_os = "linux", target_env = "gnu"))]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 fn main() {
-    #[cfg(feature = "jemalloc")]
+    #[cfg(all(feature = "jemalloc", target_os = "linux", target_env = "gnu"))]
     derna_lib::motif_front::allocator_is_jemalloc();
     if let Err(e) = derna_cli::run(std::env::args().skip(1).collect()) {
         eprintln!("error: {e}");

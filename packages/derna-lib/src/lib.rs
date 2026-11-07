@@ -2,7 +2,7 @@
 //!
 //! Designs an mRNA coding sequence for a target protein that minimizes the
 //! fixed-λ BRD objective `λ·MFE − (1−λ)·CAI`, by running a
-//! [LinearFold]-style 5′→3′ CKY scan over a **codon DFA** — a compact graph
+//! left-to-right (5′→3′) CKY scan over a **codon DFA** — a compact graph
 //! of every RNA sequence encoding the protein. Folding and codon choice
 //! happen in one pass: structure is parsed by the CKY grammar and codon
 //! adaptation enters as additive weights on the DFA's edges. The scan runs
@@ -14,8 +14,9 @@
 //! driver ([`scan`]), and the structure/sequence traceback ([`traceback`]).
 //!
 //! The validated entry point is [`fold_single_path`]: a pure-MFE (λ=1) scan
-//! over a single-path DFA reproduces [`rna_linearfold::fold`]'s exact-lattice
-//! energy, confirming the grammar/energy-model port.
+//! over a single-path DFA computes the sequence's exact-lattice MFE, which
+//! checks the grammar and energy model against a plain fold of one sequence.
+//! The designs themselves do not depend on that check.
 //! [`design`] composes the full multi-path DFA with the same scan, jointly
 //! optimizing each loop interior's energy and CAI over the codon choices.
 //!
@@ -23,8 +24,6 @@
 //! treatment. The scan is a separate substrate from the interval DP of
 //! `derna-codon-dp`, which stays the exact-optimum oracle it is validated
 //! against at tractable lengths.
-//!
-//! [LinearFold]: rna_linearfold
 
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -45,6 +44,7 @@ pub mod complement;
 mod constrained;
 pub mod coords;
 pub mod cost_to_go;
+pub mod dev_env;
 pub mod dfa;
 pub mod end_pins;
 pub mod energy_cut;
@@ -175,8 +175,8 @@ pub use utr_profile::UtrProfile;
 /// puts back, and how that fold's pairs distribute over the region classes. A
 /// report on a finished design, never a gate on producing one.
 pub use free_fold::{
-    free_fold_gap, sequence_constrained_mfe, sequence_constrained_mfe_zuker, sequence_free_fold,
-    sequence_free_fold_zuker, sequence_free_fold_zuker_reusing, sequence_free_mfe, sequence_gap,
+    free_fold_gap, sequence_constrained_mfe, sequence_constrained_mfe_zuker,
+    sequence_free_fold_zuker, sequence_free_fold_zuker_reusing, sequence_gap,
     sequence_gap_given_constrained, sequence_gap_given_structure,
     sequence_gap_given_structure_reusing, sequence_mfe_within, sequence_mfe_within_reusing,
     sequence_mfes_reusing, sequence_modular_mfe, sequence_modular_mfe_reusing, stacked_runs,
@@ -236,7 +236,7 @@ pub use coords::{Coord, CoordError, CoordRegion, Layout};
 /// codon is reported before any search runs.
 pub use pins::{PinError, Pins};
 
-/// The structure axis of [`design_composite`]: the `RNAfold -C` alphabet over
+/// The structure axis of [`design_composite`]: the hard-constraint alphabet over
 /// whole-mRNA positions. **Read [`Mark`] for the `<` / `>` directions** — `<`
 /// names a partner *downstream* — and for the rule that every character except
 /// `|` also forbids the pairs conflicting with it.
@@ -254,7 +254,7 @@ pub use positional::{
 /// pair and overall. **Decided by comparing optima, never by reading one
 /// recovered structure** — free optima are routinely co-optimal. A report,
 /// never a gate.
-pub use realization::{realization_verdict, RealizationVerdict, RequiredPairVerdict};
+pub use realization::{RealizationVerdict, RequiredPairVerdict};
 
 /// How far a fixed sequence's own optimum sits from the best structure of it
 /// that forms a pairing it was constrained against — the complement of the
@@ -279,11 +279,6 @@ pub use tables::CellCounts;
 pub use outside_scan::crossing::{
     ChainEnd, CrossingChain, CrossingReport, CrossingSpec, ShapeBest,
 };
-
-/// The LinearFold reference folder this crate generalizes. The pure-MFE
-/// (λ = 1) beam over a single-path DFA must reproduce `linearfold_fold`,
-/// which is the cheapest correctness regression for the scan.
-pub use rna_linearfold::fold as linearfold_fold;
 
 /// A completed design: the chosen coding sequence, its structure, and
 /// the `(MFE, CAI)` pair it achieves at the solve's λ.
@@ -1909,10 +1904,14 @@ pub struct TaskSpan {
     /// The CPU seconds its threads spent ([`task_clock::TaskClock`]), which
     /// host load does not inflate the way wall seconds are.
     pub cpu_s: f64,
-    /// The process's resident memory when it finished, in KiB.
-    pub rss_kb: u64,
-    /// The process's peak resident memory so far when it finished, in KiB.
-    pub peak_rss_kb: u64,
+    /// The process's resident memory when it finished, in KiB; `None` where
+    /// it cannot be read, which is not the same as holding nothing.
+    pub rss_kb: Option<u64>,
+    /// The process's peak resident memory so far when it finished, in KiB;
+    /// `None` where it cannot be read. Readable on more platforms than
+    /// [`Self::rss_kb`], the peak coming from `getrusage` where `/proc` is
+    /// absent.
+    pub peak_rss_kb: Option<u64>,
 }
 
 /// What a [`TaskSpan`] did.
@@ -2311,16 +2310,13 @@ pub struct WalkBudget {
     pub max_rss_gb: Option<f64>,
 }
 
-/// The process's resident memory in kB, from `/proc/self/status`.
+/// The process's resident memory in kB, or `None` where it cannot be read.
+///
+/// One reader, in `task_clock`. Two readings of the same quantity drift: a
+/// second peak reader that only knew `/proc` reported no peak at all on a
+/// platform where the first one reported a figure.
 pub(crate) fn rss_kb() -> Option<u64> {
-    std::fs::read_to_string("/proc/self/status")
-        .ok()?
-        .lines()
-        .find(|l| l.starts_with("VmRSS:"))?
-        .split_whitespace()
-        .nth(1)?
-        .parse()
-        .ok()
+    crate::task_clock::rss_kb()
 }
 
 impl Default for WalkOptions {
@@ -2532,14 +2528,16 @@ impl WalkOptions {
     /// (3.3x and 5.3x less wall at 200 and 250 residues on 8 threads, 2.7x and
     /// 3.6x on one).
     ///
-    /// `DERNA_WALK_FLOOR_CUT=1` turns on [`Self::floor_cut`].
+    /// A development build can also turn on [`Self::floor_cut`] and set
+    /// [`Self::stop_slack`].
     pub fn for_residues(residues: usize) -> Self {
         Self {
             pass_grid: Some(PassGrid::for_residues(residues)),
             seed_sweep: true,
             cut_probes: true,
-            floor_cut: std::env::var("DERNA_WALK_FLOOR_CUT").is_ok_and(|v| v == "1"),
-            stop_slack: std::env::var("DERNA_WALK_STOP_SLACK")
+            floor_cut: crate::dev_env::var(crate::dev_env::Setting::WalkFloorCut)
+                .is_ok_and(|v| v == "1"),
+            stop_slack: crate::dev_env::var(crate::dev_env::Setting::WalkStopSlack)
                 .ok()
                 .and_then(|v| v.trim().parse().ok()),
             ..Self::default()
@@ -2768,7 +2766,14 @@ fn solve_gap<L>(
             } else {
                 chain.as_ref().map(copy)
             };
-            let watched = watch.filter(|_| this.is_some() && clock.own_from.is_none());
+            // The watch reports the solving thread's CPU time from a thread
+            // of its own, so it needs a clock naming another thread; where
+            // there is none the reading would be the watcher's, which is
+            // nearly zero, so the watch does not run at all rather than
+            // report that. See `ThreadCpu::AVAILABLE`.
+            let watched = watch.filter(|_| {
+                this.is_some() && clock.own_from.is_none() && task_clock::ThreadCpu::AVAILABLE
+            });
             match watched {
                 Some((period, ask)) => {
                     let cpu = task_clock::ThreadCpu::here();
@@ -3345,20 +3350,22 @@ impl PassPool {
 /// walk two passes to a traversal took 0.66 of the instructions of the walk
 /// taking each alone, for a peak of 450 MB against 387 MB; four took 0.51
 /// for 673 MB, the lanes' tables being held at once. Resident memory, not
-/// instructions, is what bounds a long walk, so two is the default and
-/// `DERNA_GRID_LANES` gives more.
+/// instructions, is what bounds a long walk, so two is the default and a
+/// development build can give more.
 const GRID_LANES: usize = 2;
 
-/// The lane count `DERNA_GRID_LANES` gives, from 1 (each pass alone) to
+/// The lane count a development build gives, from 1 (each pass alone) to
 /// [`outside_multi::MAX_LANES`], with or without a memory budget. A value
 /// that is not a count is refused rather than read as unset, since a walk
 /// that silently took the default would cost what the count was set to save.
 fn grid_lanes() -> Option<usize> {
-    let given = std::env::var("DERNA_GRID_LANES").ok()?;
-    let n: usize = given
-        .trim()
-        .parse()
-        .unwrap_or_else(|_| panic!("DERNA_GRID_LANES={given:?} is not a lane count"));
+    let given = crate::dev_env::var(crate::dev_env::Setting::GridLanes).ok()?;
+    let n: usize = given.trim().parse().unwrap_or_else(|_| {
+        panic!(
+            "{:?}={given:?} is not a lane count",
+            crate::dev_env::Setting::GridLanes
+        )
+    });
     Some(n.clamp(1, outside_multi::MAX_LANES))
 }
 
@@ -5478,7 +5485,7 @@ pub fn design(
 /// independent limits plus one ranking option:
 ///
 /// - `per_open` — the maximum cells kept per distinct **5′ open node** in a
-///   `P` / `Multi` column (the LinearFold "top-`b` states per position" axis,
+///   `P` / `Multi` column (a beam fold's "top-`b` states per position" axis,
 ///   grouping on the pair's span-start / codon-phase boundary). Reserving
 ///   budget per open node stops one long-span open from starving the others —
 ///   the collapse mechanism the closed-pair table exhibits. `usize::MAX`
@@ -5792,10 +5799,10 @@ pub struct ScanConfig {
     /// oracle parity.
     ///
     /// **This is a change to the energy model, not a tuning knob.** The default
-    /// matches ViennaRNA's `MAXLOOP`, `rna_mfe`'s `MAX_LOOP_SIZE` and
-    /// `rna_linearfold`'s `SINGLE_MAX_LEN`, which is what makes the scan's
-    /// optimum comparable to `derna_codon_dp::solve_brd` (BRD parity) and to
-    /// `rna_linearfold::fold` (λ=1 fold parity). A narrower cap forbids long
+    /// caps loops at 30 unpaired bases, as `rna_mfe`'s `MAX_LOOP_SIZE` does,
+    /// which is what makes the scan's optimum comparable to
+    /// `derna_codon_dp::solve_brd` (BRD parity) and to an exact fold of one
+    /// sequence (λ=1 fold parity). A narrower cap forbids long
     /// loop interiors outright, so the design it returns is optimal for a
     /// *different* model and neither parity is claimed.
     ///
@@ -5838,7 +5845,7 @@ impl ScanConfig {
     }
 }
 
-/// The single-branch loop cap matching ViennaRNA's `MAXLOOP` — the default, and
+/// The single-branch loop cap of 30 unpaired bases — the default, and
 /// the only value at which BRD and fold parity are claimed.
 pub const DEFAULT_SINGLE_MAX_LEN: usize = 30;
 

@@ -1,7 +1,6 @@
 //! Bulge-loop recurrence (E_b).
 //!
-//! Mirrors v1's `derna.codon_dp._recurrences.fill_e_b` — supplement.tex
-//! lines 209–226. Enumerates every enclosed-pair position `(nt_p, nt_q)`
+//! Follows supplement.tex lines 209–226. Enumerates every enclosed-pair position `(nt_p, nt_q)`
 //! where exactly one strand has zero unpaired nucleotides, and yields one
 //! candidate per consistent `(h, r)` codon pair at the enclosed AAs.
 
@@ -125,9 +124,8 @@ impl MotifKind {
 }
 
 /// Emit every `(nt_p, nt_q)` enclosed-pair position bounded by
-/// Vienna's `MAXLOOP = 30` and the per-strand TURN constraint, filtered
-/// by motif kind. Mirrors v1's `_iter_enclosed_nt(nt_i, nt_j, motif)`
-/// from `_dp.py`.
+/// `MAXLOOP = 30` unpaired bases and the per-strand TURN constraint,
+/// filtered by motif kind.
 pub(crate) fn for_each_enclosed_pair_position<F: FnMut(usize, usize)>(
     nt_i: usize,
     nt_j: usize,

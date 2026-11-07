@@ -1,14 +1,13 @@
-//! Outer recurrence for the Zuker DP tables.
+//! Outer recurrence for the MFE DP tables.
 //!
 //! V leaf cases (hairpin / stack / bulge / internal closings), the
 //! non-bifurcation parts of W, and the simple exterior F recurrence
 //! live here. The M / M1 tables and the V multi-loop closing case are
 //! filled in [`super::multi`]; this module wires them in.
 //!
-//! # Vienna source citations (v2.7.0)
+//! # Recurrence shape
 //!
 //! - **Outer fill order** (decreasing `i`, increasing `j`):
-//!   `mfe/mfe.c::fill_arrays` lines 478–510. The fill mirrors Vienna's order
 //!   `for i in (length-1)..=1` outer, `for j in (i+1)..=length` inner.
 //!   At outer `i`, all `(i', j')` with `i' > i` are already filled
 //!   (from previous outer iterations); within the inner-`j` loop, all
@@ -18,37 +17,31 @@
 //!   than as stride-growing-with-`k` table reads (see
 //!   [`super::multi::BifurcationScratch`]).
 //!
-//! - **V cell decomposition**: `mfe/mfe.c::decompose_pair` lines
-//!   4312–4371. Four leaf cases compose: `vrna_eval_hairpin`
-//!   (line 4336), `vrna_mfe_multibranch_loop_fast` (line 4340), and
-//!   `vrna_mfe_internal` (line 4350 — covers stack + bulge + internal
-//!   in a single dispatch).
+//! - **V cell decomposition**: three cases compose — the hairpin
+//!   closing, the multi-loop closing, and the two-pair closing (one
+//!   dispatch covering stack + bulge + internal loop).
 //!
-//! - **Internal-loop iteration shape**: `mfe/mfe_internal.c::mfe_internal_loop`
-//!   lines 554–611. Stacks and bulges (lines 554–566) dispatch via
-//!   `mfe_stacks` and `mfe_bulges`; the proper-internal-loop branch
-//!   (lines 567–611) iterates outer `l` downward from `j-2` and inner
-//!   `k` upward, with the `u1 + u2 <= MAXLOOP` cap via
-//!   `last_k + u2 > i + 1 + MAXLOOP` at line 573. With `l` fixed per
+//! - **Internal-loop iteration shape**: stacks and bulges are scored
+//!   directly; the proper-internal-loop search iterates outer `l`
+//!   downward from `j-2` and inner `k` upward, with the
+//!   `u1 + u2 <= MAXLOOP` cap enforced as
+//!   `last_k + u2 > i + 1 + MAXLOOP`. With `l` fixed per
 //!   outer iteration, `V[k, l]` reads for varying `k` are stride-1 in
 //!   the column-major layout (see
 //!   [`super::tables::TriangleTable::raw_col`]). The per-`l` kernel is
 //!   [`inner_min_at_l`]; traceback walks the same span set via
 //!   [`inner_pair_candidates`].
 //!
-//! - **Minimum hairpin size**: `params/constants.h::TURN = 3`
-//!   (referenced via [`super::tables::MIN_HAIRPIN_LOOP`]).
+//! - **Minimum hairpin size**: 3 unpaired bases
+//!   ([`super::tables::MIN_HAIRPIN_LOOP`]).
 //!
-//! - **Maximum bulge/internal cutoff**: `params/constants.h::MAXLOOP = 30`
-//!   (referenced via [`super::tables::MAX_LOOP_SIZE`]).
+//! - **Maximum bulge/internal cutoff**: 30 unpaired bases
+//!   ([`super::tables::MAX_LOOP_SIZE`]).
 //!
 //! - **F-table simple recurrence at `dangles=0`**:
-//!   `mfe/mfe_exterior.c::decompose_f5_ext_stem_d0` lines 263–284 plus
-//!   `reduce_f5_up` lines 381–430. The recurrence reduces to
 //!   `F[j] = min(F[j-1], min over i: F[i-1] + V[i, j-1] + ext_stem(i,j-1))`
-//!   where `ext_stem(i, k) = (pair(i, k) applies_terminal_au ? terminal_au_37 : 0)`
-//!   per `vrna_E_exterior_stem` at `dangles=0` (`get_stem_contributions_d0`
-//!   line 474).
+//!   where `ext_stem(i, k) = (pair(i, k) applies_terminal_au ? terminal_au_37 : 0)`,
+//!   the exterior-stem contribution at `dangles=0`.
 
 use super::tables::{DpTables, TriangleTable, MAX_LOOP_SIZE, MIN_HAIRPIN_LOOP};
 use crate::loops::{
@@ -71,7 +64,7 @@ pub fn fill_dp_tables(params: &Params, seq: &[Nucleotide]) -> DpTables {
         fill_inner_tables(params, seq, &mut tables);
     }
     // Sequences too short for any pair short-circuit to F[j] = 0 for
-    // all j, mirroring Vienna's `mfe.c:466` constraint.
+    // all j.
     fill_f_table(params, seq, &mut tables);
     tables
 }
@@ -236,8 +229,7 @@ fn closing_hairpin(ctx: &FillCtx<'_>, outer: OuterClose) -> Energy {
 /// `(k, l)` with `i < k < l < j`, using a per-column flat kernel.
 /// Iterates outer `l` decreasing, inner `k` increasing; `V[k, l]` reads
 /// for fixed `l` are stride-1 in the column-major layout via
-/// [`inner_min_at_l`]. Mirrors Vienna `mfe/mfe_internal.c::mfe_internal_loop`
-/// lines 567–611.
+/// [`inner_min_at_l`].
 fn closing_two_pair_min(ctx: &FillCtx<'_>, outer: OuterClose) -> Option<Energy> {
     let i = outer.span.i;
     let j = outer.span.j;
@@ -295,9 +287,9 @@ fn inner_min_at_l(ctx: &FillCtx<'_>, outer: OuterClose, l: usize) -> i32 {
 /// [`inner_min_at_l`] directly.
 ///
 /// Tie-break: outer `l` decreasing from `j-1`; inner `k` increasing
-/// from `i+1`. Mirrors Vienna `mfe/mfe_internal.c::mfe_internal_loop`
-/// lines 567–611 outer-`l`-decreasing-first, so the canonical
-/// tie-break structure on energy-tied pairs matches Vienna's order.
+/// from `i+1`, the same order the fill uses, so the canonical
+/// tie-break structure on energy-tied pairs is the first one in that
+/// order.
 fn inner_pair_candidates(outer: Span) -> impl Iterator<Item = Span> {
     let i = outer.i;
     let j = outer.j;
@@ -428,10 +420,9 @@ fn prefix_plus_stem(ctx: &FillCtx<'_>, i: usize, end: usize) -> Option<Energy> {
     Some(prefix + stem + ext_stem_penalty(ctx.params, outer))
 }
 
-/// `vrna_E_exterior_stem(type, -1, -1, P)` reduces at `dangles=0` to
-/// the terminal-AU penalty per `mfe/mfe_exterior.c::get_stem_contributions_d0`
-/// line 474. `BasePair::applies_terminal_au` is the equivalent of
-/// Vienna's `type > 2` predicate on the 0-based encoding.
+/// The exterior-stem contribution, which at `dangles=0` reduces to the
+/// terminal-AU penalty on pairs other than `CG` / `GC`
+/// ([`BasePair::applies_terminal_au`]).
 pub(super) fn ext_stem_penalty(params: &Params, outer: BasePair) -> Energy {
     if outer.applies_terminal_au() {
         Energy(params.misc.terminal_au_37)
@@ -452,8 +443,8 @@ pub(super) fn update_min(best: &mut Option<Energy>, candidate: Option<Energy>) {
 
 /// Recover the dot-bracket structure that achieves `F[n]`.
 ///
-/// Handles every `dangles=0` input. Tie-break order mirrors Vienna
-/// v2.7.0 (cited per-function below). The walk consults the same
+/// Handles every `dangles=0` input. Tie-break order is stated
+/// per-function below. The walk consults the same
 /// energies used during fill rather than caching back-pointers,
 /// keeping memory usage linear in the table size.
 pub fn traceback(params: &Params, seq: &[Nucleotide], tables: &DpTables) -> String {
@@ -470,8 +461,8 @@ pub fn traceback(params: &Params, seq: &[Nucleotide], tables: &DpTables) -> Stri
 /// `F[j-1]` or a split into `F[i] + V[i, j-1] + ext_stem(i, j-1)`.
 ///
 /// Tie-break: unpaired extension wins over any stem split when both
-/// equal the target (`backtrack/bt_exterior_f5.c::bt_ext_loop_f5`
-/// nibbles unpaired bases before entering the `case 0` stem loop).
+/// equal the target (unpaired bases are consumed before any stem is
+/// tried).
 /// Among stems, rightmost `i` wins (see [`find_f_split`]).
 fn traceback_f(ctx: &FillCtx<'_>, j: usize, structure: &mut [u8]) {
     if j == 0 {
@@ -501,10 +492,8 @@ fn extends_unpaired(ctx: &FillCtx<'_>, j: usize, target: Energy) -> bool {
 /// Find the split point `i` such that
 /// `F[i] + V[i, j-1] + ext_stem(i, j-1) == target`.
 ///
-/// Tie-break: iterates `i` from `j-1` downward to `0`, matching
-/// `backtrack/bt_exterior_f5.c::bt_ext_loop_f5` line 217 at v2.7.0
-/// (`for (u = j - 1; u >= 1; u--)` where `u-1` in 1-indexed = the
-/// 0-indexed `i` here). Rightmost stem start wins on ties.
+/// Tie-break: iterates `i` from `j-1` downward to `0`. Rightmost stem
+/// start wins on ties.
 fn find_f_split(ctx: &FillCtx<'_>, j: usize, target: Energy) -> Option<usize> {
     (0..j)
         .rev()
@@ -517,9 +506,7 @@ fn find_f_split(ctx: &FillCtx<'_>, j: usize, target: Energy) -> Option<usize> {
 /// [`super::multi::traceback_v_multi_close`]).
 ///
 /// Tie-break: hairpin first, then two-pair (stack/bulge/internal),
-/// then multi-loop closing. Matches `mfe/mfe.c` lines 4254–4284 at
-/// v2.7.0 (`vrna_bt_hairpin` → `vrna_bt_internal_loop` →
-/// `vrna_bt_multibranch_loop`).
+/// then multi-loop closing.
 pub(super) fn traceback_v(ctx: &FillCtx<'_>, span: Span, structure: &mut [u8]) {
     let outer = OuterClose {
         span,
@@ -544,9 +531,8 @@ pub(super) fn traceback_v(ctx: &FillCtx<'_>, span: Span, structure: &mut [u8]) {
 }
 
 /// Find the inner pair `(k, l)` whose two-pair leaf closes V[i, j] at
-/// the recorded MFE. Iteration order mirrors `inner_pair_candidates`
-/// (Vienna's `backtrack/bt_internal.c::bt_int_loop` order) — first
-/// match wins.
+/// the recorded MFE. Iteration order is `inner_pair_candidates` —
+/// first match wins.
 fn find_v_two_pair_split(ctx: &FillCtx<'_>, outer: OuterClose, target: Energy) -> Option<Span> {
     inner_pair_candidates(outer.span)
         .find(|&inner_span| two_pair_total(ctx, outer, inner_span) == Some(target))

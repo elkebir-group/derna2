@@ -859,7 +859,7 @@ struct Fold<'a> {
     unread: usize,
     /// Points adopted from a fold that gave up ([`Fold::adopt`]).
     adopted: usize,
-    /// The `M2` and exterior split points, under `DERNA_SPLIT_CENSUS`.
+    /// The `M2` and exterior split points, under the split census ([`split_census`]).
     split: [SplitTally; 2],
 }
 
@@ -881,7 +881,7 @@ struct Stop<'a> {
     /// deadline, so the cap stops a fold in flight rather than only between
     /// slices: a slice that outlasts the cap, the gap's first above all,
     /// would otherwise hold the walk's other boxes for as long as it runs.
-    /// Set by [`solve_gap`] unless `DERNA_MOTIF_GAP_MIDSLICE=0`.
+    /// Set by [`solve_gap`] unless [`gap_midslice`] says otherwise.
     gap_deadline: Option<std::time::Instant>,
 }
 
@@ -970,7 +970,7 @@ struct CellOut {
     /// their limits alone dropped from a pair's front, and pairs no chord
     /// could read because a node held more than one automaton state.
     aware: [usize; 3],
-    /// The `M2` split points, under `DERNA_SPLIT_CENSUS`.
+    /// The `M2` split points, under the split census ([`split_census`]).
     split: SplitTally,
 }
 
@@ -1253,10 +1253,10 @@ fn gather_shift(
 }
 
 /// Whether the multi-loop and exterior split points are counted and timed
-/// (`DERNA_SPLIT_CENSUS=1`), printed per slice and per gap.
+/// (off unless a development build turns it on), printed per slice and per gap.
 fn split_census() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("DERNA_SPLIT_CENSUS").is_some())
+    *ON.get_or_init(|| crate::dev_env::var_os(crate::dev_env::Setting::SplitCensus).is_some())
 }
 
 /// What a fold's split points cost and what they kept: per table, the cells
@@ -1368,7 +1368,7 @@ fn split_lines(what: &str, tallies: &[SplitTally; 2], wall: f64) {
 }
 
 /// Which staircase the split loops read to skip sums it dominates
-/// (`DERNA_SPLIT_PRUNE`): `score`, the default when unset, which forms only
+/// (`score` unless a development build picks another), which forms only
 /// the sums some cut's line can admit, see [`ByScore`]; none (`off` or `0`);
 /// the cell's merged points so far (`acc`); or the cell's path sums (`path`,
 /// taken for any other value), see [`path_sums`].
@@ -1382,8 +1382,8 @@ enum SplitPrune {
 
 #[cfg(test)]
 thread_local! {
-    /// The rule the tests fold under in place of `DERNA_SPLIT_PRUNE`: 0
-    /// reads the variable, 1, 2, 3 and 4 are off, `acc`, `path` and
+    /// The rule the tests fold under in place of the development setting: 0
+    /// reads the setting, 1, 2, 3 and 4 are off, `acc`, `path` and
     /// `score`. Each test thread holds its own, and a fold reads it on the
     /// thread that builds the fold.
     static SPLIT_PRUNE_TEST: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
@@ -1399,12 +1399,14 @@ fn split_prune() -> SplitPrune {
         _ => {}
     }
     static ON: std::sync::OnceLock<SplitPrune> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| match std::env::var("DERNA_SPLIT_PRUNE").as_deref() {
-        Ok("off") | Ok("0") => SplitPrune::Off,
-        Err(_) | Ok("score") => SplitPrune::Score,
-        Ok("acc") => SplitPrune::Acc,
-        Ok(_) => SplitPrune::Path,
-    })
+    *ON.get_or_init(
+        || match crate::dev_env::var(crate::dev_env::Setting::SplitPrune).as_deref() {
+            Ok("off") | Ok("0") => SplitPrune::Off,
+            Err(_) | Ok("score") => SplitPrune::Score,
+            Ok("acc") => SplitPrune::Acc,
+            Ok(_) => SplitPrune::Path,
+        },
+    )
 }
 
 /// The staircase a split loop skips the dominated sums of: none, the cell's
@@ -1950,7 +1952,7 @@ impl<'a> Fold<'a> {
         let t = std::time::Instant::now();
         self.exterior();
         self.clock[3] = t.elapsed().as_secs_f64();
-        if std::env::var_os("DERNA_MOTIF_FRONT_CENSUS").is_some() {
+        if crate::dev_env::var_os(crate::dev_env::Setting::MotifFrontCensus).is_some() {
             self.census();
         }
     }
@@ -3930,10 +3932,10 @@ const AWARE_UPTO: f64 = 1.0;
 /// of 468 MB, the lanes' tables being held at once.
 const PASS_LANES: usize = 4;
 
-/// [`PASS_LANES`], or `DERNA_MOTIF_PASS_LANES` from 1 (each pass alone) to
-/// [`crate::outside_multi::MAX_LANES`].
+/// [`PASS_LANES`], or the count a development build gives, from 1 (each pass alone)
+/// to [`crate::outside_multi::MAX_LANES`].
 fn pass_lanes() -> usize {
-    std::env::var("DERNA_MOTIF_PASS_LANES")
+    crate::dev_env::var(crate::dev_env::Setting::MotifPassLanes)
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(PASS_LANES)
@@ -3950,12 +3952,12 @@ fn aware_upto() -> f64 {
 /// How far above the floor on the constrained optimum an aware pass's
 /// ceiling search starts, in BRD units: the pass is exact for every pair
 /// with a design under the ceiling, so a wider one serves more of the folds
-/// bracketing the weight, for a costlier fold. `DERNA_MOTIF_AWARE_MARGIN`
-/// overrides it.
+/// bracketing the weight, for a costlier fold. A development build can
+/// override it.
 const AWARE_MARGIN: f64 = 30.0;
 
 fn aware_margin() -> f64 {
-    std::env::var("DERNA_MOTIF_AWARE_MARGIN")
+    crate::dev_env::var(crate::dev_env::Setting::MotifAwareMargin)
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(AWARE_MARGIN)
@@ -3968,7 +3970,7 @@ fn aware_margin() -> f64 {
 /// floor sits far below the constrained optimum, as at the low weights of a
 /// long molecule, the doubling search certifies close above the optimum, and
 /// the gaps bracketing the weight read no aware floor below their ceilings.
-/// `DERNA_MOTIF_AWARE_HEADROOM` overrides it; 0 takes the search's ceiling.
+/// A development build can override it.
 const AWARE_HEADROOM: f64 = 30.0;
 
 /// The widest box, in kcal/mol, that a pair of adjacent grid optima is
@@ -3979,11 +3981,11 @@ const AWARE_HEADROOM: f64 = 30.0;
 /// and sub-gaps over 54 kcal/mol holding 15 vertices at weights 0.02-0.06,
 /// where its slices outgrew the store. Only adjacent grid optima are folded
 /// whole for that reason.
-/// `DERNA_MOTIF_CELL_FOLD_DE` overrides it; 0 probes every pair.
+/// A development build can override it.
 const CELL_FOLD_DE: f64 = 60.0;
 
 fn cell_fold_de() -> f64 {
-    std::env::var("DERNA_MOTIF_CELL_FOLD_DE")
+    crate::dev_env::var(crate::dev_env::Setting::MotifCellFoldDe)
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(CELL_FOLD_DE)
@@ -3997,18 +3999,18 @@ fn cell_fold_de() -> f64 {
 /// above it 1.05 times, so folding every box under 60 kcal/mol whole cost
 /// 1.40 times the instructions there and 1.50 times at 400 residues, while it
 /// saved 13-17% on P47211.
-/// `DERNA_MOTIF_CELL_FOLD_TIE` overrides it; 0 folds every narrow box whole.
+/// A development build can override it.
 const CELL_FOLD_TIE: f64 = 0.10;
 
 fn cell_fold_tie() -> f64 {
-    std::env::var("DERNA_MOTIF_CELL_FOLD_TIE")
+    crate::dev_env::var(crate::dev_env::Setting::MotifCellFoldTie)
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(CELL_FOLD_TIE)
 }
 
 fn aware_headroom() -> f64 {
-    std::env::var("DERNA_MOTIF_AWARE_HEADROOM")
+    crate::dev_env::var(crate::dev_env::Setting::MotifAwareHeadroom)
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(AWARE_HEADROOM)
@@ -4343,8 +4345,9 @@ impl<'g> Grid<'g> {
         fold_threads: usize,
         aware: Option<AwareSource<'g>>,
     ) -> Self {
-        let cache: Option<(std::path::PathBuf, u64)> = std::env::var_os("DERNA_MOTIF_PASS_CACHE")
-            .map(|dir| (dir.into(), fingerprint(params, graph, region)));
+        let cache: Option<(std::path::PathBuf, u64)> =
+            crate::dev_env::var_os(crate::dev_env::Setting::MotifPassCache)
+                .map(|dir| (dir.into(), fingerprint(params, graph, region)));
         let aware_print = cache.as_ref().zip(aware).map(|((_, plain), src)| {
             let mut h = Fnv::new();
             h.eat(&plain.to_le_bytes());
@@ -4392,7 +4395,13 @@ impl<'g> Grid<'g> {
             return std::sync::Arc::clone(pass);
         }
         if let Some((limit, above_kb)) = self.resident {
-            if rss_kb().is_none_or(|kb| kb as f64 > above_kb) {
+            // A threshold of zero asks for room from the start and needs no
+            // reading. Above zero the question is whether memory has passed
+            // it, which an absent reading does not answer: where the platform
+            // reports no resident size, taking the absence for pressure would
+            // drop a pass on every take however large the budget. The room
+            // left is read the same way, as nothing resident.
+            if above_kb <= 0.0 || rss_kb().is_some_and(|kb| kb as f64 > above_kb) {
                 self.make_room(limit, [Some(k), keep]);
             }
         }
@@ -4873,8 +4882,8 @@ pub struct PassCost {
     pub lambda: f64,
     /// Seconds for its plain scan and outside pass.
     pub secs: f64,
-    /// Resident memory once it was stored, in KiB; 0 where unread.
-    pub rss_kb: u64,
+    /// Resident memory once it was stored, in KiB; `None` where unread.
+    pub rss_kb: Option<u64>,
     /// Seconds for its pass over the constrained lattice, and that pass's
     /// bounded folds, its ceiling's margin above the constrained optimum and
     /// the cells and pairs it holds; all 0 where it took none.
@@ -4883,8 +4892,8 @@ pub struct PassCost {
     pub aware_margin: f64,
     pub aware_cells: usize,
     pub aware_pairs: usize,
-    /// Whether its constrained-lattice pass was read from the pass cache
-    /// (`DERNA_MOTIF_PASS_CACHE`) rather than taken; `aware_secs` is then
+    /// Whether its constrained-lattice pass was read from the pass cache of
+    /// a development build rather than taken; `aware_secs` is then
     /// the read's.
     pub aware_read: bool,
 }
@@ -4898,7 +4907,7 @@ impl PassCost {
         Self {
             lambda: pass.lambda,
             secs,
-            rss_kb: rss_kb().unwrap_or(0),
+            rss_kb: rss_kb(),
             aware_secs: aware.map_or(0.0, |a| a.secs),
             aware_folds: aware.map_or(0, |a| a.folds),
             aware_margin: aware.map_or(0.0, |a| a.ceiling - a.optimum),
@@ -4953,7 +4962,7 @@ pub struct MotifWalk {
     pub seeded: usize,
     /// The process's peak resident memory once the two ends were folded, in
     /// KiB; 0 for a resumed walk or where unread.
-    pub ends_peak_kb: u64,
+    pub ends_peak_kb: Option<u64>,
     /// Whether the adapted end came from the fold over the most adapted
     /// codons alone; `false` when the whole lattice folded it, or the walk
     /// was resumed.
@@ -4980,7 +4989,7 @@ pub struct MotifWalk {
     /// The open boxes whose gap was partly solved, one per such box.
     pub rests: Vec<MotifRest>,
     /// Gap folds that moved on under the per-gap time cap
-    /// (`DERNA_MOTIF_GAP_SECS`), each queued again behind the walk's other
+    /// ([`MotifRun::gap_secs`]), each queued again behind the walk's other
     /// tasks.
     pub gaps_moved_on: usize,
     /// The open boxes whose gap moved on under the per-gap time cap, as
@@ -5261,8 +5270,7 @@ pub struct MotifRun<'a> {
     /// one drives the cutting on molecules too short to need it.
     pub gap_fit: Option<i32>,
     /// Whether a gap's slices are also cut by each pass bracketing its weight
-    /// on its own; `None` takes the default (on unless
-    /// `DERNA_MOTIF_BRACKET_CUTS=0`).
+    /// on its own; `None` takes the default ([`default_bracket_cuts`]).
     pub bracket_cuts: Option<bool>,
     /// The share of [`WalkBudget::max_rss_gb`] past which the walk holds
     /// only the passes its workers read; `None` takes the default. A small
@@ -5270,8 +5278,8 @@ pub struct MotifRun<'a> {
     pub resident_share: Option<f64>,
     /// The most grid passes held at once without a memory budget, the pass
     /// at weight 1 among them; `None` holds every pass taken. A dropped pass
-    /// is taken again when read, or read back from the pass cache
-    /// (`DERNA_MOTIF_PASS_CACHE`), which makes holding few cheap.
+    /// is taken again when read, or, in a development build with a pass cache, read
+    /// back from it, which makes holding few cheap.
     pub resident_passes: Option<usize>,
     /// Stop once the boxes not yet settled span at most this share of the
     /// energy between the two ends; `None` runs until every box settles or
@@ -5284,13 +5292,13 @@ pub struct MotifRun<'a> {
     /// Unlike the wall budget it stops every run at the same place.
     pub gap_folds: Option<usize>,
     /// Whether a probe whose doubled first margin reaches its pair's score
-    /// folds at that score at once; `None` reads `DERNA_MOTIF_PROBE_SKIP`.
+    /// folds at that score at once; `None` takes [`default_probe_skip`].
     /// The front is the same either way.
     pub probe_skip: Option<bool>,
     /// Whether a probe's first ceiling starts at the widest slack an earlier
     /// probe of the walk found between its floor and its optimum, and a probe
     /// whose fold found a design above its ceiling folds next halfway to that
-    /// design; `None` reads `DERNA_MOTIF_PROBE_LEARN`. The front is the same
+    /// design; `None` takes [`default_probe_learn`]. The front is the same
     /// either way.
     pub probe_learn: Option<bool>,
     /// Threads inside each end, pass, probe and gap fold, beside the walk's
@@ -5323,10 +5331,9 @@ pub struct MotifRun<'a> {
     /// The seconds a gap's fold may take in one task before the walk keeps
     /// its rest and moves on to its other boxes, taking the gap up again once
     /// they are done; a resumed box with a rest also waits behind every box
-    /// without one. `None` reads `DERNA_MOTIF_GAP_SECS`: 300 when unset,
-    /// `none` for no cap. The cap doubles each time the gap moves on unless
-    /// `DERNA_MOTIF_GAP_DOUBLE=0`, and stops a fold in flight, not only
-    /// between slices, unless `DERNA_MOTIF_GAP_MIDSLICE=0` ([`solve_gap`]).
+    /// without one. `None` takes [`gap_secs`], 300. The cap doubles each time
+    /// the gap moves on, and stops a fold in flight, not only between slices
+    /// ([`solve_gap`]).
     /// The front does not depend on it.
     pub gap_secs: Option<f64>,
 }
@@ -5509,7 +5516,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
         started,
         narrowed: std::sync::atomic::AtomicBool::new(false),
         seeded: AtomicUsize::new(0),
-        ends: std::sync::Mutex::new((0, 0.0, 0)),
+        ends: std::sync::Mutex::new((0, 0.0, None)),
         // A probe, once started, runs to its end, so one is not started when
         // the time left is shorter than the longest taken so far: the
         // deadline would pass while it ran. Before any probe has run, the
@@ -5695,7 +5702,7 @@ fn motif_walk_of(walked: &crate::WalkedFront) -> MotifWalk {
         probes_under_chord: walked.probes_cut,
         probe_records: Vec::new(),
         seeded: 0,
-        ends_peak_kb: 0,
+        ends_peak_kb: None,
         adapted_narrow: false,
         rehull: false,
         passes: span(crate::TaskKind::Grid)
@@ -5787,7 +5794,7 @@ struct ProductWalk<'a> {
     seeded: AtomicUsize,
     /// Ends folded, the seconds from the walk's start until the second, and
     /// the peak resident memory then.
-    ends: std::sync::Mutex<(usize, f64, u64)>,
+    ends: std::sync::Mutex<(usize, f64, Option<u64>)>,
     longest_probe: std::sync::Mutex<f64>,
 }
 
@@ -6092,9 +6099,9 @@ impl walk::Kernel for ProductWalk<'_> {
     /// The task at the highest tie weight goes first. A box's folds cost
     /// more the lower its weight — near the adapted end energy barely
     /// separates designs and the cuts prune little — so a walk stopped by its
-    /// budget has spent it on the boxes that settle soonest. With
-    /// `DERNA_MOTIF_GAP_ORDER=span` the box spanning the most energy goes
-    /// first instead ([`span_first`]).
+    /// budget has spent it on the boxes that settle soonest. A development
+    /// build can put the box spanning the most energy first instead
+    /// ([`span_first`]).
     /// A narrow box between adjacent grid optima, both hull vertices, at a
     /// tie weight of at least [`CELL_FOLD_TIE`], is folded whole from just
     /// below its stable end: the gap fold's cuts hold between any two front
@@ -6315,12 +6322,14 @@ fn task_weight(task: Task) -> f64 {
 }
 
 /// Whether the queue takes the box spanning the most energy first rather
-/// than the one at the highest weight: `DERNA_MOTIF_GAP_ORDER=span`. Any
+/// than the one at the highest weight: no, unless a development build asks. Any
 /// order settles the same boxes when the walk finishes; a walk stopped short
 /// keeps different ones open.
 fn span_first() -> bool {
     static SPAN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *SPAN.get_or_init(|| std::env::var("DERNA_MOTIF_GAP_ORDER").is_ok_and(|o| o == "span"))
+    *SPAN.get_or_init(|| {
+        crate::dev_env::var(crate::dev_env::Setting::MotifGapOrder).is_ok_and(|o| o == "span")
+    })
 }
 
 /// The weight at which `a` and `b` score alike.
@@ -6366,25 +6375,25 @@ struct GapRest {
 }
 
 /// The pass grid of a motif walk over `residues` coding residues:
-/// [`crate::PassGrid::for_residues`], unless `DERNA_MOTIF_PASS_GRID` gives
-/// its segments as `until:step,...`.
+/// [`crate::PassGrid::for_residues`], unless a development build gives its segments
+/// as `until:step,...`.
 fn motif_pass_grid(residues: usize) -> crate::PassGrid {
-    std::env::var("DERNA_MOTIF_PASS_GRID")
+    crate::dev_env::var(crate::dev_env::Setting::MotifPassGrid)
         .ok()
         .and_then(|g| crate::PassGrid::parse(&g))
         .unwrap_or_else(|| crate::PassGrid::for_residues(residues))
 }
 
-/// Whether an on/off knob is on: `default` when `var` is unset, otherwise on
-/// unless it reads `0` or `off`.
-fn env_switch(var: &str, default: bool) -> bool {
-    std::env::var(var).map_or(default, |v| !matches!(v.trim(), "0" | "off"))
+/// Whether an on/off knob is on: `default` when `setting` is unset, otherwise
+/// on unless it reads `0` or `off`.
+fn env_switch(setting: crate::dev_env::Setting, default: bool) -> bool {
+    crate::dev_env::var(setting).map_or(default, |v| !matches!(v.trim(), "0" | "off"))
 }
 
-/// A non-negative number of seconds from `var`: `default` when unset, and
+/// A non-negative number of seconds from `setting`: `default` when unset, and
 /// none when it reads `none`, `off` or anything that is not such a number.
-fn env_secs(var: &str, default: f64) -> Option<f64> {
-    match std::env::var(var) {
+fn env_secs(setting: crate::dev_env::Setting, default: f64) -> Option<f64> {
+    match crate::dev_env::var(setting) {
         Err(_) => Some(default),
         Ok(s) => s
             .trim()
@@ -6395,39 +6404,36 @@ fn env_secs(var: &str, default: f64) -> Option<f64> {
 }
 
 /// The seconds a gap's fold may take in one task before the walk moves on to
-/// its other boxes, keeping the gap's rest: 300 by default,
-/// `DERNA_MOTIF_GAP_SECS` to set another, and `DERNA_MOTIF_GAP_SECS=none`
-/// for no cap.
+/// its other boxes, keeping the gap's rest: 300, unless a development build sets
+/// another or none.
 fn gap_secs() -> Option<f64> {
-    env_secs("DERNA_MOTIF_GAP_SECS", 300.0)
+    env_secs(crate::dev_env::Setting::MotifGapSecs, 300.0)
 }
 
 /// Whether the per-gap time cap doubles each time a gap moves on, so its
-/// `k`-th return gets `2^k` times the cap: yes, unless
-/// `DERNA_MOTIF_GAP_DOUBLE=0`.
+/// `k`-th return gets `2^k` times the cap: yes, unless a development build turns it
+/// off.
 fn gap_double() -> bool {
-    env_switch("DERNA_MOTIF_GAP_DOUBLE", true)
+    env_switch(crate::dev_env::Setting::MotifGapDouble, true)
 }
 
 /// Whether the per-gap time cap also stops a fold in flight, before any
-/// slice of the turn has solved: yes, unless `DERNA_MOTIF_GAP_MIDSLICE=0`.
+/// slice of the turn has solved: yes, unless a development build turns it off.
 fn gap_midslice() -> bool {
-    env_switch("DERNA_MOTIF_GAP_MIDSLICE", true)
+    env_switch(crate::dev_env::Setting::MotifGapMidslice, true)
 }
 
 /// The fewest seconds a fold in flight runs before the mid-slice stop may end
-/// it, when longer than the gap's cap: 3600 by default,
-/// `DERNA_MOTIF_GAP_MIDSLICE_SECS` to set another, and `none` for no such
-/// floor. A slice that needs a little more than the cap then finishes, and
+/// it, when longer than the gap's cap: 3600, unless a development build sets another
+/// or none. A slice that needs a little more than the cap then finishes, and
 /// the gap moves on at the next slice boundary; only a fold past both is
 /// lost.
 fn gap_midslice_secs() -> Option<f64> {
-    env_secs("DERNA_MOTIF_GAP_MIDSLICE_SECS", 3600.0)
+    env_secs(crate::dev_env::Setting::MotifGapMidsliceSecs, 3600.0)
 }
 
 /// The mid-slice floor on a gap's `visit`-th task (the first being 1):
-/// `least`, doubled once per earlier move as the cap is (unless
-/// `DERNA_MOTIF_GAP_DOUBLE=0`), so a first slice longer than the floor is cut at most a
+/// `least`, doubled once per earlier move as the cap is ([`gap_double`]), so a first slice longer than the floor is cut at most a
 /// few times before a visit gives it room to finish.
 fn midslice_floor(least: f64, visit: u32) -> f64 {
     if gap_double() {
@@ -6439,9 +6445,9 @@ fn midslice_floor(least: f64, visit: u32) -> f64 {
 
 /// The most points a gap's fold may store before its energy range is split
 /// in two and each half folded on its own, unless [`MotifRun::gap_budget`]
-/// gives another; `DERNA_MOTIF_GAP_BUDGET` overrides it.
+/// gives another; a development build can override it.
 fn default_gap_budget() -> usize {
-    std::env::var("DERNA_MOTIF_GAP_BUDGET")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapBudget)
         .ok()
         .and_then(|b| b.parse().ok())
         .unwrap_or(2_000_000)
@@ -6449,9 +6455,9 @@ fn default_gap_budget() -> usize {
 
 /// The most a slice may store, as a share of what the fold of the range it
 /// was cut from stored by the same span, for halving it again to pay.
-/// `DERNA_MOTIF_SLICE_SHRINK` overrides it.
+/// A development build can override it.
 fn slice_shrink() -> f64 {
-    std::env::var("DERNA_MOTIF_SLICE_SHRINK")
+    crate::dev_env::var(crate::dev_env::Setting::MotifSliceShrink)
         .ok()
         .and_then(|b| b.parse().ok())
         .unwrap_or(0.9)
@@ -6468,11 +6474,11 @@ const MIN_SLICE: i32 = 50;
 /// first try spanned up to 128 times the last solved width, while the width
 /// that solved was a median 1.76 times it. Where the next budget is smaller
 /// than the solved range's, the width shrinks with it.
-/// `DERNA_MOTIF_SLICE_STEP` overrides it; 0 takes each range whole.
+/// A development build can override it.
 const SLICE_STEP: f64 = 2.0;
 
 fn slice_step() -> f64 {
-    std::env::var("DERNA_MOTIF_SLICE_STEP")
+    crate::dev_env::var(crate::dev_env::Setting::MotifSliceStep)
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(SLICE_STEP)
@@ -6496,10 +6502,9 @@ fn slice_step() -> f64 {
 /// than the same range would without the carry. On Q06187 F2 (resumed, one
 /// hour, at about 40 bytes a point) the largest solved range held 87.2
 /// million points against 50.0 million without it. `--max-rss-gb` bounds
-/// the store and turns the carry off; `DERNA_MOTIF_DENSITY_CARRY=0` turns
-/// it off alone.
+/// the store and turns the carry off; a development build can turn it off alone.
 fn density_carry() -> bool {
-    std::env::var("DERNA_MOTIF_DENSITY_CARRY").map_or(true, |v| v != "0")
+    crate::dev_env::var(crate::dev_env::Setting::MotifDensityCarry).map_or(true, |v| v != "0")
 }
 
 /// What becomes of the energies `(top, gap_top]` left of a gap once a slice
@@ -6618,18 +6623,18 @@ impl SliceBudget {
 /// Whether, under a memory budget, a gap's first folds may store its
 /// worker's share of the room left rather than the gap budget (over ranges
 /// sized from the last solved fold under [`gap_density`]): yes, unless
-/// `DERNA_MOTIF_GAP_ROOM=0`. At P0DTC2[:1000] every gap's first two folds gave
+/// a development build turns it off. At P0DTC2[:1000] every gap's first two folds gave
 /// up at the 2 million point budget, and its first slice was later folded
 /// again by the range above it; a whole gap folded in the room gave up after
 /// 262 s, where its halves then fit.
 /// Whether a gap's first ranges in the room are sized from the points per
-/// dekacalorie the last solved fold stored: `DERNA_MOTIF_GAP_DENSITY=1`.
-/// Off by default: a narrow fold stores far more per dekacalorie than a wide
+/// dekacalorie the last solved fold stored: no, unless a development build turns it
+/// on. Off by default: a narrow fold stores far more per dekacalorie than a wide
 /// one (at P0DTC2[:1000], 81 million points over 11 against 131 million over
 /// 135), so after a narrow gap the next was cut into folds of 17 and 19
 /// dekacalories, 133 and 145 s, where one fold fitted in the room.
 fn gap_density() -> bool {
-    std::env::var("DERNA_MOTIF_GAP_DENSITY").is_ok_and(|v| v == "1")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapDensity).is_ok_and(|v| v == "1")
 }
 
 /// Points per dekacalorie the last solved gap fold stored, as `f64` bits;
@@ -6638,28 +6643,28 @@ fn gap_density() -> bool {
 static GAP_DENSITY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// How many times the width of the last range that solved a gap's next
-/// range may be: 1.5 by default, `DERNA_MOTIF_GAP_CARRY` to set another of
-/// at least 1, and `DERNA_MOTIF_GAP_CARRY=none` for no limit. Without a
+/// range may be: 1.5, unless a development build sets another of at least 1 or none.
+/// Without a
 /// limit, a slice that outgrew its budget merges the rest of the gap into one
 /// range, which gives up and halves back down: at Q6PF06 under motif set I,
 /// 27 of 31 give-ups were wider than the slice before them, 57% of the gap's
 /// folding.
 fn gap_carry() -> Option<f64> {
-    match std::env::var("DERNA_MOTIF_GAP_CARRY") {
+    match crate::dev_env::var(crate::dev_env::Setting::MotifGapCarry) {
         Err(_) => Some(1.5),
         Ok(s) => s.trim().parse::<f64>().ok().filter(|&k| k >= 1.0),
     }
 }
 
 /// Whether a gap's carry drops to 1 once a range wider than the last that
-/// solved gives up, `DERNA_MOTIF_GAP_CARRY_ADAPT=1`: the width that last
+/// solved gives up, off unless a development build turns it on: the width that last
 /// solved is then the most the gap's later ranges are given.
 fn gap_carry_adapt() -> bool {
-    std::env::var("DERNA_MOTIF_GAP_CARRY_ADAPT").is_ok_and(|v| v == "1")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapCarryAdapt).is_ok_and(|v| v == "1")
 }
 
 /// Whether a gap's folds are sized from the last that fitted: yes, unless
-/// `DERNA_MOTIF_GAP_FIT=0`. Under a memory budget a gap's first ranges are
+/// a development build turns it off. Under a memory budget a gap's first ranges are
 /// as wide as the last cut fold that solved ([`GAP_FIT`]), the rest of a gap
 /// is cut in equal slices ([`rest_of_gap`]), and a fold whose budget gives
 /// up continues while the resident memory it measured leaves room and its
@@ -6669,7 +6674,7 @@ fn gap_carry_adapt() -> bool {
 /// one round, give-ups took 26% of the gap folds' time and slices left over
 /// at a gap's bottom another 10%.
 fn gap_fit() -> bool {
-    std::env::var("DERNA_MOTIF_GAP_FIT").map_or(true, |v| v != "0")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapFit).map_or(true, |v| v != "0")
 }
 
 /// The width of the last gap fold that solved, in the room, a range cut from
@@ -6693,8 +6698,8 @@ const ROOM_RESERVE: f64 = 0.05;
 
 /// Whether a gap's slices are also cut by each pass bracketing the gap's
 /// weight on its own, through the slice's corner at that pass's weight,
-/// unless [`MotifRun::bracket_cuts`] says: yes, unless
-/// `DERNA_MOTIF_BRACKET_CUTS=0`.
+/// unless [`MotifRun::bracket_cuts`] says: yes, unless a development build turns it
+/// off.
 ///
 /// A cut at weight `mu` through the corner (top, floor) rules a point out
 /// when `A(mu) = mu (E - top) - (1 - mu) 100 (C - floor) + out_mu > 0`, with
@@ -6708,12 +6713,11 @@ const ROOM_RESERVE: f64 = 0.05;
 /// million points against 8.59 million, in 5 folds against 7 and 16 s
 /// against 19, with the same front.
 fn default_bracket_cuts() -> bool {
-    std::env::var("DERNA_MOTIF_BRACKET_CUTS").map_or(true, |v| v != "0")
+    crate::dev_env::var(crate::dev_env::Setting::MotifBracketCuts).map_or(true, |v| v != "0")
 }
 
 /// How many folds that gave up a gap are kept for its later ranges to start
-/// from: one by default, `DERNA_MOTIF_GAP_REUSE` to set another, and
-/// `DERNA_MOTIF_GAP_REUSE=0` for none. A range of a gap is folded
+/// from: one, unless a development build sets another, 0 for none. A range of a gap is folded
 /// under an energy ceiling at its top and an adaptation floor at the best
 /// found below it, so a later range inside a range that gave up, at no
 /// higher a top and with a floor that has only risen, folds under a box
@@ -6722,7 +6726,7 @@ fn default_bracket_cuts() -> bool {
 /// the same points. The most recent folds kept come first; a kept fold is
 /// freed once the gap is solved past its top.
 fn gap_reuse() -> usize {
-    std::env::var("DERNA_MOTIF_GAP_REUSE")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapReuse)
         .map_or(Some(1), |s| s.trim().parse().ok())
         .unwrap_or(0)
 }
@@ -6736,7 +6740,7 @@ struct GaveUp {
 }
 
 fn gap_room() -> bool {
-    std::env::var("DERNA_MOTIF_GAP_ROOM").map_or(true, |v| v != "0")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapRoom).map_or(true, |v| v != "0")
 }
 
 /// Bytes of resident memory a stored point is allowed when the room left
@@ -6783,6 +6787,7 @@ pub fn allocator_is_jemalloc() {
 /// one of this crate's test targets and the `derna` binary unless its optional
 /// `jemalloc` feature is on. Going through the sys crate makes the dependency
 /// real, and leaves the symbol's `_rjem_` prefix for that crate to spell.
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 fn purge_jemalloc() {
     // `arena.<MALLCTL_ARENAS_ALL>.purge`, where `MALLCTL_ARENAS_ALL` is 4096,
     // purges every arena; it reads and writes nothing.
@@ -6799,12 +6804,18 @@ fn purge_jemalloc() {
     }
 }
 
+/// [`purge_jemalloc`] where jemalloc is not built. Nothing installs it as the
+/// allocator there, so [`JEMALLOC`] is never set and this is unreachable; it
+/// exists so [`release_freed`] does not need a `cfg` of its own.
+#[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+fn purge_jemalloc() {}
+
 /// What the rest of a gap may store when it is folded again as one range, as
 /// a multiple of what a slice too narrow to split stored past its budget,
-/// unless [`MotifRun::slice_grow`] gives another. `DERNA_MOTIF_SLICE_GROW`
-/// overrides it; zero keeps the slices.
+/// unless [`MotifRun::slice_grow`] gives another; zero keeps the slices.
+/// A development build can override it.
 fn default_slice_grow() -> usize {
-    std::env::var("DERNA_MOTIF_SLICE_GROW")
+    crate::dev_env::var(crate::dev_env::Setting::MotifSliceGrow)
         .ok()
         .and_then(|b| b.parse().ok())
         .unwrap_or(2)
@@ -6931,14 +6942,14 @@ fn gap_capped(
 /// Under a per-gap time cap ([`Stop::gap_secs`]) the fold also stops between
 /// two slices once the cap or the time projected for the whole gap passes it
 /// ([`GapPace::moves_on`]), and returns its rest the same way, marked as
-/// moved on. Unless `DERNA_MOTIF_GAP_MIDSLICE=0` the cap also stops a fold in
+/// moved on. Unless [`gap_midslice`] says otherwise the cap also stops a fold in
 /// flight, the give-up ladder included and before any slice has solved: that
 /// fold is lost, as under a deadline, and the rest is where the turn left it,
 /// so a gap whose first slice outlasts the cap moves on with the rest it came
-/// with. `DERNA_MOTIF_GAP_MIDSLICE_SECS` (3600 by default) lets a fold in
+/// with. [`gap_midslice_secs`] (3600) lets a fold in
 /// flight run that long when it is longer than the cap, doubled per move as the cap is ([`midslice_floor`]).
 /// A gap that keeps moving on gets a doubled
-/// cap each turn unless `DERNA_MOTIF_GAP_DOUBLE=0`, so the time its stopped
+/// cap each turn ([`gap_double`]), so the time its stopped
 /// folds waste stays within about twice what the gap costs.
 fn solve_gap(
     params: &Params,
@@ -7229,7 +7240,7 @@ fn solve_gap(
                 .min(parent.len())
                 .checked_sub(1)
                 .map(|k| fold.filled[k] as f64 / parent[k].max(1) as f64);
-            if std::env::var_os("DERNA_MOTIF_FRONT_CENSUS").is_some() {
+            if crate::dev_env::var_os(crate::dev_env::Setting::MotifFrontCensus).is_some() {
                 let reused = reused.map_or(String::new(), |(from, span, n)| {
                     format!(
                         ", adopted {n} points over {} spans from the fold to {from}",
@@ -7367,7 +7378,7 @@ fn solve_gap(
         // passes it would stop and drop the whole gap. The room is read once
         // this fold's tables are freed and handed back, or it would count
         // them against the next fold.
-        let census = std::env::var_os("DERNA_MOTIF_FRONT_CENSUS").is_some();
+        let census = crate::dev_env::var_os(crate::dev_env::Setting::MotifFrontCensus).is_some();
         let held_kb = if census { rss_kb() } else { None };
         drop(fold);
         let room = slices.room();
@@ -7525,7 +7536,7 @@ fn settle(
     let mut folds = 0;
     let mut counts = BoundCounts::default();
     let mut halved = false;
-    let census = std::env::var_os("DERNA_MOTIF_FRONT_CENSUS").is_some();
+    let census = crate::dev_env::var_os(crate::dev_env::Setting::MotifFrontCensus).is_some();
     let (probe, under_chord) = loop {
         let ceiling = (floor + margin).min(cap);
         folds += 1;
@@ -7694,10 +7705,10 @@ fn most_adapted_fold(
 
 /// Whether a gap's slices prune on the adaptation the gap started from
 /// rather than on the best its lower slices found: no, unless
-/// `DERNA_MOTIF_GAP_FLOOR_HELD=1`. The front is the same either way; held,
+/// a development build turns it on. The front is the same either way; held,
 /// each slice stores what it would store folded apart from the others.
 fn gap_floor_held() -> bool {
-    std::env::var("DERNA_MOTIF_GAP_FLOOR_HELD").is_ok_and(|v| v == "1")
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapFloorHeld).is_ok_and(|v| v == "1")
 }
 
 /// How a walk's probes choose their ceilings: [`MotifRun::probe_skip`],
@@ -7737,19 +7748,19 @@ impl ProbeRule {
 }
 
 /// Whether a probe's ceilings learn from the walk's earlier probes, unless
-/// [`MotifRun::probe_learn`] says: yes, unless `DERNA_MOTIF_PROBE_LEARN=0`.
+/// [`MotifRun::probe_learn`] says: yes, unless a development build turns it off.
 /// The probe's answer is the same either way; only the folds it takes differ.
 fn default_probe_learn() -> bool {
-    env_switch("DERNA_MOTIF_PROBE_LEARN", true)
+    env_switch(crate::dev_env::Setting::MotifProbeLearn, true)
 }
 
 /// Whether a probe whose doubled first margin reaches its pair's score folds
 /// at that score at once, unless [`MotifRun::probe_skip`] says: yes, unless
-/// `DERNA_MOTIF_PROBE_SKIP=0`. The probe's answer is the same either way;
+/// a development build turns it off. The probe's answer is the same either way;
 /// only the folds it takes differ. At P0DTC2[:1000] the fold it skips was
 /// 25-29 s of probes of 68-82 s.
 fn default_probe_skip() -> bool {
-    std::env::var("DERNA_MOTIF_PROBE_SKIP").map_or(true, |v| v != "0")
+    crate::dev_env::var(crate::dev_env::Setting::MotifProbeSkip).map_or(true, |v| v != "0")
 }
 
 /// The first ceiling's margin above a floor on the plain optimum: a small

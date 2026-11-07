@@ -1,7 +1,6 @@
 //! Shared helpers for the two-pair recurrences (stack, bulge, internal).
 //!
-//! Mirrors v1's `_MotifSite` / `_iter_two_pair_inner` / `_motif_mfe` from
-//! `derna.codon_dp._recurrences`. Each two-pair recurrence yields
+//! Each two-pair recurrence yields
 //! candidates per enclosed-pair position `(nt_p, nt_q)` and per inner-cell
 //! codon assignment `(h, r)`. The candidate's BRD value adds the closing
 //! pair's per-loop energy to the inner cell's `E` value, with CAI charged
@@ -23,7 +22,6 @@ pub(crate) struct MotifSite {
 }
 
 /// Build a [`MotifSite`] if the enclosed-pair AAs satisfy `c < d`.
-/// Mirrors v1's `_make_site` + `_enclosed_aa_indices`.
 pub(crate) fn make_site(idx: CellIdx, nt_pairs: (usize, usize, usize, usize)) -> Option<MotifSite> {
     let (_nt_i, _nt_j, nt_p, nt_q) = nt_pairs;
     let c = aa_of_nt(nt_p);
@@ -40,7 +38,7 @@ pub(crate) fn make_site(idx: CellIdx, nt_pairs: (usize, usize, usize, usize)) ->
 
 /// Closing-pair CAI in dekacal int, charged only when the closing AA's
 /// codon "ends" at this level — i.e., the enclosed-pair AA differs from
-/// the closing-pair AA. Mirrors v1's `_closing_pair_cai`.
+/// the closing-pair AA.
 pub(crate) fn closing_pair_cai(plan: &Plan<'_>, site: MotifSite) -> f64 {
     let (a, b, _s, _t, x, y) = site.idx;
     let (c, _sp, d, _tp) = site.enclosed;
@@ -60,8 +58,7 @@ pub(crate) struct InnerRef {
 }
 
 /// Yield `InnerRef` records with a finite `E` value at the inner cell.
-/// Inner cells with `E[idx] == INF` are skipped (mirrors v1's `if
-/// inner_val < INF`).
+/// Inner cells with `E[idx] == INF` are skipped.
 pub(crate) fn iter_two_pair_inner<F: FnMut(InnerRef)>(
     plan: &Plan<'_>,
     site: MotifSite,
@@ -87,11 +84,11 @@ pub(crate) fn iter_two_pair_inner<F: FnMut(InnerRef)>(
 /// at the outer (`x`, `y`) and enclosed (`h`, `r`) AA positions. Returns
 /// `None` if either pair is non-canonical.
 ///
-/// Outer-pair canonicity is checked at the codon-DP layer because Vienna's
-/// `E_IntLoop` returns its `INF` sentinel (plus shape-dependent base
-/// penalties) when the closing pair is non-canonical — semantically the
-/// closure is impossible. Filtering here keeps the cell at `INF` rather
-/// than chasing Vienna's exact sentinel-plus-penalty arithmetic.
+/// Outer-pair canonicity is checked at the codon-DP layer because an
+/// interior-loop energy for a non-canonical closing pair is an `INF`
+/// sentinel plus shape-dependent base penalties — semantically the closure
+/// is impossible. Filtering here keeps the cell at `INF` rather than
+/// carrying sentinel-plus-penalty arithmetic.
 pub(crate) fn pair_at(
     plan: &Plan<'_>,
     site: MotifSite,

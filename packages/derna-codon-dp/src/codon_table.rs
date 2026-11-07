@@ -1,15 +1,15 @@
 //! Canonical amino-acid and codon ordering for the codon DP.
 //!
 //! [`AMINO_ACIDS`] is the source of truth: AA index, single-letter code, and
-//! synonymous codons in the order the DERNA paper / C++ reference expects.
+//! synonymous codons in the order the DERNA paper uses.
 //! Derived tables ([`N_CODON`], [`aa_to_index`], [`index_to_aa`],
 //! [`get_codon_index`]) are computed at initialisation time.
 //!
-//! AA index order matches `docs/reference/_cpp/derna-main/src/default.cpp`
-//! (`n_codon` line 106 and `codon_usage[20][6]` line 510):
+//! AA index order:
 //! A=0, R=1, N=2, D=3, C=4, Q=5, E=6, G=7, H=8, M=9,
 //! I=10, L=11, K=12, F=13, P=14, S=15, T=16, W=17, Y=18, V=19.
-//! Drift here breaks the Kazusa codon-usage loader and the C++ parity tests.
+//! Drift here breaks the Kazusa codon-usage loader and the reference-fixture
+//! tests.
 //!
 //! One more entry follows the twenty: the stop codons, [`STOP`] = 20, code
 //! `*`, as a codon family of their own. It is not an amino acid. It is what
@@ -141,9 +141,8 @@ pub const STOP_CODE: char = '*';
 pub const FAMILIES: usize = 21;
 
 /// Source of truth. Entry order pins AA indices; codon order within each
-/// entry pins the row layout in the Kazusa CSV (the Kazusa *H. sapiens* table, transcribed
-/// from the DERNA C++ source). The last entry is
-/// the stop family ([`STOP`]), which the CSV has no rows for.
+/// entry pins the row layout in the Kazusa CSV (the Kazusa *H. sapiens*
+/// table). The last entry is the stop family ([`STOP`]), which the CSV has no rows for.
 pub static AMINO_ACIDS: [AminoAcid; FAMILIES] = [
     AminoAcid {
         code: 'A',

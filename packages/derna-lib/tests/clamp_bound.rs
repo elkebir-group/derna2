@@ -3,7 +3,7 @@
 //! optimal structure of the coding region.
 //!
 //! The table comes from constrained folds of probe molecules; the check here folds
-//! each whole molecule with the independent Zuker folder (`rna_mfe::fold`), so
+//! each whole molecule with the independent MFE folder (`rna_mfe::fold`), so
 //! the two share no code beyond the energy model. Random coding regions over the
 //! full alphabet, three flank pairs that clamp. The bound must hold everywhere
 //! and be attained somewhere: an entry off by one branch (0.9 kcal/mol too
@@ -52,8 +52,8 @@ fn exterior_branches(structure: &str) -> usize {
 
 /// Designs checked, and how many of them the bound attains.
 ///
-/// Two folds per design: the free fold (Zuker, independent of the table's
-/// folder), and the fold that allows only `5′↔3′` among the crossing pairs,
+/// Two folds per design: the free fold (`rna_mfe::fold`, independent of the
+/// table's folder), and the fold that allows only `5′↔3′` among the crossing pairs,
 /// which isolates the clamp so that the bound is attained often enough to
 /// catch a table that is too strong.
 fn check(utr5: &str, utr3: &str, designs: usize, seed: u64) -> (usize, usize) {
@@ -83,7 +83,7 @@ fn check(utr5: &str, utr3: &str, designs: usize, seed: u64) -> (usize, usize) {
         let clamped = (clamped * 100.0).round() as i32;
         // The scan caps a multiloop's leading unpaired run at 30, so it cannot
         // build the clamp around a design whose own leading run, with the
-        // flank's, exceeds that; the Zuker fold above has no cap and is the
+        // flank's, exceeds that; the free fold above has no cap and is the
         // check. Where the scan can build it, it must reach the bound too.
         let lead = structure.find('(').unwrap_or(cds.len());
         assert!(
@@ -134,7 +134,7 @@ const HBA1: (&str, &str) = (
     "GCUGGAGCCUCGGUGGCCAUGCUUCUUGCCCCUUGGGCCUCCCCCCAGCCCCUCCUCCCCUUCCUGCACCCGUACCCCCGUGGUCUUUGAAUAAAGUCUGAGUGGGCGGCA",
 );
 
-/// The table is the **uncapped** clamp: on a probe whose Zuker optimum pairs
+/// The table is the **uncapped** clamp: on a probe whose free-fold optimum pairs
 /// only `5′↔3′` across the boundaries, `D(B)` equals that optimum's gain. A
 /// stand-in with a leading run longer than the scan's multiloop cap reports
 /// `0` for HBA1 at `B = 1..=2` where the uncapped clamp gains `-0.30` and

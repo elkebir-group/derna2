@@ -233,45 +233,6 @@ fn multi_loops_past_the_stop_keep_their_stop() {
     );
 }
 
-#[test]
-#[ignore = "diagnostic: prints one case's designs"]
-fn diagnose_one_case() {
-    let params = Params::load_default().expect("params");
-    let usage = CodonUsage::load_default().expect("codon usage");
-    let seed: u64 = std::env::var("CASE").map_or(7, |v| v.parse().expect("seed"));
-    let lambda: f64 = std::env::var("LAMBDA").map_or(0.05, |v| v.parse().expect("lambda"));
-    let case = case(seed);
-    let graph = labelled(&case, &usage);
-    for mode in [
-        derna_lib::InternalLoopMode::Naive,
-        derna_lib::InternalLoopMode::Lz,
-    ] {
-        let config = ScanConfig {
-            mode,
-            ..ScanConfig::default()
-        };
-        let t = scan::scan(&params, &graph, lambda, config);
-        for (k, &end) in graph.ends().iter().enumerate() {
-            let reference = pinned(&case, &usage, k);
-            let rt = scan::scan(&params, &reference, lambda, config);
-            let want = rt.c[reference.ix(reference.end())].expect("pinned");
-            let got = t.c[graph.ix(end)];
-            let a = traceback::recover_at(&params, &graph, &t, end);
-            let b = traceback::recover(&params, &reference, &rt);
-            println!(
-                "{mode:?} stop {k}: labelled {:?}\n  {}\n  {}",
-                got.map(|s| s.mfe),
-                a.sequence,
-                a.structure
-            );
-            println!(
-                "  pinned {:?}\n  {}\n  {}",
-                want.mfe, b.sequence, b.structure
-            );
-        }
-    }
-}
-
 /// The cost to go over a stop-labelled lattice starts at every terminal, so the
 /// start node's completion is the best design over every stop: the optimum of
 /// the merged free-stop lattice, and the least of the terminals' optima. A pass
@@ -439,51 +400,4 @@ fn each_stop_walk_is_the_pinned_stop_walk() {
         distinct += usize::from(seen.iter().any(|f| *f != seen[0]));
     }
     assert!(distinct > 0, "no case where the stops' fronts differ");
-}
-
-/// Where a per-stop walk spends its time, by task kind, on a prefix of a
-/// real cell: the share an exact scan shared across stops could save.
-#[test]
-#[ignore = "diagnostic: prints each stop's time by task kind"]
-fn per_stop_walk_time_by_task() {
-    use derna_lib::{
-        design_front_walk_per_stop, PassGrid, RegionConstraints, UtrSpec, WalkOptions,
-    };
-    let params = Params::load_default().expect("params");
-    let usage = CodonUsage::load_default().expect("codon usage");
-    let protein = std::env::var("STOP_WALK_PROTEIN")
-        .unwrap_or_else(|_| "MSLLLLVVSALHILILILLFVATLDKSWWTLPGKESLNLWYDCTWNNDTKTWAC".into());
-    let fronts = design_front_walk_per_stop(
-        &params,
-        &format!("{protein}*"),
-        &usage,
-        &UtrSpec::Fixed("ACAUUUGCUUCUGACACAACUGUGUUCACUAGCAACCUCAAACAGACACC".into()),
-        &UtrSpec::Fixed("GCUCGCUUUCUUGCUGUCCAAUUUCUAUUAAAGGUUCCUUUGUUCCCUAAGUCCAACUACUAAACUGGGGGAUAUUAUGAAGGGCCUUGAGCAUCUGGAUUCUGCCUAAUAAAAAACAUUUAUUUUCAUUGCAA".into()),
-        RegionConstraints::default(),
-        1.1920928955078125e-7,
-        1.0 - 1.1920928955078125e-7,
-        WalkOptions {
-            pass_grid: Some(PassGrid::for_residues(protein.len())),
-            ..WalkOptions::for_residues(protein.len())
-        },
-        1,
-    )
-    .expect("the per-stop walk answers");
-    for (k, front) in fronts.iter().enumerate() {
-        let Some(f) = front else { continue };
-        let mut by: std::collections::BTreeMap<String, (usize, f64)> = Default::default();
-        for span in &f.timeline {
-            let e = by.entry(format!("{:?}", span.kind)).or_default();
-            e.0 += 1;
-            e.1 += span.cpu_s;
-        }
-        println!(
-            "stop {k}: {} points, {} sweep scans",
-            f.front.len(),
-            f.sweep_scans
-        );
-        for (kind, (n, cpu)) in by {
-            println!("  {kind:<24} {n:4} tasks {cpu:9.2} cpu s");
-        }
-    }
 }

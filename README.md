@@ -2,46 +2,41 @@
 
 **Full Pareto fronts of modular mRNA designs with UTRs.**
 
-Computational mRNA design optimizes a coding sequence (CDS) for two criteria:
-minimum free energy (MFE), which approximates thermodynamic stability, and the
-codon adaptation index (CAI), which approximates translation efficiency.
-Existing methods combine the two in a weighted sum, which misses most of the
-Pareto front; they do not exclude sequence motifs such as restriction sites
-that are undesirable for synthesis and cloning; and a CDS designed in isolation
-may base-pair with the 5′ and 3′ untranslated regions (UTRs) and hinder
-translation.
-
 DERNA2 is an exact algorithm for the **UTR-Aware Pareto Optimal RNA Design**
-(UTR-PORD) problem: given a protein sequence, fixed 5′ and 3′ UTRs and a set of
-forbidden motifs, it computes the Pareto front of the motif-free coding
-sequences encoding that protein whose full mRNA has an MFE structure with no
-CDS–UTR base pairs. A design with that property is called **modular**, and the
-energy difference between a design's constrained and free folds is its **gap**.
-Without UTRs the complete motif-free front is computed in polynomial time; with
-UTRs the worst-case running time is exponential.
+(UTR-PORD) problem, which seeks Pareto-optimal mRNA designs with UTRs under
+two objectives: minimum free energy (MFE) and the codon adaptation index
+(CAI). Given a protein sequence *w*, 5′ and 3′ untranslated regions (UTRs)
+*u*₅ and *u*₃, and forbidden motifs *M*, it computes the Pareto front of the
+motif-free coding sequences (CDSs) *v* encoding *w* such that the mRNA
+*u*₅ · *v* · *u*₃ has an MFE structure without CDS–UTR base pairs. Such a
+design is called **modular**.
+DERNA2 computes the complete motif-free front in polynomial time without UTRs.
+The worst-case running time with UTRs is exponential, but DERNA2 can run under
+a budget. A budgeted run returns a partial Pareto front.
 
 ![DERNA2 finds all Pareto-optimal mRNAs without CDS–UTR base pairs or forbidden motifs](docs/overview.png)
 
-**(a)** Human glycophorin-E (GLPE) with the UTRs of human β-globin and the
-XhoI site `CUCGAG` forbidden. **(b)** Existing methods return only designs on
-the convex hull of their fronts and miss most Pareto-optimal designs, none of
-them modular. **(c)** A design computed without the UTRs forms 13 CDS–UTR base
-pairs once they are added. **(d)** A method that penalizes such pairs still
-forms 3 of them and spells the XhoI site. **(e)** The DERNA2 design has
-neither.
+**(a)** Here, *w* is the human glycophorin-E protein (GLPE) with the UTRs
+*u*₅ and *u*₃ of human β-globin (hbb) and the XhoI restriction site
+*M* = {`CUCGAG`} forbidden. **(b)** Current methods (colors) identify only
+designs on the convex hull of their Pareto fronts (filled) and miss most
+Pareto-optimal designs (open), namely 86% for LinearDesign, LinearCDSfold and
+DERNA and 81% for mRNAfold. None of the designs on these fronts is modular
+(circles), i.e., has an MFE structure without CDS–UTR base pairs. **(c)** The
+design (*v*″, *P*″) (green) is computed without UTRs and forms 13 base pairs
+between the CDS and *u*₃ once the UTRs are added. **(d)** While mRNAfold
+directly incorporates UTRs and penalizes CDS–UTR base pairs, its design
+(*v*′, *P*′) still forms 3 CDS–UTR base pairs and contains the XhoI site.
+**(e)** The design (*v*, *P*) of DERNA2 has no CDS–UTR base pairs and no motif
+in *M*.
 
 ## Install
-
-DERNA2 is written in Rust. You need a Rust toolchain (1.95 or newer) and git.
 
 1. Install Rust with [rustup](https://rustup.rs):
 
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
-
-   The repository pins its toolchain in `rust-toolchain.toml`, so rustup
-   fetches the right version on the first build.
 
 2. Clone and build:
 
@@ -52,7 +47,9 @@ DERNA2 is written in Rust. You need a Rust toolchain (1.95 or newer) and git.
    ```
 
    The binary is `target/release/derna`. To put it on your `PATH`, run
-   `cargo install --path packages/derna`.
+   `cargo install --path packages/derna`. The first build compiles the
+   dependency tree with link-time optimization and could take tens of
+   minutes.
 
 3. Optionally, run the tests:
 
@@ -64,20 +61,21 @@ DERNA2 is written in Rust. You need a Rust toolchain (1.95 or newer) and git.
 
 | Command | What it does |
 |---|---|
-| `derna design` | the best design at each given trade-off weight |
+| `derna design` | the best design at each given trade-off weight λ |
 | `derna front` | the exact Pareto front of (MFE, CAI) |
 | `derna check` | certify a result's points against their free folds |
 | `derna pool` | join certified per-stop-codon fronts |
 | `derna show` | render, filter, plot or export a result file |
 | `derna pick` | choose one design and write it as FASTA |
 
-Every energy is in kcal/mol. Results are JSONL files that record how they were
-made, so `show`, `check` and `pick` can be run on them later.
+Energies are in kcal/mol. Each result is a JSONL file that carries the inputs
+as well as the output. `derna show`, `check` and `pick` can be run
+independently on the results.
 
 ## Examples
 
 All examples below use a 20-residue test protein and a pair of 25-nt UTRs, and
-each finishes in seconds. The outputs are real.
+each finishes in seconds.
 
 ```bash
 alias derna=./target/release/derna
@@ -86,10 +84,10 @@ U5=ACAUUUGCUUCUGACACAACUGUGU
 U3=GCUCGCUUUCUUGCUGUCCAAUUUC
 ```
 
-### One design at one trade-off weight
+### Design at a fixed trade-off weight λ
 
-`--lambda` runs from 0 (only MFE matters) to 1 (only CAI matters), and takes a
-list.
+`--lambda` weighs MFE against CAI, strictly between 0 and 1. At 1 only the
+energy matters, and at 0 only the codon usage.
 
 ```bash
 derna design --protein $P --lambda 0.5 --out design.jsonl
@@ -110,12 +108,87 @@ design — 20 residue(s) of GLPE_HUMAN_20aa_cut
     -27.80    0.8498   0.52        —        —    yes  0.500000  —
 ```
 
-### The whole Pareto front, with UTRs
+To design at several weights in one run, give `--lambda` a list:
 
-With UTRs present, the default constraint forbids the coding sequence from
-pairing with either UTR, and `front` certifies each point against the
-molecule's own free fold. A point whose free MFE equals its constrained MFE is
-**modular** and its gap is 0.
+```bash
+derna design --protein $P --lambda 0.1,0.5,0.9 --out designs.jsonl
+```
+
+```text
+[1/3] λ=0.1 mfe=-21.50 cai=0.9857 (0.06s)
+[2/3] λ=0.5 mfe=-27.80 cai=0.8498 (0.06s)
+[3/3] λ=0.9 mfe=-30.00 cai=0.6605 (0.06s)
+3 design(s), unconstrained — no check to give
+```
+
+### Design several proteins in one run
+
+`--protein` can also take a FASTA with several records. `--out` then should
+name a directory, and each record is written to `<id>.jsonl` inside it.
+
+```bash
+cat > two.fasta <<'EOF'
+>GLPE20
+MYGKIIFVLLLSGIVSISAS
+>HBB20
+MVHLTPEEKSAVTALWGKVN
+EOF
+
+derna design --protein two.fasta --lambda 0.5 --out batch/
+```
+
+```text
+...
+wrote batch/HBB20.jsonl:
+design — 20 residue(s) of HBB20
+  5′ UTR absent   3′ UTR absent   stop none
+  constraint none   access off
+  codon usage human   derna 0.1.0   0.03s   peak 5 MB
+  1 point(s), 1 on the hull, not checked
+
+       mfe       cai     gc      gap  modular   hull    lambda  status
+    -44.10    0.7923   0.57        —        —    yes  0.500000  —
+
+batch of 2 record(s): GLPE20 ok; HBB20 ok
+```
+
+A protein that fails is reported and the batch carries on, with a non-zero
+exit at the end. If a run is interrupted, rerun it with `--checkpoint` to skip
+the proteins already finished.
+
+### Compute the Pareto front without UTRs
+
+To compute the front without UTRs, give `front` the protein and nothing
+else.
+
+```bash
+derna front --protein $P --out plain.jsonl
+```
+
+```text
+18 point(s), 9 on the hull, 8 gap(s), 10 sweep fold(s) (1.63s), spanning 12.4 kcal/mol
+
+wrote plain.jsonl:
+front — 20 residue(s) of GLPE_HUMAN_20aa_cut
+  5′ UTR absent   3′ UTR absent   stop none
+  constraint none   access off
+  codon usage human   derna 0.1.0   1.63s   peak 9 MB
+  18 point(s), 9 on the hull, not checked
+
+       mfe       cai     gc      gap  modular   hull    lambda  status
+    -30.00    0.6605   0.53        —        —    yes         —  —
+    -29.20    0.7303   0.53        —        —    yes         —  —
+       ...
+    -19.30    0.9957   0.58        —        —    yes         —  —
+    -17.60    1.0000   0.58        —        —    yes         —  —
+```
+
+### Compute the Pareto front with UTRs
+
+Add `--utr5` and `--utr3`. The coding sequence is then forbidden from pairing
+with either UTR, and each design is checked against its own free fold. The
+`gap` column is what that constraint costs the design, in kcal/mol, and a
+design with a gap of 0 is **modular**.
 
 ```bash
 derna front --protein $P --utr5 $U5 --utr3 $U3 --out front.jsonl
@@ -146,14 +219,14 @@ front — 20 residue(s) of GLPE_HUMAN_20aa_cut
     -23.20    1.0000   0.51    11.10       no    yes         —  —
 ```
 
-Omitting `--stop` leaves the stop codon to the search (`stop free` above);
-`--stop UAA` fixes it and `--stop none` asks for none.
+Omitting `--stop` leaves the stop codon to the search (`stop free` above),
+while `--stop UAA` fixes it and `--stop none` asks for none.
 
-### The front of modular designs only
+### Compute the modular front
 
-`--modular` walks the front of designs that are modular by construction, rather
-than certifying afterwards. It is the expensive mode, so it takes a budget;
-here it hits the 60-second limit with one region of the front still open.
+`--modular` walks the front of designs that are modular by construction,
+rather than checking for modularity afterwards. It is the expensive mode, so it takes a budget.
+Here it hits the 60-second limit with one region of the front still open.
 
 ```bash
 derna front --protein $P --utr5 $U5 --utr3 $U3 --modular --max-secs 60 --out modular.jsonl
@@ -170,9 +243,9 @@ wrote 16 point(s), by gap 0.00×16 (0.05s)
 Add `--threads N` to parallelize it, and `--checkpoint`/`--resume` to continue
 a walk that ran out of budget.
 
-### Excluding motifs
+### Compute the motif-free front
 
-`--motif` forbids a subsequence anywhere in the coding sequence; repeat it or
+`--motif` forbids a subsequence anywhere in the coding sequence. Repeat it or
 pass a file of patterns, and scope one with `--motif-window`.
 
 ```bash
@@ -185,13 +258,7 @@ walking the front of 20 residue(s) avoiding GCGGC over the coding sequence, forb
 11 of 24 point(s) modular
 ```
 
-This protein's CDS is only 60 nt, so it is too short to spell a six-base
-restriction site by chance: `--motif GAAUUC` returns a front identical to the
-unconstrained one. `GCGGC` is used here because this front does spell it, so
-the constraint actually removes designs. On real coding sequences the motifs of
-interest are restriction and cloning sites, as in the figure above.
-
-### Reading a result back
+### Filter a saved result
 
 `show` re-renders a result file and filters it, without folding anything.
 
@@ -209,7 +276,7 @@ ACAUUUGCUUCUGACACAACUGUGUAUGUAUGGCAAGAUCAUCUUUGUGCUGCUGCUGAGCGGCAUAGUGUCGAUCUCUG
 `--min-gc`, `--max-gc` and `--max-homopolymer` filter on sequence metrics, and
 `--sequences` adds the per-point GC, U and homopolymer columns.
 
-### Plotting a front
+### Plot a front
 
 `--plot` writes an SVG with CAI on the x axis and MFE on the y axis, marking
 hull points and distinguishing modular from non-modular ones. It is titled
@@ -221,9 +288,9 @@ derna show front.jsonl --plot front.svg --plot-title "GLPE-20 with β-globin UTR
 
 ![The Pareto front of the example](docs/front.svg)
 
-### Picking one design to order
+### Pick one design from the front
 
-`pick` applies one selection rule and writes a single record. `--dna` spells T
+`pick` applies selection rules to a result file and writes one design. `--dna` spells T
 for U and `--cds-only` drops the UTRs.
 
 ```bash
@@ -248,34 +315,7 @@ ATGTATGGCAAGATCATCTTTGTGCTGCTGCTGAGCGGCATAGTGAGCATCTCTGCCAGCTAA
 and `--json` writes the point's JSONL row instead of FASTA. A rule that selects
 nothing exits non-zero and names the filter that emptied the set.
 
-### Several proteins at once
-
-`--protein` also takes a multi-record FASTA. `--out` then names a directory,
-and each record is written to `<id>.jsonl` inside it.
-
-```bash
-derna design --protein two.fasta --lambda 0.5 --out batch/
-```
-
-```text
-...
-wrote batch/HBB20.jsonl:
-design — 20 residue(s) of HBB20
-  5′ UTR absent   3′ UTR absent   stop none
-  constraint none   access off
-  codon usage human   derna 0.1.0   0.03s   peak 5 MB
-  1 point(s), 1 on the hull, not checked
-
-       mfe       cai     gc      gap  modular   hull    lambda  status
-    -44.10    0.7923   0.57        —        —    yes  0.500000  —
-
-batch of 2 record(s): GLPE20 ok; HBB20 ok
-```
-
-A record that fails is reported and the batch continues, with a non-zero exit
-at the end; rerunning with `--checkpoint` skips the records already finished.
-
-### Certifying a result computed elsewhere
+### Certify a result for modularity
 
 `front` certifies its own points, so `check` is for results produced with
 `--no-check`, and for `design` output.
@@ -299,33 +339,49 @@ check — 20 residue(s) of GLPE_HUMAN_20aa_cut
 `check` saves progress as it goes and resumes where it stopped, since folding a
 large front can take hours.
 
-The full reference for every command and flag, what each one reports and what a
-run costs is in [docs/guides/derna-cli.md](docs/guides/derna-cli.md).
+Every command lists the flags it takes under `--help`, for example
+`derna front --help`. The full reference for every command and flag, what each
+one reports and what a run costs is in
+[docs/guides/derna-cli.md](docs/guides/derna-cli.md).
 
 ## Repository layout
 
 | Package | What it is |
 |---|---|
 | `packages/rna-mfe` | Turner 2004 energy evaluation and Zuker MFE folding (dangles = 0) |
-| `packages/rna-linearfold` | LinearFold-style 5′→3′ beam-search folding over `rna-mfe` |
 | `packages/derna-codon-dp` | Codon-design dynamic programs over the codon lattice |
 | `packages/derna-lib` | The exact front, region and motif constraints, and certification |
 | `packages/derna` | The `derna` command-line tool |
 
 ## Acknowledgements
 
-- The Turner 2004 energy parameters in `packages/rna-mfe/data/rna_turner2004.par`
-  are the parameter file distributed with the
-  [ViennaRNA Package](https://www.tbi.univie.ac.at/RNA/), by the authors and the
-  Institute for Theoretical Chemistry of the University of Vienna.
-- `rna-linearfold` implements the LinearFold algorithm (Huang et al.,
-  *Bioinformatics* 35, 2019).
-- The codon automaton follows the construction in LinearDesign (Zhang et al.,
-  2023).
-
 We used Claude (Anthropic) to support code development. The authors reviewed
 and tested all AI-assisted code and analyses, and take full responsibility for
 the content.
+
+## Third-party data
+
+- **Energy parameters.** The default parameters,
+  `packages/rna-mfe/data/turner2004.params`, are the Turner 2004
+  nearest-neighbor parameters from [NNDB](https://rna.urmc.rochester.edu/NNDB/),
+  the Nearest Neighbor Database. Please cite Mittal, Turner & Mathews (2024),
+  *J. Mol. Biol.* 168549,
+  [doi:10.1016/j.jmb.2024.168549](https://doi.org/10.1016/j.jmb.2024.168549);
+  Turner & Mathews (2010), *Nucleic Acids Res.* 38, D280–D282; and
+  Mathews et al. (2004), *Proc. Natl. Acad. Sci. USA* 101, 7287–7292.
+- **Codon usage.** The human codon usage table,
+  `packages/derna-codon-dp/data/codon_usage_human.csv`, is from the
+  [Codon Usage Database](https://www.kazusa.or.jp/codon/) at the Kazusa DNA
+  Research Institute (Nakamura, Gojobori & Ikemura (2000), *Nucleic Acids Res.*
+  28, 292).
+- **Protein sequences.** The test data hold UniProtKB entries
+  [P15421](https://www.uniprot.org/uniprotkb/P15421) (glycophorin-E) and
+  [P0DTC2](https://www.uniprot.org/uniprotkb/P0DTC2) (SARS-CoV-2 spike
+  glycoprotein), some cut to their first residues, from
+  [UniProt](https://www.uniprot.org/) under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+[NOTICE](NOTICE) gives the full citations.
 
 ## Citation
 

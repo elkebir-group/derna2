@@ -1,7 +1,7 @@
 //! Hull-only Pareto-front parity vs brute-force enumeration fixtures.
 //!
 //! Loads `tests/data/codon_pareto_{toy,reduced}.json`
-//! (the brute-force *Pareto front*) and asserts the Rust port's
+//! (the brute-force *Pareto front*) and asserts the solver's
 //! `solve_pord` output recovers every Pareto-front cell that lies on the
 //! convex hull of `(MFE, CAI)`. A λ-sweep of a scalar objective can only
 //! recover hull points — concave-up Pareto-front
@@ -12,15 +12,15 @@
 //! Co-optimal-tie cells (different `rna_seq` at the same `(MFE, CAI)`)
 //! log informationally and do not fail the test.
 //!
-//! Comparison: `mfe_kcal_mol` matches at the dekacal-int level (`round(mfe
-//! * 100)`); `cai` matches at a 2-ULP tolerance. The 2-ULP tolerance
+//! Comparison: `mfe_kcal_mol` matches at the dekacal-int level
+//! (`round(mfe * 100)`); `cai` matches at a 2-ULP tolerance. The 2-ULP tolerance
 //! covers `serde_json`'s 1-ULP drift on half-way decimals — JSON's
 //! float round-trip is not bit-exact at every half-way input, and the
 //! brute-force corpus is not bit-equal across `json.dumps` ↔
-//! `serde_json::from_str`. The DP's f64 CAI accumulation matches
-//! Python's at the underlying float level (see the
-//! `tests/solve_brd.rs` parity tests, which dump CAI bits explicitly
-//! and assert bit-equality against v1's `solve_brd`).
+//! `serde_json::from_str`. The DP's f64 CAI accumulation matches the
+//! reference at the underlying float level (see the `tests/solve_brd.rs`
+//! parity tests, which dump CAI bits explicitly and assert bit-equality
+//! against the reference BRD fixtures).
 
 use std::fs;
 use std::path::PathBuf;
@@ -129,7 +129,7 @@ fn concave_turn(o: &PointFixture, a: &PointFixture, b: &PointFixture) -> bool {
 
 /// Two `f64`s match if their bits differ by at most this many ULPs.
 /// Covers `serde_json`'s 1-ULP drift on half-way decimals; the DP's
-/// f64 CAI itself matches Python's bit-for-bit (see `solve_brd.rs`).
+/// f64 CAI itself matches the reference bit-for-bit (see `solve_brd.rs`).
 const CAI_TOLERANCE_ULPS: u64 = 2;
 
 fn cai_matches(rust_cai: f64, fixture_cai: f64) -> bool {

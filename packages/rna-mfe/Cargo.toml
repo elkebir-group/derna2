@@ -1,7 +1,7 @@
 [package]
 name = "rna-mfe"
 version = "0.1.0"
-description = "Turner 2004 RNA minimum-free-energy evaluator and Zuker DP folder at dangles=0"
+description = "Turner 2004 RNA minimum-free-energy evaluator and MFE folder at dangles=0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true

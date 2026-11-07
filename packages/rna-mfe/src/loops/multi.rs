@@ -1,19 +1,14 @@
 //! Multi-loop (multibranch) evaluator.
 //!
-//! Vienna's affine multi-loop scoring at `dangles=0` reduces to a sum
-//! of three table-driven terms plus a per-stem `terminal_au_37`
-//! correction. The composition is built up by `vrna_eval_loop_pt_v` /
-//! `eval_mb_loop` (which sums per-stem contributions from
-//! `E_MLstem` — `include/ViennaRNA/eval/multibranch.h::E_MLstem`,
-//! v2.7.0 lines 163–184) and adds the `MLclosing + n_unpaired *
-//! MLbase` initiation. At `dangles=0`, each `E_MLstem` invocation
-//! returns `MLintern[type] + (type > 2 ? TerminalAU : 0)` because both
-//! mismatch encodings are negative — the `mismatchM` / `dangle*`
-//! branches at `multibranch.h:171–176` are skipped.
+//! The affine multi-loop scoring at `dangles=0` reduces to a sum of
+//! three table-driven terms (`MLclosing`, `MLintern` per stem, `MLbase`
+//! per unpaired base) plus a per-stem `terminal_au_37` correction. At
+//! `dangles=0`, each stem contributes
+//! `MLintern + (terminal-AU penalty if the pair is not CG / GC)`; no
+//! `mismatchM` / `dangle*` term applies.
 //!
-//! The closing pair counts as a stem too — Vienna invokes `E_MLstem`
-//! for the closing pair exactly as for each branch, with `type` set to
-//! the *reversed* (loop-side) closing-pair type. This module mirrors that:
+//! The closing pair counts as a stem too, scored exactly as each branch
+//! but from the *reversed* (loop-side) closing-pair orientation.
 //! [`MultiLoop::closing`] is stored in sequence order, and the AU/GU
 //! check uses [`BasePair::applies_terminal_au`] which is orientation-
 //! agnostic, so no reversal is needed for the terminal-AU accounting.
@@ -48,7 +43,7 @@ pub struct MultiLoop {
 }
 
 /// Multi-loop energy at `dangles=0`. See module-level docs for the
-/// formula and the Vienna source pin.
+/// formula.
 pub fn multi_loop_energy(params: &Params, m: &MultiLoop) -> Energy {
     let stems = 1 + m.branches.len();
     let initiation = params.ml.closing_37

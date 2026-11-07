@@ -12,10 +12,11 @@
 //! `capacity` sums each fanned position's workers times its compute wall;
 //! `slowest / mean` is its imbalance.
 //!
-//! The tally costs a clock read per chunk, so it is off unless the environment
-//! sets `DERNA_FAN_DETAIL`. `DERNA_FAN_WORKERS` caps the workers a fan-out
-//! starts, so the threaded path can run on one worker; it changes the work's
-//! division, never the fold's answer.
+//! The tally costs a clock read per chunk, so it is off unless a development
+//! build turns it on (`Setting::FanDetail`). A development build can also cap
+//! the workers a fan-out starts (`Setting::FanWorkers`), so the threaded path
+//! can run on one worker; that changes the work's division, never the fold's
+//! answer.
 
 use std::time::Duration;
 
@@ -188,12 +189,12 @@ impl FanDetail {
 
 /// Whether the environment asks for the tally.
 pub(crate) fn enabled() -> bool {
-    std::env::var_os("DERNA_FAN_DETAIL").is_some()
+    crate::dev_env::var_os(crate::dev_env::Setting::FanDetail).is_some()
 }
 
 /// The cap on a fan-out's workers the environment sets, if any.
 pub(crate) fn workers_cap() -> Option<usize> {
-    std::env::var("DERNA_FAN_WORKERS")
+    crate::dev_env::var(crate::dev_env::Setting::FanWorkers)
         .ok()
         .and_then(|v| v.parse().ok())
         .filter(|&n: &usize| n > 0)

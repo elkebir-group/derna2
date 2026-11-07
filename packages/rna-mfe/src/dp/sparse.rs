@@ -1,4 +1,4 @@
-//! A Zuker fold that iterates only over the pairs it keeps, with an optional
+//! An MFE fold that iterates only over the pairs it keeps, with an optional
 //! Carrillo–Lipman cut that keeps fewer.
 //!
 //! # The sparsification (exact)

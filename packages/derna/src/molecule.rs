@@ -1,7 +1,7 @@
 //! The molecule a run designs: the protein, its fixed flanks, the stop codon,
 //! the constraint and the codon usage table, resolved from the shared flags.
 
-use derna_lib::{CdsWindow, Layout, RegionConstraints, UtrSpec};
+use derna_lib::{CdsWindow, Layout, Params, RegionConstraints, UtrSpec};
 use serde_json::{json, Value};
 
 use crate::args::Shared;
@@ -20,6 +20,9 @@ pub struct Molecule {
     pub stop: Stop,
     pub constraint: Constraint,
     pub codons: CodonTable,
+    /// The energy parameters every fold of the run uses: the built-in table,
+    /// or the file `--params` names.
+    pub params: Params,
 }
 
 /// The stop codon after the last residue.
@@ -146,6 +149,7 @@ impl Molecule {
             stop,
             constraint,
             codons,
+            params: shared.energy_params()?,
         })
     }
 
@@ -155,7 +159,8 @@ impl Molecule {
     /// — learns what to work on, and why it cannot be pointed at other flanks
     /// than the result was made with. The codon table comes from the header's
     /// own embedded rows, so CAI is scored against exactly the table the run
-    /// used rather than against whatever `human` means here.
+    /// used rather than against whatever `human` means here. The energy
+    /// parameters are the built-in table; a header does not record them.
     pub fn from_header(header: &serde_json::Value) -> Result<Self> {
         let sequence = |field: &str| -> Result<Option<NamedSequence>> {
             match header.get(field) {
@@ -200,6 +205,7 @@ impl Molecule {
             stop,
             constraint,
             codons,
+            params: Params::load_default()?,
         })
     }
 

@@ -1,8 +1,8 @@
 //! Special-hairpin bonus tables: `Triloops`, `Tetraloops`, `Hexaloops`.
 //!
 //! Each entry is `(loop_sequence, bonus_37, bonus_dh)`. Lookup is
-//! O(N) in the entry count, which is fine — Vienna caps these tables
-//! at 40 entries each and `rna_turner2004.par` ships ≤ 16. A
+//! O(N) in the entry count, which is fine — the file format caps
+//! these tables at 40 entries each and the built-in table has ≤ 16. A
 //! perfect-hash construction (`phf`) would be premature; `Vec` plus a
 //! linear scan keeps the parser dependency surface minimal.
 

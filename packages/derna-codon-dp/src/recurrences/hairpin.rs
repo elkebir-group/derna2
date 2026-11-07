@@ -1,7 +1,6 @@
 //! Hairpin recurrence (E_h).
 //!
-//! Mirrors v1's `derna.codon_dp._recurrences.fill_e_h` — supplement.tex
-//! "Hairpin Loop". For every `(h, r)` codon pair at the flanking AAs `c`
+//! Follows supplement.tex "Hairpin Loop". For every `(h, r)` codon pair at the flanking AAs `c`
 //! and `d`, build the candidate RNA, skip non-canonical closing pairs,
 //! score the per-loop hairpin energy via [`rna_mfe::hairpin_energy`], and
 //! yield a [`Candidate`] carrying the BRD value.

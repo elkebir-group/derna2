@@ -1,12 +1,12 @@
 //! Typed storage for the Turner 2004 lookup tables.
 //!
-//! Index conventions match ViennaRNA's `rna_turner2004.par` layout, with
-//! the implicit "no pair" / "no nucleotide" slot at index 0 dropped.
+//! Index conventions match the parameter file layout (the `.par` format's),
+//! with the implicit "no pair" / "no nucleotide" slot at index 0 dropped.
 //!
 //! - [`BasePair`] (7): `CG, GC, GU, UG, AU, UA, NN` — same order as the
 //!   `# stack` block's columns.
-//! - [`Nuc5`] (5): `N, A, C, G, U` — index 0 is Vienna's "any/unknown"
-//!   placeholder used in mismatch tables.
+//! - [`Nuc5`] (5): `N, A, C, G, U` — index 0 is the format's
+//!   "any/unknown" placeholder used in mismatch tables.
 //!
 //! Multi-dimensional tables store row-major flat arrays internally;
 //! typed accessors compute the offset. This keeps the storage layout
@@ -16,23 +16,22 @@
 
 /// `INF` token value used in size tables for sizes below the minimum.
 ///
-/// Vienna stores it as `INT_MAX/10` (compiled-in macro). On round-trip
-/// the dumper recognises this exact value and emits the literal token `INF` to
-/// match the upstream file's textual representation.
+/// The `.par` file writes it as the literal token `INF`. On round-trip
+/// the dumper recognises this exact value and emits `INF` again, so the
+/// file's textual representation is preserved.
 pub const INF: i32 = 10_000_000;
 
 /// Number of canonical base pairs covered by the parameter tables.
 pub const N_PAIRS: usize = 7;
 
 /// Index space for nucleotide-keyed dimensions in mismatch / interior
-/// loop tables. Index 0 is Vienna's "any" sentinel (`N`); 1..=4 are
+/// loop tables. Index 0 is the "any" sentinel (`N`); 1..=4 are
 /// `A, C, G, U`.
 pub const N_NUCS: usize = 5;
 
 /// `int22` covers only canonical-canonical pair combinations (dropping
 /// the `NN` row + col) and `A/C/G/U` mismatches (dropping the `N`
-/// sentinel) — see ViennaRNA `src/ViennaRNA/params/io.c` `int22_dim`
-/// at v2.7.0 line 64–72.
+/// sentinel), as the `.par` format lays out the `int22` block.
 pub const N_PAIRS_22: usize = 6;
 pub const N_NUCS_22: usize = 4;
 
@@ -77,11 +76,10 @@ impl BasePair {
     }
 
     /// Reverse the orientation of the pair: CG ↔ GC, GU ↔ UG, AU ↔ UA,
-    /// NN unchanged. Used by stack / internal-loop lookups: Vienna's
-    /// `eval_internal.c` indexes the inner pair as
-    /// `vrna_get_ptype_md(S2[l], S2[k], md)` — i.e., from the loop side
-    /// rather than sequence-order — so callers reverse the inner pair
-    /// before consulting `stack` / `int*` / `mismatch_*` tables.
+    /// NN unchanged. Used by stack / internal-loop lookups: the tables
+    /// index the inner pair from the loop side rather than in
+    /// sequence order, so callers reverse the inner pair before
+    /// consulting `stack` / `int*` / `mismatch_*` tables.
     pub const fn reversed(self) -> BasePair {
         match self {
             BasePair::CG => BasePair::GC,
@@ -96,9 +94,8 @@ impl BasePair {
 
     /// True for pairs that incur the `Misc.terminal_au_37` penalty when
     /// they end an interior/exterior/multi-loop branch — i.e., everything
-    /// other than `CG` / `GC`. Mirrors Vienna's `type > 2` predicate
-    /// (Vienna pair indices start at 1; `as_index() >= 2` is the
-    /// equivalent on the 0-based encoding).
+    /// other than `CG` / `GC` (`as_index() >= 2` on the 0-based
+    /// encoding).
     pub const fn applies_terminal_au(self) -> bool {
         self.as_index() >= BasePair::GU.as_index()
     }
@@ -114,7 +111,7 @@ impl BasePair {
 }
 
 /// Nucleotide index for mismatch / interior loop dimensions. Index 0
-/// is Vienna's "any" sentinel (`N`); 1..=4 are `A, C, G, U`.
+/// is the "any" sentinel (`N`); 1..=4 are `A, C, G, U`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Nuc5 {
@@ -162,7 +159,7 @@ impl Triplet37 {
 
 /// 7×7×5×5 internal-loop 1×1 table indexed by
 /// (closing, inner, mismatch_5', mismatch_3'). The inner pair is
-/// stored in reversed orientation (Vienna's loop-side view); callers
+/// stored in reversed orientation (the loop-side view); callers
 /// pass sequence-order pairs through [`BasePair::reversed`] first.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Int11Table {
@@ -170,7 +167,7 @@ pub struct Int11Table {
 }
 
 /// Lookup key for [`Int11Table::get`]. `inner_reversed` carries the
-/// inner pair in Vienna's loop-side orientation, matching the layout
+/// inner pair in the loop-side orientation, matching the layout
 /// of the on-disk `int11` block.
 #[derive(Debug, Clone, Copy)]
 pub struct Int11Key {
@@ -191,9 +188,8 @@ impl Int11Table {
 }
 
 /// 7×7×5×5×5 internal-loop 2×1 table. Innermost three axes are the
-/// three loop nucleotide positions; ordering follows Vienna's
-/// `rd_5dim` walk in `src/ViennaRNA/params/io.c` (v2.7.0 line 957–997)
-/// and `eval_internal.c::vrna_E_internal` (`int21[type][type_2][si1][sq1][sj1]`).
+/// three loop nucleotide positions, in the order the `.par` block lists
+/// them (`int21[type][type_2][si1][sq1][sj1]`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Int21Table {
     pub flat: Box<[i32; INT21_LEN]>,
@@ -202,8 +198,7 @@ pub struct Int21Table {
 /// Lookup key for [`Int21Table::get`]. The `(1, 2)` and `(2, 1)`
 /// shapes share a code path by binding `pair_a` / `pair_b` to "the
 /// pair on the unpaired-singleton side" / "the pair on the
-/// two-unpaired side" respectively (per
-/// `eval_internal.c::vrna_E_internal` `case 1` `nl == 2`).
+/// two-unpaired side" respectively.
 #[derive(Debug, Clone, Copy)]
 pub struct Int21Key {
     pub pair_a: BasePair,
@@ -228,10 +223,9 @@ impl Int21Table {
 }
 
 /// 6×6×4×4×4×4 internal-loop 2×2 table. The reduced dimensions reflect
-/// the upstream file's omission of the `NN` row + column and of the
-/// `N` nucleotide slot — Vienna fills the missing entries on load via
-/// `update_nst`. Axis order: `int22[outer][inner_reversed][si1][sp1][sq1][sj1]`
-/// per `eval_internal.c::vrna_E_internal` (the 2×2 case).
+/// the file layout's omission of the `NN` row + column and of the
+/// `N` nucleotide slot. Axis order:
+/// `int22[outer][inner_reversed][si1][sp1][sq1][sj1]`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Int22Table {
     pub flat: Box<[i32; INT22_LEN]>,
@@ -239,7 +233,7 @@ pub struct Int22Table {
 
 /// Lookup key for [`Int22Table::get`] using the reduced-range indices
 /// (`pair` in `0..6`, nucleotides in `0..4`). The `mismatches` array
-/// holds `[si1, sp1, sq1, sj1]` per Vienna's
+/// holds `[si1, sp1, sq1, sj1]` in the
 /// `int22[type][type_2][si1][sp1][sq1][sj1]` axis order.
 #[derive(Debug, Clone, Copy)]
 pub struct Int22Key {
@@ -272,10 +266,9 @@ pub struct SizeTable {
 
 /// Multi-loop parameters at dangles=0.
 ///
-/// Field order resolved from ViennaRNA 2.7.0
-/// `src/ViennaRNA/params/io.c` lines 654–664 (`case ML:`):
+/// Field order in the `.par` format's `ML_params` block:
 /// `[ML_BASE37, ML_BASEdH, ML_closing37, ML_closingdH, ML_intern37,
-/// ML_interndH]`. The dump comment in the same file (line 1589) is:
+/// ML_interndH]`. The block's column comment is
 /// `/*\t    cu\t cu_dH\t    cc\t cc_dH\t    ci\t ci_dH  */`. So:
 /// - `cu` = `base` = per-unpaired nucleotide
 /// - `cc` = `closing` = multi-loop initiation
@@ -290,9 +283,8 @@ pub struct MultiLoopParams {
     pub intern_dh: i32,
 }
 
-/// NINIO parameters: per ViennaRNA 2.7.0 `src/ViennaRNA/params/io.c`
-/// lines 666–673 (`case NIN:`), the three values are
-/// `[ninio37, niniodH, MAX_NINIO]`.
+/// NINIO parameters: in the `.par` format's `NINIO` block the three
+/// values are `[ninio37, niniodH, MAX_NINIO]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NinioParams {
     pub ninio_37: i32,
@@ -303,19 +295,18 @@ pub struct NinioParams {
 /// Misc block — the four interleaved 37°C/dH values for `DuplexInit`
 /// and `TerminalAU`.
 ///
-/// **OQ2 resolution.** Field order is from ViennaRNA 2.7.0
-/// `src/ViennaRNA/params/io.c` `case MISC:` (lines 675–684):
+/// Field order in the `.par` format's `Misc` block:
 ///
 /// ```text
-/// DuplexInit37  = values[0];   // 410
-/// DuplexInitdH  = values[1];   // 360
-/// TerminalAU37  = values[2];   // 50
-/// TerminalAUdH  = values[3];   // 370
+/// DuplexInit37  = values[0];
+/// DuplexInitdH  = values[1];
+/// TerminalAU37  = values[2];
+/// TerminalAUdH  = values[3];
 /// ```
 ///
-/// Note: Vienna's *dumper* (same file, line 1606–1614) emits a 6-token
-/// row that also includes `lxc37` — but `lxc37` is a hardcoded
-/// `default.c` constant, **not** parsed from the file. The on-disk
+/// Note: some writers of the format emit a 6-token row that also
+/// includes `lxc37` — but `lxc37` is a compiled-in constant, **not**
+/// parsed from the file. The on-disk
 /// Misc block contains only these four integers; interior-loop
 /// size extrapolation reads `lxc` from a separate hardcoded constant
 /// (see [`super::super::loops::LXC_37`]).

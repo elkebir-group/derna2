@@ -1,6 +1,6 @@
 //! Multi-loop DP cells (M, M1) and the V multi-loop closing case.
 //!
-//! Factors Vienna's affine multi-loop scoring across four interacting
+//! Factors the affine multi-loop scoring across four interacting
 //! cells so each branch only pays its share as it gets incorporated.
 //! See [`crate::loops::multi`] for the closed-form (non-DP) total. The
 //! cell semantics:
@@ -11,7 +11,7 @@
 //! | `M1[i, j]`     | MFE on `seq[i..=j]` of *exactly one* branch + trailing unpaired (no leading unpaired)                |
 //! | `V_multi(i,j)` | V's multi-loop closing case at pair `(i, j)`: closing-stem cost + best `M + M1` decomposition inside |
 //!
-//! ## Recurrences (Zuker form)
+//! ## Recurrences
 //!
 //! ```text
 //! M1[i, j] = min(
@@ -43,48 +43,29 @@
 //! base case or M1's "exactly this branch"). Each unpaired position
 //! contributes `base_37` once (when it's nibbled by an unpaired-flank
 //! case in M or M1). Summed over the DP path, this exactly equals
-//! Vienna's affine total — see the per-loop evaluator at
+//! the affine total — see the per-loop evaluator at
 //! [`crate::loops::multi`] for the closed-form sanity check.
 //!
-//! ## Vienna source citations (v2.7.0)
+//! ## Recurrence notes
 //!
-//! - **V multi-loop closing recurrence at `dangles=0`**:
-//!   `mfe/mfe_multibranch.c::ml_pair_d0` lines 316–369 — the d0 case
-//!   reduces to `dmli1[j-1] + E_multibranch_stem(type, -1, -1, P) + MLclosing`
-//!   where `dmli1[j-1] = min over k: fML[i+1, k] + fML[k+1, j-1]` (line
-//!   333) and `E_multibranch_stem` at d0 = `MLintern[type] + (type > 2 ?
-//!   TerminalAU : 0)` (`include/ViennaRNA/eval/multibranch.h::E_MLstem`
-//!   lines 163–184). This module uses the Zuker-classic form `M[i+1, k] +
-//!   M1[k+1, j-1]` instead of Vienna's `fML + fML`; the two MFEs
-//!   agree (any structure with ≥2 branches admits a "rightmost branch
-//!   in M1" decomposition).
-//! - **M (fML) recurrence at `dangles=0`**:
-//!   `mfe/mfe_multibranch.c::E_ml_stems_fast` lines 1283–1626 — five
-//!   cases at d0: single-branch (`extend_fm_3p`'s `c[ij] +
-//!   E_MLstem(type, -1, -1, P)` line 973), right-extend
-//!   (`extend_fm_3p`'s `fm[i, j-1] + MLbase` line 1019), left-extend
-//!   (line 1348's `fm[ij + 1] + MLbase`), and bifurcation
-//!   (`mfe_multibranch_m2_fast` lines 1157–1279, returning
-//!   `min over k: fmi[k] + fm[k+1, j]`).
-//! - **M1 (fM1) recurrence at `dangles=0`**:
-//!   `mfe/mfe_multibranch.c::vrna_mfe_multibranch_m1` lines 226–259,
-//!   delegating to `extend_fm_3p` with the `fM1` array as the
-//!   right-extend feed. At d0 this produces exactly the two cases
-//!   above (single branch, right-extend) but without the
-//!   left-extend or bifurcation — i.e., M1's "exactly one branch +
-//!   trailing unpaired" semantics.
-//! - **Canonical traceback order (V multi-loop closing)**:
-//!   `backtrack/bt_multibranch.c::bt_mb_loop` lines 780–795 —
-//!   iterates `r` from `i+2` upward, first equal split wins. The
-//!   traceback mirrors it with `k` from `i+1` (None-handled empty cells make the
-//!   effective lower bound match).
-//! - **Canonical traceback order (M)**:
-//!   `backtrack/bt_multibranch.c::bt_mb_loop_split` lines 296–610 at
-//!   d0 — order is right-nibble unpaired, left-nibble unpaired,
-//!   single-component (V[i,j] + E_MLstem), then bifurcation (smallest
-//!   split first). M's traceback mirrors that order; M1's traceback uses
-//!   the M1-specific subset (right-nibble unpaired, then single
-//!   branch).
+//! - **V multi-loop closing at `dangles=0`**: the closing pair pays
+//!   `closing_37` plus the multi-loop stem cost `intern_37 + au_term`,
+//!   on top of the best two-part split of the interior. The split is
+//!   written `M[i+1, k] + M1[k+1, j-1]`; an `M + M` split gives the
+//!   same MFE (any structure with ≥2 branches admits a "rightmost
+//!   branch in M1" decomposition).
+//! - **M recurrence at `dangles=0`**: single-branch, right-extend,
+//!   left-extend, and bifurcation `min over k: M[i, k] + M1[k+1, j]`.
+//! - **M1 recurrence at `dangles=0`**: the two cases above (single
+//!   branch, right-extend) without left-extend or bifurcation — i.e.,
+//!   M1's "exactly one branch + trailing unpaired" semantics.
+//! - **Canonical traceback order (V multi-loop closing)**: `k` from
+//!   `i+1` upward, first equal split wins (None-handled empty cells set
+//!   the effective lower bound).
+//! - **Canonical traceback order (M)**: right-nibble unpaired,
+//!   left-nibble unpaired, single-component (V[i,j] + stem cost), then
+//!   bifurcation (smallest split first). M1's traceback uses the
+//!   M1-specific subset (right-nibble unpaired, then single branch).
 
 use super::fill::{traceback_v, FillCtx, OuterClose, Span};
 use super::tables::{TriangleTable, MIN_HAIRPIN_LOOP};
@@ -95,13 +76,9 @@ use crate::params::{BasePair, Params};
 /// `TriangleTable::INF` sentinel for "no valid structure". Returns
 /// `INF` if no `(a[i], b[i])` pair has both finite.
 ///
-/// Mirrors ViennaRNA's `fun_zip_add_min_default`
-/// (`utils/higher_order_functions.c:124–140` at v2.7.0). On Apple
-/// Silicon Vienna's compiled loop body is 11 ARM64 instructions —
-/// scalar with two `csel`s for the INF-aware min, no SIMD. See
-/// `packages/rna-mfe/docs/vienna-kernel-disasm.md` for the reference
-/// disassembly. The Rust kernel is shape-compatible: equal-length
-/// stride-1 slices in, single `i32` out, no `Option`, no `?`-branches.
+/// Equal-length stride-1 slices in, single `i32` out, no `Option`, no
+/// `?`-branches, so the loop body compiles to a short scalar sequence
+/// with conditional selects for the INF-aware min.
 ///
 /// Caller invariants:
 /// - `a.len() == b.len()`. Debug-asserted, not enforced at runtime.
@@ -134,9 +111,7 @@ pub(super) const MIN_V_MULTI_SPAN: usize = 2 * (MIN_HAIRPIN_LOOP + 2) + 1;
 ///
 /// `fmi[k]` holds `M[i, k]` (raw `i32` with [`TriangleTable::INF`]
 /// sentinel) for the *current* outer `i` being filled. `dmli[k]` holds
-/// `M[i+1, k]` from the previous outer-`i` iteration. Mirrors
-/// ViennaRNA's `helpers->Fmi` / `helpers->DMLi` rolling arrays
-/// (`mfe/mfe_multibranch.c:1175-1176` at v2.7.0).
+/// `M[i+1, k]` from the previous outer-`i` iteration.
 ///
 /// Both buffers are length `n` and initialized to `INF`. After each
 /// outer-`i` iteration finishes filling its inner-`j` row,
@@ -213,7 +188,7 @@ pub(super) fn compute_v_multi_close(
 
 /// Multi-loop closing traceback: dispatch from V[i, j]'s walk. Returns
 /// `true` iff the multi-loop closing case matched and recursion was
-/// performed. Mirrors Vienna's `bt_mb_loop` (smallest `k` first wins).
+/// performed. Smallest `k` first wins.
 pub(super) fn traceback_v_multi_close(
     ctx: &FillCtx<'_>,
     outer: OuterClose,
@@ -242,9 +217,9 @@ pub(super) fn traceback_v_multi_close(
     true
 }
 
-/// Walk M[i, j] back to its source. Order mirrors Vienna's
-/// `bt_mb_loop_split` at d0: right-nibble unpaired, left-nibble
-/// unpaired, single-branch (V + E_MLstem), then bifurcation.
+/// Walk M[i, j] back to its source. Order at `dangles=0`: right-nibble
+/// unpaired, left-nibble unpaired, single-branch (V + stem cost), then
+/// bifurcation.
 pub(super) fn traceback_m(ctx: &FillCtx<'_>, span: Span, structure: &mut [u8]) {
     let target = ctx.tables.m.get(span.i, span.j).expect("M[i, j] is filled");
     let case = classify_m(ctx, span, target).unwrap_or_else(|| {
@@ -349,10 +324,8 @@ fn flat_bifurcation_min(
 ///
 /// `M[i, k]` from `scratch.fmi` (current outer-`i` row, populated as
 /// inner-`j` advances); `M1[k+1, j]` column-wise from `M1`'s `j` slice.
-/// Mirrors ViennaRNA's `mfe_multibranch_m2_fast`
-/// (`mfe/mfe_multibranch.c:1227-1259` — single-strand non-sliding-window
-/// path) using the Zuker-classic `M + M1` form rather than Vienna's
-/// `fML + fML`; both give the same MFE for `≥2`-branch decompositions.
+/// Uses the `M + M1` form; an `M + M` split gives the same MFE for
+/// `≥2`-branch decompositions.
 fn m_bifurcation(ctx: &FillCtx<'_>, span: Span, scratch: &BifurcationScratch) -> Option<Energy> {
     let m1_col = ctx.tables.m1.raw_col(span.j);
     flat_bifurcation_min(&scratch.fmi, m1_col, (span.i + 1)..span.j)
@@ -370,9 +343,8 @@ fn m_split_total(ctx: &FillCtx<'_>, span: Span, k: usize) -> Option<Energy> {
 /// `min over k in [i+1, j-2]: M[i+1, k] + M1[k+1, j-1]`.
 ///
 /// `M[i+1, k]` from `scratch.dmli` (previous outer-`i` row); `M1[k+1, j-1]`
-/// column-wise from `M1`'s `j-1` slice. Mirrors Vienna's V multi-loop
-/// closing inner at `dangles=0` (`mfe/mfe_multibranch.c::ml_pair_d0`
-/// lines 316–369).
+/// column-wise from `M1`'s `j-1` slice: the interior split of V's
+/// multi-loop closing at `dangles=0`.
 fn best_multi_split(ctx: &FillCtx<'_>, span: Span, scratch: &BifurcationScratch) -> Option<Energy> {
     if span.j < span.i + MIN_V_MULTI_SPAN {
         return None;

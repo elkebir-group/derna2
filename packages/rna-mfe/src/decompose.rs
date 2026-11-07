@@ -8,8 +8,7 @@
 //! [`decompose`] with the per-loop scoring functions.
 //!
 //! Each base pair `(i, j)` with `i < j` closes exactly one loop, and
-//! the loop's kind is determined by the immediately enclosed children
-//! (Vienna-style decomposition):
+//! the loop's kind is determined by the immediately enclosed children:
 //!
 //! - 0 children → hairpin
 //! - 1 child `(k, l)` with `k - i - 1 == 0 && j - l - 1 == 0` → stack
@@ -132,7 +131,7 @@ fn collect_exterior_branches(seq: &[Nucleotide], pairs: &[Option<usize>]) -> Vec
     branches
 }
 
-/// Immediately enclosed pairs `(k, l)` with `i < k < l < j` (Vienna's
+/// Immediately enclosed pairs `(k, l)` with `i < k < l < j` (the
 /// "children of pair (i, j)").
 fn enclosed_children(pairs: &[Option<usize>], i: usize, j: usize) -> Vec<(usize, usize)> {
     let mut children = Vec::new();
