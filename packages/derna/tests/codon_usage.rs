@@ -1,11 +1,12 @@
 //! The codon usage table a run scored CAI against, and the header that
 //! records it.
 //!
-//! `human` is the only built-in; any other organism is a path. A result file
-//! embeds the whole table rather than its name, so a later command — `check`
-//! scoring a replacement design, or a reader comparing two files — scores CAI
-//! against exactly the table the run used, not against whatever `human` means
-//! in the binary that reads it.
+//! A few organisms are bundled under names and anything else is a path; the
+//! bundled tables themselves are checked against their sources in
+//! `codon_usage_tables.rs`. A result file embeds the whole table rather than
+//! its name, so a later command — `check` scoring a replacement design, or a
+//! reader comparing two files — scores CAI against exactly the table the run
+//! used, not against whatever that name means in the binary that reads it.
 
 use derna_cli::design;
 use derna_cli::molecule::Molecule;

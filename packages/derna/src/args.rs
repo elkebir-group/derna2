@@ -164,7 +164,9 @@ pub const SHARED_HELP: &str = "\
 Input
   --protein PATH|SEQ|-      protein: a one-record FASTA file, a literal
                             amino-acid sequence, or `-` for stdin
-  --codon-usage human|PATH  codon usage for CAI [default: human]
+  --codon-usage NAME|PATH   codon usage for CAI: a bundled table
+                            (human, mouse, cho, ecoli, yeast) or a
+                            path [default: human]
   --params PATH             load energy parameters from a file [default:
                             the built-in Turner 2004 table]
 

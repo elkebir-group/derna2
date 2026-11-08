@@ -17,8 +17,33 @@ use crate::Result;
 const AMINO_ACIDS: &[u8] = b"ACDEFGHIKLMNPQRSTVWY";
 /// IUPAC nucleotide codes that stand for more than one base.
 const DEGENERATE: &[u8] = b"RYSWKMBDHVN";
-/// The canonical human codon usage table (Kazusa), the `human` built-in.
-const HUMAN_CODON_USAGE: &str = include_str!("../../derna-codon-dp/data/codon_usage_human.csv");
+/// The codon usage tables bundled into the binary, by the name `--codon-usage`
+/// takes for each. All are from the Kazusa Codon Usage Database;
+/// `PROVENANCE.md` beside the files records each one's source entry, corpus
+/// size and snapshot. The order is the order the help text and a refusal list
+/// them in, so `human` stays first.
+const BUNDLED_CODON_USAGE: &[(&str, &str)] = &[
+    (
+        "human",
+        include_str!("../../derna-codon-dp/data/codon_usage_human.csv"),
+    ),
+    (
+        "mouse",
+        include_str!("../../derna-codon-dp/data/codon_usage_mouse.csv"),
+    ),
+    (
+        "cho",
+        include_str!("../../derna-codon-dp/data/codon_usage_cho.csv"),
+    ),
+    (
+        "ecoli",
+        include_str!("../../derna-codon-dp/data/codon_usage_ecoli.csv"),
+    ),
+    (
+        "yeast",
+        include_str!("../../derna-codon-dp/data/codon_usage_yeast.csv"),
+    ),
+];
 
 /// A sequence read from a flag, with where it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -256,18 +281,31 @@ pub struct CodonTable {
     pub rows: Vec<(String, String, f64)>,
 }
 
-/// Read `--codon-usage`: `human` or a path in the `amino_acid,codon,fraction`
-/// format.
+/// The bundled table names, as a refusal and the help text list them.
+pub fn bundled_codon_usage_names() -> String {
+    let names: Vec<&str> = BUNDLED_CODON_USAGE.iter().map(|(name, _)| *name).collect();
+    names.join(", ")
+}
+
+/// Read `--codon-usage`: a bundled table's name, or a path in the
+/// `amino_acid,codon,fraction` format.
+///
+/// A value that is not a bundled name is read as a path, and a value that is
+/// neither is refused in one message naming both — a misspelled name and a
+/// mistyped path are indistinguishable here, so the refusal gives the reader
+/// what each reading would have needed rather than guessing which was meant.
 pub fn read_codon_usage(value: Option<&str>) -> Result<CodonTable> {
-    let (source, text) = match value {
-        None | Some("human") => ("human".to_string(), HUMAN_CODON_USAGE.to_string()),
-        Some(path) => (
-            path.to_string(),
-            std::fs::read_to_string(path)
-                .map_err(|e| format!("--codon-usage: cannot read {path}: {e}"))?,
-        ),
-    };
-    codon_table_from_csv(source, &text)
+    let name = value.unwrap_or("human");
+    if let Some((_, csv)) = BUNDLED_CODON_USAGE.iter().find(|(n, _)| *n == name) {
+        return codon_table_from_csv(name.to_string(), csv);
+    }
+    let text = std::fs::read_to_string(name).map_err(|e| {
+        format!(
+            "--codon-usage: {name:?} is not a bundled table ({}) and cannot be read as a file: {e}",
+            bundled_codon_usage_names()
+        )
+    })?;
+    codon_table_from_csv(name.to_string(), &text)
 }
 
 /// Parse a codon usage table from its CSV text.

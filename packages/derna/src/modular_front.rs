@@ -8,6 +8,10 @@
 //! anything found, but a region the budget left open could still hold a
 //! design dominating it), and the header lists those regions.
 //!
+//! A run ended from outside leaves the same partial answer rather than
+//! nothing: a signal stops the search where a spent budget would have, and
+//! the result it writes reads `stopped_by: signal` ([`watch_signals`]).
+//!
 //! With `--epsilon` the front is that of the designs whose gap is at most
 //! epsilon, searched on its own terms (`derna_lib::modular_front`). Every point and
 //! the header carry the epsilon, and the header's `outcome` says which answer
@@ -18,7 +22,7 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -26,10 +30,9 @@ use derna_codon_dp::codon_table::{AMINO_ACIDS, STOP};
 use derna_lib::ac::MotifWindow;
 use derna_lib::free_fold::sequence_gap_given_constrained;
 use derna_lib::modular_front::{
-    modular_front_resuming, modular_motif_front_resuming, ModularFront, ModularPoint,
-    ModularProgress, OpenBox,
+    modular_front_resuming, modular_motif_front_resuming, ModularFront, ModularPoint, OpenBox,
 };
-pub use derna_lib::modular_front::{ModularEvent, Record};
+pub use derna_lib::modular_front::{ModularEvent, ModularProgress, Record};
 pub use derna_lib::modular_front::{SearchPolicy, TopSearch};
 use derna_lib::pins::Pins;
 use derna_lib::{sequence_constrained_fold_must, FrontPoint, Params};
@@ -79,6 +82,7 @@ pub fn compute(
     (prior, record): (Option<&ModularProgress>, Option<Record<'_>>),
     (top, epsilon, policy): (TopSearch, f64, SearchPolicy),
 ) -> Result<ModularFront> {
+    watch_signals();
     if let Some(gb) = budget.max_rss_gb {
         watch_memory(gb, budget.shed_on_memory);
     }
@@ -203,6 +207,7 @@ impl ProgressLog {
                 modular,
                 gap_kcal_mol: None,
                 blocking: &[],
+                free_structure: None,
             });
         }
         for (mfe_kcal_mol, cai_log, sequence) in &p.found {
@@ -226,11 +231,13 @@ impl ProgressLog {
                 modular,
                 gap_kcal_mol,
                 blocking,
+                free_structure,
             } => json!({
                 "checked": sequence,
                 "modular": modular,
                 "gap_kcal_mol": gap_kcal_mol,
                 "blocking": blocking.iter().map(|&(i, j)| [i, j]).collect::<Vec<_>>(),
+                "free_structure": free_structure,
             }),
             ModularEvent::Found {
                 mfe_kcal_mol,
@@ -378,14 +385,94 @@ fn rss_bytes() -> Option<u64> {
     Some(pages * 4096)
 }
 
+/// Stop the search when the run is asked to stop, so that a run ended from
+/// outside writes the front it has rather than nothing at all.
+///
+/// A search is checked between its rounds and its walks between derivations,
+/// so a stopped search returns in the time one derivation takes and the
+/// result is then written as a budget's would be: the header's `complete` is
+/// `false` and its `stopped_by` reads `signal`.
+///
+/// The stop reaches the walks only, so a run signalled during certification
+/// certifies the points it has left — `certify_s` measures that — before the
+/// front comes out. A second signal is not caught: it ends the run at once,
+/// as the first would have with no handler installed, which is what to send
+/// when the front being written is not wanted.
+fn watch_signals() {
+    for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+        // SAFETY: `stop_on_signal` is an `extern "C"` function that stores
+        // two atomics and calls `signal` and `raise`, all of which a handler
+        // may do.
+        let handler = stop_on_signal as *const () as libc::sighandler_t;
+        unsafe { libc::signal(signal, handler) };
+    }
+}
+
+/// The signal that asked the run to stop, or zero. [`SIGNALS`] names it.
+static SIGNAL_STOPPED: AtomicI32 = AtomicI32::new(0);
+
+/// What [`watch_signals`] installs: the first signal stops the walks, and a
+/// second one ends the run as it would have without a handler.
+extern "C" fn stop_on_signal(signal: libc::c_int) {
+    if SIGNAL_STOPPED.swap(signal, Ordering::Relaxed) != 0 {
+        // SAFETY: both are async-signal-safe, and the default disposition of
+        // each signal [`watch_signals`] takes ends the process.
+        unsafe {
+            libc::signal(signal, libc::SIG_DFL);
+            libc::raise(signal);
+        }
+        return;
+    }
+    derna_lib::outside::lazy::stop_walks();
+}
+
+/// The names of the signals [`watch_signals`] takes, for the run's messages.
+const SIGNALS: [(libc::c_int, &str); 3] = [
+    (libc::SIGINT, "SIGINT"),
+    (libc::SIGTERM, "SIGTERM"),
+    (libc::SIGHUP, "SIGHUP"),
+];
+
+/// The name of the signal that asked the run to stop, or `None` where none
+/// did.
+fn stop_signal() -> Option<&'static str> {
+    let signal = SIGNAL_STOPPED.load(Ordering::Relaxed);
+    SIGNALS
+        .iter()
+        .find(|&&(s, _)| s == signal)
+        .map(|&(_, name)| name)
+}
+
 /// Why the run stopped short, or `None` for a complete front: `empty-rounds`
-/// when it found nothing in the rounds `--empty-stop-rounds` gave it.
+/// when it found nothing in the rounds `--empty-stop-rounds` gave it, and
+/// `signal` when the run was asked to stop from outside ([`watch_signals`]).
 pub fn stopped_by(front: &ModularFront) -> Option<&'static str> {
-    match (front.complete, MEMORY_STOPPED.load(Ordering::Relaxed)) {
-        (true, _) => None,
-        _ if front.gave_up.is_some() => Some("empty-rounds"),
-        (false, true) => Some("memory"),
-        (false, false) => Some("time"),
+    if front.complete {
+        return None;
+    }
+    if front.gave_up.is_some() {
+        return Some("empty-rounds");
+    }
+    if MEMORY_STOPPED.load(Ordering::Relaxed) {
+        return Some("memory");
+    }
+    if stop_signal().is_some() {
+        return Some("signal");
+    }
+    Some("time")
+}
+
+/// What the run's summary says about where the search ended, and how many
+/// regions it left open.
+pub fn stop_line(front: &ModularFront) -> String {
+    let open = front.open.len();
+    match stopped_by(front) {
+        None => "complete".to_string(),
+        Some("signal") => format!(
+            "stopped by {} with {open} region(s) open, writing what it has",
+            stop_signal().unwrap_or("a signal")
+        ),
+        Some(why) => format!("stopped by the {why} budget with {open} region(s) open"),
     }
 }
 
@@ -614,6 +701,8 @@ pub fn header_fields(
         }))),
     );
     extra.insert("hold_barren".into(), json!(policy.hold_barren));
+    extra.insert("lanes".into(), front.schedule.0.into());
+    extra.insert("first_round_s".into(), front.schedule.1.into());
     extra.insert("max_secs".into(), json!(budget.max_secs));
     extra.insert("max_rss_gb".into(), json!(budget.max_rss_gb));
     extra.insert("shed_on_memory".into(), json!(budget.shed_on_memory));

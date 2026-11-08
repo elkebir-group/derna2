@@ -315,12 +315,21 @@ fn resumed(
                 modular,
                 gap_kcal_mol,
                 blocking,
-            } => Settled::Checked(
-                sequence.to_string(),
-                modular,
-                gap_kcal_mol,
-                blocking.to_vec(),
-            ),
+                free_structure,
+            } => {
+                // The fold the gap was read from comes with it, over the
+                // whole molecule, and is absent exactly where the gap is.
+                assert_eq!(free_structure.is_some(), gap_kcal_mol.is_some());
+                if let Some(s) = free_structure {
+                    assert_eq!(s.len(), sequence.len(), "{s}");
+                }
+                Settled::Checked(
+                    sequence.to_string(),
+                    modular,
+                    gap_kcal_mol,
+                    blocking.to_vec(),
+                )
+            }
             ModularEvent::Found {
                 mfe_kcal_mol,
                 cai_log,

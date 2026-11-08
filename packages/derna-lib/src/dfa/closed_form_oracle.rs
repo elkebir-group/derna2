@@ -13,11 +13,13 @@
 //! sum forward over the same graph's edges, so any over-credit shows up as a
 //! disagreement on a span that crosses the unit. Four things keep it modular:
 //!
-//! 1. **Coverage by constructor.** Every public builder is exercised — the plain
-//!    lattice, single-path, fixed-mRNA, given / designed / IUPAC-masked flanks,
-//!    an active profile, codon restrictions, and pins lowered the way the
-//!    composite entry lowers them — over seeded random short proteins, on every
-//!    node pair of every lane.
+//! 1. **Coverage by constructor.** Every `pub fn build*` of [`super`] is
+//!    exercised, over seeded random short proteins, on every node pair of every
+//!    lane — including the stop-labelled lattice, whose three-lane positions no
+//!    other constructor reaches. The set is named by that container rather than
+//!    listed, because a list freezes at drafting time and what goes missing from
+//!    it is whatever was added since: the stop-labelled builder was the one this
+//!    enumeration had already lost.
 //! 2. **Non-vacuity.** The restricted cases carry offsets strictly below zero,
 //!    beside controls at exactly zero, so the shift under test is not a no-op.
 //! 3. **A mutant.** With the shift and the middle term both switched off the
@@ -390,11 +392,80 @@ fn cases(usage: &CodonUsage) -> Vec<Case> {
             profile,
             true,
         );
+        // The one lattice shape whose positions carry three lanes, so the
+        // per-node halves and the whole-unit prefix are read at a lane no other
+        // constructor reaches, and whose 3′ flank is spliced once per lane.
+        // Masked flanks under an active profile, so the shift is non-zero here
+        // too and the mutant below has something to catch.
+        let mut with_stop = p.clone();
+        with_stop.push(STOP);
+        push(
+            tag("build_stop_labelled"),
+            build_stop_labelled(
+                &with_stop,
+                usage,
+                UtrChain::Mixed(&m5),
+                UtrChain::Mixed(&m3),
+                profile,
+            )
+            .expect("a protein ending in the stop family"),
+            profile,
+            true,
+        );
         if let Some(dfa) = pinned(&mut rng, &p, usage, flank as u32) {
             push(tag("pins"), dfa, favouring(2), true);
         }
     }
     out
+}
+
+/// The precondition a stop-labelled lattice rests on, stated as a check.
+///
+/// Reading such a lattice at one stop ([`Dfa::for_stop`]) holds the stop slot to
+/// a single codon, but the slot's edges are never shifted for that: the
+/// whole-unit prefix behind [`Dfa::broken_codon_cai`] credits the stop family's
+/// best, and a span crossing the slot and ending on one stop's lane reads that
+/// credit. It is exact only because every stop codon weighs the same —
+/// `CodonUsage` fills the stop family's row with one weight for all three, so
+/// each one's log weight against the family's best is `ln 1 = 0`, and the slot
+/// has nothing to normalize. A usage table that distinguished the three stops
+/// would make the prefix over-credit every such span by the gap between that
+/// lane's stop and the family's best, and the recurrences minimize over that
+/// value, so the **exact** optimum would come back wrong rather than a bound
+/// looser.
+///
+/// Checked on both sides: the weights themselves, and the closed form against
+/// the path oracle at each of the three terminals — the spans whose value the
+/// gap would move.
+#[test]
+fn every_stop_codon_weighs_the_same_so_the_stop_slot_needs_no_shift() {
+    let usage = usage();
+    let weights: Vec<f64> = (0..AMINO_ACIDS[STOP].codons.len())
+        .map(|ci| usage.fraction(STOP, ci))
+        .collect();
+    assert!(
+        weights.windows(2).all(|w| w[0] == w[1]),
+        "the stop family's codons carry different weights, so the stop slot \
+         needs a shift the builders do not apply: {weights:?}"
+    );
+    let p = crate::residues("MLWK*").expect("a protein ending in a stop");
+    let three = [Nucleotide::A, Nucleotide::C];
+    let dfa = build_stop_labelled(
+        &p,
+        &usage,
+        UtrChain::Fixed(&[]),
+        UtrChain::Fixed(&three),
+        UtrProfile::inert(),
+    )
+    .expect("a designed stop");
+    for lane in 0..STOP_LANES as u8 {
+        let end = Node::new(dfa.seq_len, lane);
+        assert_eq!(
+            dfa.broken_codon_cai(dfa.start(), end).map(f64::to_bits),
+            best_path_cai(&dfa, dfa.start(), end).map(f64::to_bits),
+            "the closed form and the best path disagree at stop lane {lane}",
+        );
+    }
 }
 
 /// The closed form equals the best path on every span of every constructor's

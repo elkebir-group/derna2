@@ -255,6 +255,9 @@ Sequence constraints
                             designs that spell none
   --motif-window LO..HI     forbid only over this coding sub-window
                             [default: the whole coding sequence]
+  --max-homopolymer K       cap the longest run of one nucleotide at K, by
+                            forbidding the four (K+1)-runs; not combinable
+                            with --motif-window
   --narrow-from FRONT.jsonl walk from a motif front of the same molecule
                             under a subset of these motifs: keep its points
                             that spell none, walk only where it lost one
@@ -418,6 +421,14 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
         return Err(
             "derna front: --anchors-from seeds a modular search, so it needs \
                     --modular"
+                .into(),
+        );
+    }
+    if args.anchors_from.is_some() && !args.sequence.motifs.is_empty() {
+        return Err(
+            "derna front: --anchors-from seeds the search over every design, and the search \
+                    over motif-free designs reads no anchors, so it cannot be given with \
+                    --motif"
                 .into(),
         );
     }
@@ -1584,19 +1595,26 @@ fn run_motifs(args: &FrontArgs, m: &Molecule, threads: usize, started: Instant) 
                 .and_then(|lines| result::replace_lines(out, &lines))
         })
     });
-    // With --modular the budget is the search's, and the walk
+    // With --modular the TIME budget is the search's, and the walk
     // runs whole unless --walk-secs stops it: the search reads the front and
     // its open boxes as its floor.
-    let budget = if args.modular {
-        WalkBudget {
-            max_secs: args.walk_secs,
-            max_rss_gb: None,
-        }
-    } else {
-        WalkBudget {
-            max_secs: args.budget.max_secs,
-            max_rss_gb: args.budget.max_rss_gb,
-        }
+    //
+    // The memory ceiling is not shared that way, because it is not only a stop.
+    // A walk given no `max_rss_gb` also abandons the slice-room and
+    // resident-share discipline it keeps when it has one, so it allocates as if
+    // nothing bounded it and the cgroup is left to end the leg. Measured on
+    // 1273 residues under nine motifs at four threads: no ceiling gives
+    // 0 points and a 35.9 GB peak in 532 s, killed at a 36 GB cap, while the
+    // same molecule's constrained arm with the ceiling set peaks at 16.9 GB
+    // over 3.3 h. A stopped walk is a result and an OOM is not, so the walk
+    // keeps the ceiling and reports a partial front the search can floor on.
+    let budget = WalkBudget {
+        max_secs: if args.modular {
+            args.walk_secs
+        } else {
+            args.budget.max_secs
+        },
+        max_rss_gb: args.budget.max_rss_gb,
     };
     let walk_run = MotifRun {
         budget,
@@ -1713,27 +1731,36 @@ fn write_motif_modular(
     let pins = (!sequence.pins.is_empty()).then_some(&positional.pins);
     let placed = sequence.placed(m)?;
     let motifs = (placed.as_slice(), pins);
+    // The motif search takes no epsilon, so its progress is recorded and read
+    // back within zero: see the assertion `modular_front::compute` makes on the
+    // motif branch.
+    let epsilon = 0.0;
+    let prior = prior_search(args, m, epsilon)?;
+    let log = search_log(args, m, epsilon, prior.as_ref())?;
+    let record = |e: modular_front::ModularEvent<'_>| {
+        if let Some(log) = &log {
+            log.record(e);
+        }
+    };
     let front = modular_front::compute(
         m,
         (front_points, &boxes),
         Some(motifs),
         args.budget,
         threads,
-        (None, None),
-        (args.top_search, 0.0, args.policy),
+        (
+            prior.as_ref(),
+            log.is_some()
+                .then_some(&record as modular_front::Record<'_>),
+        ),
+        (args.top_search, epsilon, args.policy),
     )?;
     let certified = front.points.iter().filter(|p| p.certified).count();
     eprintln!(
-        "{} modular point(s), {certified} certified, from {} seed(s); {}",
+        "{} modular point(s), {certified} of them certified, from {} modular seed(s); {}",
         front.points.len(),
         front.seeds,
-        match modular_front::stopped_by(&front) {
-            None => "complete".to_string(),
-            Some(why) => format!(
-                "stopped by the {why} budget with {} region(s) open",
-                front.open.len()
-            ),
-        },
+        modular_front::stop_line(&front),
     );
     let Value::Object(mut header) = header else {
         return Err("a header is an object".into());
@@ -1746,6 +1773,10 @@ fn write_motif_modular(
         args.budget,
         args.policy,
     ));
+    header.insert(
+        "resumed_search".into(),
+        resumed_search_field(args, prior.as_ref()),
+    );
     header.insert("wall_s".into(), started.elapsed().as_secs_f64().into());
     header.insert("peak_rss_kb".into(), json!(result::peak_rss_kb()));
     let header = Value::Object(header);
@@ -1891,6 +1922,14 @@ impl MotifLines<'_> {
         // `mfe_from`, so it leaves `mfe_hi - max(mfe_from, mfe_lo)` unsettled,
         // not `mfe_hi - mfe_lo`; `mfe_from` sits one hundredth below
         // `mfe_lo` where the box's probe ran and no slice was solved.
+        let boxes: Vec<OpenBox> = walked
+            .open
+            .iter()
+            .map(|(a, b)| ((a.mfe.to_kcal_mol(), a.cai), (b.mfe.to_kcal_mol(), b.cai)))
+            .collect();
+        if let Some(why) = unwritable_open_boxes(&boxes) {
+            return Err(format!("derna front: refusing to write the front: {why}").into());
+        }
         let open: Vec<Value> = walked
             .open
             .iter()
@@ -2140,6 +2179,33 @@ fn resume_points(
 /// more stable first.
 type OpenBox = ((f64, f64), (f64, f64));
 
+/// Whether an open box's ends are its more stable then its more adapted point;
+/// a lone vertex is the gap from itself to itself.
+fn box_ends_ordered(lo: (f64, f64), hi: (f64, f64)) -> bool {
+    lo == hi || (lo.0 < hi.0 && lo.1 < hi.1)
+}
+
+/// What stops a result's open boxes being written: a box a resume would
+/// refuse, or one listed twice. A file with either cannot be continued, and
+/// the walk that holds them cannot say why, so none is written.
+fn unwritable_open_boxes(open: &[OpenBox]) -> Option<String> {
+    if let Some(&((lm, lc), (hm, hc))) = open.iter().find(|&&(lo, hi)| !box_ends_ordered(lo, hi)) {
+        return Some(format!(
+            "an open gap's ends are not its more stable then its more adapted point: \
+             ({lm}, {lc}) then ({hm}, {hc})"
+        ));
+    }
+    for (i, b) in open.iter().enumerate() {
+        if open[..i].contains(b) {
+            return Some(format!(
+                "an open gap from ({}, {}) to ({}, {}) is listed twice",
+                b.0 .0, b.0 .1, b.1 .0, b.1 .1
+            ));
+        }
+    }
+    None
+}
+
 /// The boxes a result's header leaves open, as their two ends' objectives.
 fn resume_boxes(h: &Value, refuse: &impl Fn(String) -> String) -> Result<Vec<OpenBox>> {
     let number = |p: &Value, key: &str| {
@@ -2155,8 +2221,7 @@ fn resume_boxes(h: &Value, refuse: &impl Fn(String) -> String) -> Result<Vec<Ope
         );
         // The more stable end first, and the more adapted one second; a lone
         // vertex is the gap from itself to itself.
-        let ordered = lo.0 < hi.0 && lo.1 < hi.1;
-        if !(lo == hi || ordered) {
+        if !box_ends_ordered(lo, hi) {
             return Err(refuse(
                 "an open gap's ends are not its more stable then its more adapted point".into(),
             )
@@ -2383,6 +2448,83 @@ fn same_file(a: &std::path::Path, b: &std::path::Path) -> bool {
     }
 }
 
+/// The progress `--resume-search` carries into a modular search, read from
+/// the file a stopped run left.
+///
+/// A search within another `epsilon` is refused rather than merged: a verdict
+/// or a find admitted to another set would cap this search unsoundly. So is
+/// another molecule's search.
+fn prior_search(
+    args: &FrontArgs,
+    m: &Molecule,
+    epsilon: f64,
+) -> Result<Option<modular_front::ModularProgress>> {
+    let Some(path) = &args.resume_search else {
+        return Ok(None);
+    };
+    let p = modular_front::read_progress(path)?;
+    refuse_another_runs_search(m, path)?;
+    if p.epsilon != epsilon {
+        return Err(format!(
+            "derna front: {} was searched within {} kcal/mol and this run is within \
+             {epsilon}; resume it with --epsilon {}",
+            path.display(),
+            p.epsilon,
+            p.epsilon
+        )
+        .into());
+    }
+    eprintln!(
+        "resuming the search: {} point(s) checked, {} design(s) found{}",
+        p.checked.len(),
+        p.found.len(),
+        match p.band_down_to {
+            Some(d) => format!(", the band checked down to {d:.4}"),
+            None => String::new(),
+        }
+    );
+    Ok(Some(p))
+}
+
+/// Where `--checkpoint` records a modular search, beside `--out`.
+///
+/// A resumed run's log holds what it resumed too, so one file is always enough
+/// to resume from; appending to the file it read already does.
+fn search_log(
+    args: &FrontArgs,
+    m: &Molecule,
+    epsilon: f64,
+    prior: Option<&modular_front::ModularProgress>,
+) -> Result<Option<modular_front::ProgressLog>> {
+    let Some(out) = result::destination(args.shared.out.as_deref()).filter(|_| args.checkpoint)
+    else {
+        return Ok(None);
+    };
+    let path = modular_front::progress_path(out);
+    let log = modular_front::ProgressLog::open(&path, epsilon)?;
+    log.identify(Value::Object(result::molecule_fields(m)));
+    if let (Some(p), Some(from)) = (prior, &args.resume_search) {
+        if !same_file(from, &path) {
+            log.carry(p);
+        }
+    }
+    Ok(Some(log))
+}
+
+/// What a run resumed, for the result header: the file it read and how much of
+/// the search it carried in.
+fn resumed_search_field(args: &FrontArgs, prior: Option<&modular_front::ModularProgress>) -> Value {
+    match (&args.resume_search, prior) {
+        (Some(path), Some(p)) => json!({
+            "from": path.display().to_string(),
+            "checked": p.checked.len(),
+            "found": p.found.len(),
+            "band_down_to": p.band_down_to,
+        }),
+        _ => Value::Null,
+    }
+}
+
 fn write_modular(
     m: &Molecule,
     walked: &WalkedFront,
@@ -2400,35 +2542,7 @@ fn write_modular(
         }
     );
     let epsilon = args.epsilon.unwrap_or(0.0);
-    let prior = match &args.resume_search {
-        Some(path) => {
-            let p = modular_front::read_progress(path)?;
-            refuse_another_runs_search(m, path)?;
-            // A verdict or a find made within another epsilon is a member of
-            // another set, and would cap this search unsoundly.
-            if p.epsilon != epsilon {
-                return Err(format!(
-                    "derna front: {} was searched within {} kcal/mol and this run is within \
-                     {epsilon}; resume it with --epsilon {}",
-                    path.display(),
-                    p.epsilon,
-                    p.epsilon
-                )
-                .into());
-            }
-            eprintln!(
-                "resuming the search: {} point(s) checked, {} design(s) found{}",
-                p.checked.len(),
-                p.found.len(),
-                match p.band_down_to {
-                    Some(d) => format!(", the band checked down to {d:.4}"),
-                    None => String::new(),
-                }
-            );
-            Some(p)
-        }
-        None => None,
-    };
+    let prior = prior_search(args, m, epsilon)?;
     let anchors = match &args.anchors_from {
         Some(path) => Some(read_anchors(m, path, threads, epsilon)?),
         None => None,
@@ -2447,23 +2561,7 @@ fn write_modular(
         }
         (prior, None) => prior,
     };
-    let log = match result::destination(args.shared.out.as_deref()) {
-        Some(out) if args.checkpoint => {
-            let path = modular_front::progress_path(out);
-            let log = modular_front::ProgressLog::open(&path, epsilon)?;
-            log.identify(Value::Object(result::molecule_fields(m)));
-            // A resumed run's log holds what it resumed too, so one file is
-            // always enough to resume from; appending to the file it read
-            // already does.
-            if let (Some(p), Some(from)) = (&prior, &args.resume_search) {
-                if !same_file(from, &path) {
-                    log.carry(p);
-                }
-            }
-            Some(log)
-        }
-        _ => None,
-    };
+    let log = search_log(args, m, epsilon, prior.as_ref())?;
     let record = |e: modular_front::ModularEvent<'_>| {
         if let Some(log) = &log {
             log.record(e);
@@ -2493,19 +2591,18 @@ fn write_modular(
         ),
         (args.top_search, epsilon, args.policy),
     )?;
+    // Three counts, and each says what it counts: the points the run emits,
+    // how many of those are certified against what is still open, and the
+    // constrained-front points that were modular and seeded the search. On a
+    // run that certifies every point and finds nothing all three are equal,
+    // so one word serving two of them reads correctly there and nowhere else.
     let certified = front.points.iter().filter(|p| p.certified).count();
     eprintln!(
-        "{} point(s) on the {}, {certified} certified, from {} seed(s); {} ({:.2}s)",
+        "{} point(s) on the {}, {certified} of them certified, from {} modular seed(s); {} ({:.2}s)",
         front.points.len(),
         modular_front::which_front(epsilon),
         front.seeds,
-        match modular_front::stopped_by(&front) {
-            None => "complete".to_string(),
-            Some(why) => format!(
-                "stopped by the {why} budget with {} region(s) open",
-                front.open.len()
-            ),
-        },
+        modular_front::stop_line(&front),
         started.elapsed().as_secs_f64()
     );
     let mut extra =
@@ -2524,15 +2621,7 @@ fn write_modular(
     );
     extra.insert(
         "resumed_search".into(),
-        match (&args.resume_search, &prior) {
-            (Some(path), Some(p)) => json!({
-                "from": path.display().to_string(),
-                "checked": p.checked.len(),
-                "found": p.found.len(),
-                "band_down_to": p.band_down_to,
-            }),
-            _ => Value::Null,
-        },
+        resumed_search_field(args, prior.as_ref()),
     );
     let header = front_header(m, walked, threads, args, started, extra, None);
     let mut w = result::open_output(args.shared.out.as_deref(), args.overwrite())?;
@@ -2859,6 +2948,28 @@ mod tests {
         assert!(!check(&[&constrained[..], &["--no-check"]].concat()));
         assert!(!check(&[&constrained[..], &["--modular"]].concat()));
         assert!(!check(&["--protein", "MPRGLA"]));
+    }
+
+    /// A front is never written with an open box its own resume would refuse,
+    /// or one listed twice; boxes the reader accepts pass.
+    #[test]
+    fn open_boxes_a_resume_would_refuse_are_not_written() {
+        let ok: OpenBox = ((-10.5, -0.5), (-8.0, -0.25));
+        let lone: OpenBox = ((-8.0, -0.25), (-8.0, -0.25));
+        assert_eq!(unwritable_open_boxes(&[ok, lone]), None);
+        let reversed: OpenBox = (ok.1, ok.0);
+        let why = unwritable_open_boxes(&[ok, reversed]).unwrap();
+        assert!(
+            why.contains("not its more stable then its more adapted"),
+            "{why}"
+        );
+        let why = unwritable_open_boxes(&[ok, lone, ok]).unwrap();
+        assert!(why.contains("listed twice"), "{why}");
+        // What the writer accepts, the reader accepts.
+        let refuse = |s: String| s;
+        let header = json!({"open": [{"mfe_lo": -10.5, "mfe_hi": -8.0,
+            "cai_log_lo": -0.5, "cai_log_hi": -0.25}]});
+        assert!(resume_boxes(&header, &refuse).is_ok());
     }
 
     /// A box's `moves` is read back by its ends; a box without the field, as

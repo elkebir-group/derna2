@@ -509,16 +509,89 @@ enum Key {
 
 /// One rule instance with its fills turned into tails.
 struct Hyper {
-    tails: Vec<u32>,
+    tails: Tails,
     base: f64,
-    /// `(position, nucleotide)` pairs this instance spells itself.
-    spelled: Vec<(u32, u8)>,
+    /// The `(position, nucleotide)` pairs this instance spells itself, as an
+    /// id into the forest's [`SpellPool`].
+    spelled: u32,
     /// The base pair this instance closes, when it closes one.
     pair: Option<(u32, u32)>,
     /// The fingerprint of what this instance spells and closes itself.
     key: Fingerprint,
     /// The adaptation of the edges this instance spells itself.
     cai: f64,
+}
+
+/// The distinct spellings of a walk's hyperedges, each held once.
+///
+/// Most instances spell one of a small set of contents, so an edge holds the
+/// id of its spelling rather than a vector of its own. An id only names a
+/// content; it carries no order.
+#[derive(Default)]
+struct SpellPool {
+    /// Every distinct spelling, back to back.
+    flat: Vec<(u32, u8)>,
+    /// Spelling `i` is `flat[ends[i - 1]..ends[i]]` (`ends[-1]` is 0).
+    ends: Vec<u32>,
+    /// The first id with a given content hash.
+    first: FxHashMap<u64, u32>,
+    /// The next id with the same content hash, `LEAF` when none.
+    chain: Vec<u32>,
+}
+
+impl SpellPool {
+    fn hash(s: &[(u32, u8)]) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = crate::hash::FxHasher::default();
+        s.hash(&mut h);
+        h.finish()
+    }
+
+    fn get(&self, id: u32) -> &[(u32, u8)] {
+        let i = id as usize;
+        let lo = if i == 0 { 0 } else { self.ends[i - 1] as usize };
+        &self.flat[lo..self.ends[i] as usize]
+    }
+
+    /// The id of `s`, adding it when it is new.
+    fn intern(&mut self, s: &[(u32, u8)]) -> u32 {
+        let h = Self::hash(s);
+        let mut tail = None;
+        if let Some(&head) = self.first.get(&h) {
+            let mut id = head;
+            loop {
+                if self.get(id) == s {
+                    return id;
+                }
+                tail = Some(id);
+                id = self.chain[id as usize];
+                if id == LEAF {
+                    break;
+                }
+            }
+        }
+        let id = self.ends.len() as u32;
+        self.flat.extend_from_slice(s);
+        self.ends.push(self.flat.len() as u32);
+        self.chain.push(LEAF);
+        match tail {
+            Some(t) => self.chain[t as usize] = id,
+            None => {
+                self.first.insert(h, id);
+            }
+        }
+        id
+    }
+
+    fn bytes(&self) -> usize {
+        vec_bytes(&self.flat)
+            + vec_bytes(&self.ends)
+            + vec_bytes(&self.chain)
+            + table_bytes(
+                self.first.len(),
+                std::mem::size_of::<u64>() + std::mem::size_of::<u32>(),
+            )
+    }
 }
 
 /// The fingerprint of an instance's own positions and pair.
@@ -532,25 +605,51 @@ fn instance_key(spelled: &[(u32, u8)], pair: Option<(u32, u32)>) -> Fingerprint 
 /// The most tails a hyperedge has: a rule's cell tail and a loop's two fills.
 const MAX_TAILS: usize = 3;
 
-/// A derivation's index into each of its hyperedge's tails, held inline: the
-/// walk keeps one per derivation and one per candidate, so a heap vector each
-/// would cost more than the rest of the entry. Slots past the hyperedge's
-/// tails hold [`UNUSED`], so the entry needs no length.
+/// Up to [`MAX_TAILS`] values held inline, one per tail of a hyperedge. The
+/// walk keeps one per hyperedge ([`Tails`]), one per derivation and one per
+/// candidate ([`Idx`]), so a heap vector each would cost more than the rest of
+/// the entry. Slots past the hyperedge's tails hold [`UNUSED`], so the entry
+/// needs no length.
 #[derive(Clone, Copy)]
-struct Idx {
+struct Slots {
     at: [u32; MAX_TAILS],
 }
 
-/// An [`Idx`] slot past the last tail. No node holds `u32::MAX` derivations.
+/// A hyperedge's tail nodes.
+type Tails = Slots;
+
+/// A derivation's index into each of its hyperedge's tails.
+type Idx = Slots;
+
+/// A [`Slots`] entry past the last tail. No node holds `u32::MAX` derivations,
+/// and no forest holds `u32::MAX` nodes.
 const UNUSED: u32 = u32::MAX;
 
-impl Idx {
+impl Slots {
+    /// No tails.
+    fn empty() -> Self {
+        Slots {
+            at: [UNUSED; MAX_TAILS],
+        }
+    }
+
     /// The first derivation of every one of `len` tails.
     fn zeros(len: usize) -> Self {
         assert!(len <= MAX_TAILS, "a hyperedge with {len} tails");
         let mut at = [UNUSED; MAX_TAILS];
         at[..len].fill(0);
-        Idx { at }
+        Slots { at }
+    }
+
+    /// Append `x` after the last used slot.
+    fn push(&mut self, x: u32) {
+        let len = self.len();
+        assert!(
+            len < MAX_TAILS,
+            "a hyperedge with more than {MAX_TAILS} tails"
+        );
+        debug_assert_ne!(x, UNUSED, "a tail at the sentinel");
+        self.at[len] = x;
     }
 
     fn len(&self) -> usize {
@@ -561,14 +660,14 @@ impl Idx {
     }
 }
 
-impl std::ops::Deref for Idx {
+impl std::ops::Deref for Slots {
     type Target = [u32];
     fn deref(&self) -> &[u32] {
         &self.at[..self.len()]
     }
 }
 
-impl std::ops::DerefMut for Idx {
+impl std::ops::DerefMut for Slots {
     fn deref_mut(&mut self) -> &mut [u32] {
         let len = self.len();
         &mut self.at[..len]
@@ -686,15 +785,15 @@ impl Shelf {
     }
 
     /// Mirror the hyperedge most recently pushed.
-    fn edge(&mut self, h: &Hyper) {
+    fn edge(&mut self, h: &Hyper, spelled: &[(u32, u8)]) {
         let from = self.spelled.len() as u32;
-        for &x in &h.spelled {
+        for &x in spelled {
             self.spelled.push(x);
         }
         self.edges.push(EdgeSpell {
             pair: h.pair.unwrap_or(NO_PAIR),
             from,
-            len: h.spelled.len() as u32,
+            len: spelled.len() as u32,
         });
     }
 }
@@ -706,6 +805,7 @@ struct Forest<'g, 'a> {
     inside: Vec<f64>,
     incoming: Vec<Vec<u32>>,
     edges: Vec<Hyper>,
+    spell_pool: SpellPool,
     kb: Vec<Kbest>,
     /// Kept derivations and hyperedges for a speller on another thread
     /// ([`Walk::spellers`]).
@@ -797,6 +897,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             inside: Vec::new(),
             incoming: Vec::new(),
             edges: Vec::new(),
+            spell_pool: SpellPool::default(),
             kb: Vec::new(),
             shelf: None,
             order: 0,
@@ -828,12 +929,11 @@ impl<'g, 'a> Forest<'g, 'a> {
     /// return the hyperedge and its head.
     fn lift(&mut self, inst: Inst, inside: &FxHashMap<Cell, f64>) -> (u32, u32) {
         let grammar = self.grammar;
-        let mut tails: Vec<u32> = inst
-            .tails
-            .iter()
-            .flatten()
-            .map(|c| self.node(Key::Cell(*c), inside[c]))
-            .collect();
+        let mut tails = Tails::empty();
+        for c in inst.tails.iter().flatten() {
+            let t = self.node(Key::Cell(*c), inside[c]);
+            tails.push(t);
+        }
         let mut base = inst.weight;
         let mut spelled = Vec::new();
         let mut cai = 0.0;
@@ -859,6 +959,7 @@ impl<'g, 'a> Forest<'g, 'a> {
         };
         let head = self.node(Key::Cell(inst.head), inside[&inst.head]);
         let key = instance_key(&spelled, pair);
+        let spelled = self.spell_pool.intern(&spelled);
         let id = self.push_edge(Hyper {
             tails,
             base,
@@ -873,7 +974,7 @@ impl<'g, 'a> Forest<'g, 'a> {
     /// Append a hyperedge, mirrored on the shelf when there is one; its id.
     fn push_edge(&mut self, h: Hyper) -> u32 {
         if let Some(shelf) = self.shelf.as_mut() {
-            shelf.edge(&h);
+            shelf.edge(&h, self.spell_pool.get(h.spelled));
         }
         self.edges.push(h);
         self.edges.len() as u32 - 1
@@ -888,7 +989,7 @@ impl<'g, 'a> Forest<'g, 'a> {
         );
         let mut shelf = Shelf::new();
         for h in &self.edges {
-            shelf.edge(h);
+            shelf.edge(h, self.spell_pool.get(h.spelled));
         }
         self.shelf = Some(shelf);
     }
@@ -1016,18 +1117,18 @@ impl<'g, 'a> Forest<'g, 'a> {
             if e.to.pos > b.pos {
                 continue;
             }
-            let tails = if e.to == b {
-                Vec::new()
-            } else {
+            let mut tails = Tails::empty();
+            if e.to != b {
                 match self.fill_node(e.to, b) {
-                    Some(t) => vec![t],
+                    Some(t) => tails.push(t),
                     None => continue,
                 }
-            };
+            }
+            let spelled = self.spell_pool.intern(&[(a.pos, e.nuc as u8)]);
             let id = self.push_edge(Hyper {
                 tails,
                 base: -self.grammar.kk * e.cai,
-                spelled: vec![(a.pos, e.nuc as u8)],
+                spelled,
                 pair: None,
                 key: Fingerprint::spelled(a.pos, e.nuc as u8),
                 cai: e.cai,
@@ -1110,6 +1211,15 @@ impl<'g, 'a> Forest<'g, 'a> {
                     Bounded::Later(val) => {
                         self.bound_requeued += 1;
                         self.push(v, c.edge, c.idx, val);
+                        // Requeues alone can run without end under loose
+                        // values, deriving nothing, so they give up on the
+                        // walk's limits as a cut does: `out_of_time` is the
+                        // time cap, [`stop_walks`] and [`shed_walks`]
+                        // together, so one test covers a memory stop too.
+                        if self.out_of_time() {
+                            self.interrupted = true;
+                            return false;
+                        }
                         continue;
                     }
                     Bounded::Close => {
@@ -1262,12 +1372,12 @@ impl<'g, 'a> Forest<'g, 'a> {
                 return Bounded::Close;
             }
         }
-        let (tails, len) = self.tails(c.edge);
+        let tails = self.tails(c.edge);
         let (mut val, mut cai) = {
             let h = &self.edges[c.edge as usize];
             (h.base, h.cai)
         };
-        for (i, &t) in tails[..len].iter().enumerate() {
+        for (i, &t) in tails.iter().enumerate() {
             let k = c.idx[i] as usize;
             if self.get(t, k).is_none() {
                 return Bounded::Dead;
@@ -1329,8 +1439,8 @@ impl<'g, 'a> Forest<'g, 'a> {
         if edge == LEAF {
             return;
         }
-        let (tails, len) = self.tails(edge);
-        for (i, &t) in tails[..len].iter().enumerate() {
+        let tails = self.tails(edge);
+        for (i, &t) in tails.iter().enumerate() {
             self.audit_energy(t, idx[i] as usize, design);
         }
     }
@@ -1376,13 +1486,10 @@ impl<'g, 'a> Forest<'g, 'a> {
         true
     }
 
-    /// `edge`'s tails, copied out of the hyperedge without allocating, so
-    /// that the walk can recurse into them while it mutates the forest.
-    fn tails(&self, edge: u32) -> ([u32; MAX_TAILS], usize) {
-        let tails = &self.edges[edge as usize].tails;
-        let mut out = [0; MAX_TAILS];
-        out[..tails.len()].copy_from_slice(tails);
-        (out, tails.len())
+    /// `edge`'s tails, copied out of the hyperedge, so that the walk can
+    /// recurse into them while it mutates the forest.
+    fn tails(&self, edge: u32) -> Tails {
+        self.edges[edge as usize].tails
     }
 
     /// What candidate `c`'s whole tree spells and closes, its tail
@@ -1391,9 +1498,9 @@ impl<'g, 'a> Forest<'g, 'a> {
     fn fingerprint(&mut self, c: &Cand) -> Option<Fingerprint> {
         let mut fp = Fingerprint::default();
         if c.edge != LEAF {
-            let (tails, len) = self.tails(c.edge);
+            let tails = self.tails(c.edge);
             fp = self.edges[c.edge as usize].key;
-            for (i, &t) in tails[..len].iter().enumerate() {
+            for (i, &t) in tails.iter().enumerate() {
                 let got = self.get(t, c.idx[i] as usize);
                 debug_assert!(
                     got.is_some() || self.interrupted,
@@ -1449,8 +1556,7 @@ impl<'g, 'a> Forest<'g, 'a> {
     /// the pushed ones is kept, and each is reached through vectors whose
     /// values never decrease, so the order stays exact.
     fn successors(&mut self, v: u32, edge: u32, idx: Idx) {
-        let (tails, len) = self.tails(edge);
-        let tails = &tails[..len];
+        let tails = self.tails(edge);
         let base = self.edges[edge as usize].base;
         let from = idx.iter().rposition(|&x| x > 0).unwrap_or(0);
         for i in from..tails.len() {
@@ -1474,7 +1580,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             return;
         }
         let h = &self.edges[d.edge as usize];
-        for &(pos, nuc) in &h.spelled {
+        for &(pos, nuc) in self.spell_pool.get(h.spelled) {
             debug_assert_eq!(seq[pos as usize], u8::MAX, "a position spelled twice");
             seq[pos as usize] = nuc;
         }
@@ -1656,7 +1762,7 @@ impl Forest<'_, '_> {
         }
         let h = &self.edges[d.edge as usize];
         let mut filled = Filled::NONE;
-        for &(pos, nuc) in &h.spelled {
+        for &(pos, nuc) in self.spell_pool.get(h.spelled) {
             debug_assert_eq!(seq[pos as usize], u8::MAX, "a position spelled twice");
             seq[pos as usize] = nuc;
             filled.add(Filled {
@@ -2361,7 +2467,8 @@ pub struct MemoryBreakdown {
     pub derivations: usize,
     /// Candidate heaps per node.
     pub candidates: usize,
-    /// Hyperedges: tails, spelled nucleotides, and the incoming lists.
+    /// Hyperedges (their tails held inline), the pool of distinct spellings,
+    /// and the incoming lists.
     pub edges: usize,
     /// Node keys and their id map.
     pub nodes: usize,
@@ -2467,11 +2574,7 @@ impl MemoryBreakdown {
             m.shelf = shelf.nodes.bytes() + shelf.edges.bytes() + shelf.spelled.bytes();
         }
         m.edges = vec_bytes(&forest.edges)
-            + forest
-                .edges
-                .iter()
-                .map(|h| vec_bytes(&h.tails) + vec_bytes(&h.spelled))
-                .sum::<usize>()
+            + forest.spell_pool.bytes()
             + vec_bytes(&forest.incoming)
             + forest.incoming.iter().map(vec_bytes).sum::<usize>();
         m.nodes = vec_bytes(&forest.keys)
@@ -3668,6 +3771,117 @@ mod tests {
             );
             assert_eq!(own, walk(Some(tables)), "at {lambda}");
         }
+    }
+
+    /// A forest with one bounded node whose first candidate is queued below
+    /// its own value, so the first [`Forest::pop`] takes the
+    /// [`Bounded::Later`] branch and nothing else.
+    ///
+    /// Both nodes are degenerate fills, which spell no position and have no
+    /// cell, so no energy bound and no span audit reads them; the window is
+    /// `[-∞, -∞]`, which admits nothing, so the pop that follows a requeue
+    /// cuts rather than keeping. `deadline` is the walk's time cap, past or
+    /// ahead.
+    fn requeue_forest<'g, 'a>(
+        grammar: &'g Grammar<'a>,
+        graph: &dfa::Dfa,
+        deadline: Instant,
+    ) -> Forest<'g, 'a> {
+        let window = window::Window {
+            lo: f64::NEG_INFINITY,
+            hi: f64::NEG_INFINITY,
+            floor: std::sync::Arc::new(window::Floor::default()),
+            slopes: std::sync::Arc::new(Vec::new()),
+        };
+        let mut forest = Forest::empty(grammar);
+        forest.bound = Some(window::Bound::new(graph, &window, grammar.lambda));
+        forest.deadline = Some(deadline);
+        let (start, end) = (graph.start(), graph.end());
+        // The tail: one derivation already settled, worth more than the key
+        // its parent's candidate carries.
+        let tail = forest.node(Key::Fill(end, end), 0.0);
+        forest.kb[tail as usize].init = true;
+        forest.kb[tail as usize].d.push(Deriv {
+            val: 1.0,
+            edge: LEAF,
+            idx: Idx::empty(),
+            fp: Fingerprint::default(),
+        });
+        forest.kb[tail as usize].cai.push(0.0);
+        let v = forest.node(Key::Fill(start, start), 0.0);
+        let mut tails = Tails::empty();
+        tails.push(tail);
+        let spelled = forest.spell_pool.intern(&[]);
+        let edge = forest.push_edge(Hyper {
+            tails,
+            base: 0.0,
+            spelled,
+            pair: None,
+            key: Fingerprint::default(),
+            cai: 0.0,
+        });
+        forest.push(v, edge, Idx::zeros(1), 0.0);
+        forest.start = v;
+        forest.root = v;
+        forest
+    }
+
+    /// A bounded walk that requeues a candidate reads the walk's limits: with
+    /// the time cap already past, the requeue ends the node instead of going
+    /// round again. Mirrored on a cap still ahead, where the same node does
+    /// go round again — so the test turns on the cap and not on the branch
+    /// being reached at all.
+    #[test]
+    fn a_bounded_requeue_past_the_time_cap_ends_the_walk() {
+        let params = Params::load_default().expect("params");
+        let usage = CodonUsage::load_default().expect("usage");
+        let protein = "MLRS";
+        let (u5, u3) = (
+            parse_utr("GGGAUCCG").expect("a 5' flank"),
+            parse_utr("CGGAUCCC").expect("a 3' flank"),
+        );
+        let aa: Vec<usize> = protein.chars().map(|c| aa_to_index(c).unwrap()).collect();
+        let graph = dfa::build_restricted_with_utr(&aa, &usage, &full_sets(protein), &u5, &u3)
+            .expect("a lattice");
+        let grammar = Grammar {
+            params: &params,
+            dfa: &graph,
+            lambda: 0.5,
+            kk: 50.0,
+            constraint: PairConstraint::new(&RegionConstraints::default(), &graph),
+            must: MustPairConstraint::inert(),
+            single_max_len: crate::DEFAULT_SINGLE_MAX_LEN,
+        };
+        let hour = std::time::Duration::from_secs(3600);
+
+        let mut past = requeue_forest(&grammar, &graph, Instant::now() - hour);
+        let root = past.root;
+        assert!(!past.pop(root), "the node answered past the cap");
+        assert_eq!(
+            past.bound_requeued, 1,
+            "the requeue branch is what the pop took"
+        );
+        assert!(past.interrupted, "the requeue ran on past the time cap");
+        assert_eq!(
+            past.bound_fills_closed, 0,
+            "the requeue went round again past the cap"
+        );
+
+        let mut ahead = requeue_forest(&grammar, &graph, Instant::now() + hour);
+        let root = ahead.root;
+        assert!(!ahead.pop(root), "the window admits nothing");
+        assert_eq!(
+            ahead.bound_requeued, 1,
+            "the requeue branch is what the pop took"
+        );
+        assert!(
+            !ahead.interrupted,
+            "a cap still ahead ended the walk anyway"
+        );
+        assert_eq!(
+            ahead.bound_fills_closed, 1,
+            "the requeue did not go round again under a cap still ahead"
+        );
     }
 
     #[test]

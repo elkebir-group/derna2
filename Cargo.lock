@@ -88,6 +88,7 @@ version = "0.1.0"
 dependencies = [
  "derna-codon-dp",
  "derna-lib",
+ "libc",
  "serde_json",
  "tikv-jemallocator",
 ]

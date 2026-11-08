@@ -236,7 +236,7 @@ derna front --protein $P --utr5 $U5 --utr3 $U3 --modular --max-secs 60 --out mod
 walking the front of 20 residue(s) over [1.1920928955078125e-7, 1 − 1.1920928955078125e-7], forbidding 5-cds,cds-3, on a grid of 17 weights with 1 thread(s)
 19 point(s), 9 on the hull, 8 gap(s), 11 sweep fold(s) (2.13s), spanning 11.2 kcal/mol
 walking the modular front from 19 constrained point(s) within 60 s
-16 point(s) on the modular front, 16 certified, from 13 seed(s); stopped by the time budget with 1 region(s) open (63.37s)
+16 point(s) on the modular front, 16 of them certified, from 13 modular seed(s); stopped by the time budget with 1 region(s) open (63.37s)
 wrote 16 point(s), by gap 0.00×16 (0.05s)
 ```
 
@@ -369,11 +369,15 @@ the content.
   [doi:10.1016/j.jmb.2024.168549](https://doi.org/10.1016/j.jmb.2024.168549);
   Turner & Mathews (2010), *Nucleic Acids Res.* 38, D280–D282; and
   Mathews et al. (2004), *Proc. Natl. Acad. Sci. USA* 101, 7287–7292.
-- **Codon usage.** The human codon usage table,
-  `packages/derna-codon-dp/data/codon_usage_human.csv`, is from the
+- **Codon usage.** The five bundled codon usage tables under
+  `packages/derna-codon-dp/data/` — human, mouse, CHO, *E. coli* and
+  *S. cerevisiae* — are from the
   [Codon Usage Database](https://www.kazusa.or.jp/codon/) at the Kazusa DNA
   Research Institute (Nakamura, Gojobori & Ikemura (2000), *Nucleic Acids Res.*
   28, 292).
+  [`PROVENANCE.md`](packages/derna-codon-dp/data/PROVENANCE.md) beside them
+  records each table's source entry, the corpus it was tabulated over and its
+  snapshot — which are not the same for all five.
 - **Protein sequences.** The test data hold UniProtKB entries
   [P15421](https://www.uniprot.org/uniprotkb/P15421) (glycophorin-E) and
   [P0DTC2](https://www.uniprot.org/uniprotkb/P0DTC2) (SARS-CoV-2 spike

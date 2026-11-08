@@ -24,6 +24,9 @@ derna-codon-dp = { path = "../derna-codon-dp" }
 # default parser is fast rather than round-tripping, and it read one fixture's
 # `gap` a bit short of what the binary emitted.
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# The signals a modular run catches so that a run ended from outside writes
+# the front it has: see `modular_front::watch_signals`.
+libc = "0.2"
 
 # `--features jemalloc` installs it as the global allocator. Available where
 # jemalloc is: it builds from C, and the memory budget it serves reads

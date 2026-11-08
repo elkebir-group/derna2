@@ -72,6 +72,7 @@ mod top;
 
 use crate::ac::{Ac, MotifWindow, ScopedAc};
 use crate::coords::Layout;
+use crate::dev_env::Setting;
 use crate::free_fold::{
     epsilon_dekacal, sequence_gap_given_structure_reusing, CdsWindow, FreeFoldError, FreeFoldGap,
     FreeFoldTables,
@@ -99,6 +100,43 @@ const FIRST_ROUND_S: f64 = 30.0;
 /// at most `threads / MIN_LANE_THREADS` regions at once, so each still checks
 /// designs on several workers.
 const MIN_LANE_THREADS: usize = 2;
+
+/// Regions a round walks side by side: `threads / MIN_LANE_THREADS` unless
+/// [`Setting::ModularLanes`] names another count, and never more than the
+/// regions open.
+///
+/// One lane holds one window walk's tables, so the count sets what the search
+/// resides in as much as the molecule's length does. A molecule long enough
+/// that one walk's tables already fill most of a memory ceiling cannot hold
+/// two, and the ceiling is reached before either walk has run long enough to
+/// find a design. Setting this to 1 trades each region's share of a round --
+/// the regions then take the round in turn rather than together -- for a
+/// resident set that one walk's tables bound.
+fn lane_count(threads: usize) -> usize {
+    crate::dev_env::var(Setting::ModularLanes)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(threads / MIN_LANE_THREADS)
+        .max(1)
+}
+
+/// The seconds the first round gives a region: `FIRST_ROUND_S` unless
+/// [`Setting::ModularFirstRoundS`] names another span.
+///
+/// Rounds double, so the default schedule has spent `2^k - 1` times the first
+/// round's span by the end of round `k` and has never given one region more
+/// than half of that. A region whose walk needs longer than the whole span to
+/// reach its first design finds nothing in any of those rounds, and a run cut
+/// short before the rounds grow has paid for the doubling without reaching the
+/// span its regions need. Where that span is known from a walk of comparable
+/// length, naming it here puts it in the first round instead.
+fn first_round_s() -> f64 {
+    crate::dev_env::var(Setting::ModularFirstRoundS)
+        .ok()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .filter(|s| s.is_finite() && *s > 0.0)
+        .unwrap_or(FIRST_ROUND_S)
+}
 
 /// The energy bound's slopes on the rounds that use it, as multiples of the
 /// walk's own slope: a spread below and above it, and the pure-energy slope.
@@ -310,6 +348,14 @@ pub struct ModularFront {
     /// The largest gap, in kcal/mol, a point may have: `0` for the
     /// modular front.
     pub epsilon: f64,
+    /// Regions the rounds walked side by side, and the seconds the first
+    /// round gave a region.
+    ///
+    /// Both bound what a budget could have reached: one lane takes the
+    /// regions in turn, and a round's span is the first round's doubled once
+    /// per round, so a front stopped early is read against the span its
+    /// regions were actually given rather than the budget they were allowed.
+    pub schedule: (usize, f64),
     /// Seconds spent building the check's fold cut, once, before the first
     /// window walk; outside every stretch's `wall_s`.
     pub cut_build_s: f64,
@@ -374,6 +420,12 @@ pub enum ModularEvent<'a> {
         /// energy while the recovered free structure is a co-optimal clean
         /// one.
         blocking: &'a [(usize, usize)],
+        /// The free fold `blocking` and `gap_kcal_mol` were read from, in
+        /// dot-bracket over the whole molecule. Recorded so a progress log
+        /// carries the whole per-design check, and a separate `derna check` of
+        /// the same front does not fold every design again to recover it.
+        /// `None` for a carried verdict, as `gap_kcal_mol`.
+        free_structure: Option<&'a str>,
     },
     /// A modular design was found off the constrained front.
     Found {
@@ -724,7 +776,7 @@ fn search(
         }
         open.retain(|r| r.lo < r.hi);
     }
-    let mut share = FIRST_ROUND_S;
+    let mut share = first_round_s();
     // What a window spends before its walk begins, learnt from the windows
     // this run has already walked. A window pays its fold cut and outside
     // passes whole however little time it is given, so a region whose share
@@ -762,10 +814,19 @@ fn search(
         // The round's regions go in waves of up to `lanes`, side by side, the
         // threads split between them; each wave sees what the waves before it
         // found. One lane is one region at a time on every thread.
-        let lanes = (m.threads / MIN_LANE_THREADS).clamp(1, open.len());
+        let lanes = lane_count(m.threads).clamp(1, open.len());
         let mut walked_any = false;
         for (w, wave) in open.chunks(lanes).enumerate() {
             let waves_left = (open.len() - w * lanes).div_ceil(lanes) as f64;
+            // A stop can fire inside a round, and the round's test at the top
+            // is then already behind it. Each region of a wave pays its fold
+            // cut and its outside passes whole before a stop can reach the
+            // walk itself, so a wave starts only while the walks may run; the
+            // rest of the round stays open as it is.
+            if crate::outside::lazy::walks_stopped() {
+                next.extend(wave.iter().cloned());
+                continue;
+            }
             // The cut is built once, on every thread, before the first wave
             // that walks a window; a search the band alone visits never
             // pays for it.
@@ -849,6 +910,7 @@ fn search(
         unchecked,
         certify_s,
         epsilon: m.epsilon,
+        schedule: (lane_count(m.threads), first_round_s()),
         cut_build_s,
         gave_up,
     })
@@ -924,6 +986,17 @@ impl Molecule<'_> {
     ) -> Result<Step, ModularFrontError> {
         if self.goes_to_band(region, found) {
             return self.band(round, region, offset, seconds, record);
+        }
+        // A window stopped before it starts would pay its fold cut and its
+        // outside passes and walk nothing, so the region stays open as it is.
+        // The wave this visit belongs to read the stop before it started;
+        // this is the region that loses the race against a stop firing
+        // between the two.
+        if crate::outside::lazy::walks_stopped() {
+            return Ok(Step {
+                open: vec![region.clone()],
+                ..Step::default()
+            });
         }
         let step = self.window(round, region, found, floor, seconds, offset)?;
         if let Some(record) = record {
@@ -1111,6 +1184,12 @@ impl Molecule<'_> {
 
     /// Walk one window for at most `seconds`, on a thread with room for the
     /// walk's recursion.
+    ///
+    /// The memory the previous window's walk freed is handed back first: the
+    /// system allocator keeps what a finished walk freed rather than returning
+    /// it, and resident memory, which the memory budget reads, still counts
+    /// it. On a 1,273-residue window walk the process held 7.0 GB at a
+    /// window's start and 1.0 GB once it was handed back.
     fn walk(
         &self,
         window: (f64, f64),
@@ -1119,6 +1198,7 @@ impl Molecule<'_> {
         energy_slopes: &[f64],
         seconds: f64,
     ) -> Result<Option<WindowReport>, ModularFrontError> {
+        crate::motif_front::release_freed();
         std::thread::scope(|scope| {
             std::thread::Builder::new()
                 .stack_size(WALK_STACK)
@@ -1370,6 +1450,7 @@ fn certify(
                 modular: passed,
                 gap_kcal_mol: Some(gap.gap_kcal_mol),
                 blocking: &gap.reinstated_pairs,
+                free_structure: Some(&gap.free_structure),
             });
         }
         Ok((passed, Some(gap)))

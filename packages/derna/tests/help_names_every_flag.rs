@@ -9,7 +9,7 @@
 use derna_cli::{design, front, pick, show};
 
 /// Every flag `derna design` accepts.
-const DESIGN_FLAGS: [&str; 19] = [
+const DESIGN_FLAGS: [&str; 20] = [
     "--quiet",
     "--params",
     "--protein",
@@ -27,12 +27,13 @@ const DESIGN_FLAGS: [&str; 19] = [
     "--lambda",
     "--motif",
     "--motif-window",
+    "--max-homopolymer",
     "--pin",
     "--checkpoint",
 ];
 
 /// Every flag `derna front` accepts.
-const FRONT_FLAGS: [&str; 38] = [
+const FRONT_FLAGS: [&str; 39] = [
     "--quiet",
     "--params",
     "--walk-secs",
@@ -64,6 +65,7 @@ const FRONT_FLAGS: [&str; 38] = [
     "--narrow-from",
     "--motif",
     "--motif-window",
+    "--max-homopolymer",
     "--resume",
     "--checkpoint",
     "--resume-search",

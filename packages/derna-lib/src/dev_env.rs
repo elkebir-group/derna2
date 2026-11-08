@@ -28,6 +28,8 @@ pub enum Setting {
     FoldLogSkip,
     GridLanes,
     MaoTimes,
+    ModularFirstRoundS,
+    ModularLanes,
     MotifAwareHeadroom,
     MotifAwareMargin,
     MotifBracketCuts,
