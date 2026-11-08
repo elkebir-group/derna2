@@ -958,12 +958,23 @@ pub fn window_front_sharing(
     let mut scanned = None;
     for p in passes {
         match p? {
-            Some((l, kk, out, keep)) => {
+            Some((l, kk, mut out, keep)) => {
+                // Every pass over the one lattice holds the same keys, and the
+                // keys are most of what a pass stores, so the passes kept
+                // through the walk hold one set of them between them.
+                if let Some((_, _, first)) = slopes.first() {
+                    out.share_keys(first);
+                }
                 scanned = scanned.or(keep);
                 slopes.push((l, kk, out));
             }
             None => return Ok(None),
         }
+    }
+    // The keys the passes no longer hold go back to the system before the
+    // walk, whose memory budget reads resident memory.
+    if slopes.len() > 1 {
+        crate::motif_front::release_freed();
     }
     let energy_s = energy_start.elapsed().as_secs_f64();
     let ctx = check::Context {

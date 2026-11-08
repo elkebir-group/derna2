@@ -2115,3 +2115,123 @@ fn a_walk_with_designed_flanks_is_the_exhaustive_front() {
         &pareto(all)
     ));
 }
+
+/// A pin on a **designed flank** position narrows that position's nucleotides,
+/// exactly as a pin inside the CDS narrows a residue's codons.
+///
+/// The front must be the exhaustive front over the flank spellings the pin
+/// admits — not over every spelling the flank's IUPAC code allows. Stated
+/// against the same enumeration as
+/// [`a_walk_with_designed_flanks_is_the_exhaustive_front`], with the pin
+/// applied to the enumeration too.
+///
+/// Three things keep it from passing on a lattice that ignores the pin: the
+/// pinned truth differs from the unpinned truth (so the pin moves the front),
+/// some unpinned front point spells a nucleotide the pin forbids (so the
+/// narrowing is observable in the emitted sequence), and every emitted sequence
+/// is checked against the pin directly.
+#[test]
+fn a_pin_on_a_designed_flank_narrows_that_position() {
+    let (params, usage) = (
+        Params::load_default().unwrap(),
+        CodonUsage::load_default().unwrap(),
+    );
+    let (protein, utr5, utr3) = ("MKVL", "NNG", "SN");
+    let motifs: &[&str] = &["GCC", "AAU"];
+    let constraints = RegionConstraints::default();
+    let cds = CdsWindow::new(utr5.len(), protein.len());
+    let cell = Cell {
+        protein,
+        utr5,
+        utr3,
+        constraints,
+        motifs,
+    };
+    // The 5′ flank's second position is `N`; the pin holds it to `A`.
+    let (pin, at, letter) = ("5utr:2:A", 1usize, b'A');
+    let spells = |whole: &str| {
+        motifs.iter().any(|m| {
+            expand_iupac_motif(m)
+                .unwrap()
+                .iter()
+                .any(|p| whole.contains(p.as_str()))
+        })
+    };
+    let (mut pinned_free, mut unpinned_free) = (Vec::new(), Vec::new());
+    for five in flank_spellings(utr5) {
+        for three in flank_spellings(utr3) {
+            for c in every_design(&cell) {
+                let whole = format!("{five}{c}{three}");
+                if spells(&whole) {
+                    continue;
+                }
+                let e = sequence_constrained_mfe(&params, &whole, cds, constraints).unwrap();
+                let point = ((e * 100.0).round() as i64, cai_log(&cell, &usage, &c));
+                unpinned_free.push(point);
+                if whole.as_bytes()[at] == letter {
+                    pinned_free.push(point);
+                }
+            }
+        }
+    }
+    let truth = pareto(pinned_free);
+    let unpinned = pareto(unpinned_free);
+    assert!(!truth.is_empty(), "the pin leaves no motif-free design");
+    assert!(
+        !same(&truth, &unpinned),
+        "the pin moves no front point, so the case cannot tell a lattice that \
+         applies it from one that does not"
+    );
+
+    let layout = Layout::new(utr5.len() as u32, protein.len() as u32, utr3.len() as u32);
+    let mut pin_spec = PositionalSpec::default();
+    pin_spec.add_pin(pin).unwrap();
+    let pins = pin_spec.resolve(&layout).unwrap().pins;
+    let placed: Vec<(&str, MotifWindow)> =
+        motifs.iter().map(|m| (*m, MotifWindow::all())).collect();
+    let spec = MotifFrontSpec {
+        utr5,
+        utr3,
+        constraints,
+        motifs: &placed,
+        pins: Some(&pins),
+    };
+    let walked = motif_front_walk(&params, protein, &usage, &spec, 1).unwrap();
+    assert!(walked.stopped_by.is_none());
+    let (folded, _) = motif_front_tallied(&params, protein, &usage, &spec, None).unwrap();
+
+    // An unpinned run really does spell the forbidden nucleotide somewhere, so
+    // the pin's effect is visible in a sequence and not only in a score.
+    let unpinned_spec = MotifFrontSpec {
+        utr5,
+        utr3,
+        constraints,
+        motifs: &placed,
+        pins: None,
+    };
+    let free = motif_front_walk(&params, protein, &usage, &unpinned_spec, 1).unwrap();
+    assert!(
+        free.front
+            .iter()
+            .any(|p| p.sequence.as_bytes()[at] != letter),
+        "every unpinned point already spells the pinned nucleotide"
+    );
+
+    for front in [&walked.front, &folded] {
+        for p in front.iter() {
+            assert_eq!(
+                p.sequence.as_bytes()[at],
+                letter,
+                "{} does not spell the pin at {at}",
+                p.sequence
+            );
+            assert!(!spells(&p.sequence), "{} spells a motif", p.sequence);
+        }
+        assert!(
+            same(&points(front), &truth),
+            "got   {:?}\ntruth {:?}",
+            points(front),
+            truth
+        );
+    }
+}

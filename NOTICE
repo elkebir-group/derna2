@@ -31,13 +31,23 @@ This distribution carries the following third-party data.
       Sciences USA, 101, 7287-7292.
 
   packages/derna-codon-dp/data/codon_usage_human.csv
+  packages/derna-codon-dp/data/codon_usage_mouse.csv
+  packages/derna-codon-dp/data/codon_usage_cho.csv
+  packages/derna-codon-dp/data/codon_usage_ecoli.csv
+  packages/derna-codon-dp/data/codon_usage_yeast.csv
 
-    The human codon usage table, from the Codon Usage Database at the Kazusa
-    DNA Research Institute (https://www.kazusa.or.jp/codon/):
+    The codon usage tables for Homo sapiens, Mus musculus, Cricetulus
+    griseus, Escherichia coli and Saccharomyces cerevisiae, from the Codon
+    Usage Database at the Kazusa DNA Research Institute
+    (https://www.kazusa.or.jp/codon/), maintained by Yasukazu Nakamura.
+    Please cite:
 
       Nakamura, Y., Gojobori, T. & Ikemura, T. (2000). Codon usage
       tabulated from international DNA sequence databases: status for the
       year 2000. Nucleic Acids Research, 28, 292.
+
+    PROVENANCE.md beside those files records which database entry each
+    table came from, the corpus it was tabulated over, and its snapshot.
 
   Protein sequences in the test data (tests/data/*.fasta)
 

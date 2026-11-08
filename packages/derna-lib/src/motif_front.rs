@@ -181,10 +181,50 @@ impl Flank {
     }
 }
 
+/// A spec's two flanks, with any pins over them intersected in.
+///
+/// A pin reaches **both** axes of the design space. Inside the CDS it becomes a
+/// codon subset ([`spec_graph`]); on a flank it becomes that position's own
+/// nucleotide subset, which is what a designed flank already is — so a pin on a
+/// designed flank position and a hand-written subset there are the same object.
+/// A pin against a *given* flank position has no freedom to narrow and is
+/// refused instead.
+///
+/// The intersection happens here, where the flanks are parsed, rather than at
+/// the lattice: more than one lattice is built from these flanks — the adapted
+/// end folds a narrowed one of its own — and each of them has to carry the
+/// pins. A flank no pin touches is returned exactly as it was parsed, so every
+/// unpinned path stays byte-identical.
+fn spec_flanks<S: AsRef<str>>(
+    spec: &MotifFrontSpec<'_, S>,
+    residues: usize,
+) -> Result<(Flank, Flank), BeamError> {
+    let five = Flank::parse(spec.utr5)?;
+    let three = Flank::parse(spec.utr3)?;
+    let Some(pins) = spec.pins else {
+        return Ok((five, three));
+    };
+    let layout = Layout::new(five.len() as u32, residues as u32, three.len() as u32);
+    let pinned = |flank: Flank, base: u32| -> Result<Flank, BeamError> {
+        let mask = pins
+            .flank_mask(&layout, base, &flank.masks())
+            .map_err(Infeasible::Pins)?;
+        if !pins.touches(base, flank.len() as u32) {
+            return Ok(flank);
+        }
+        Ok(Flank::Designed(mask))
+    };
+    let cds_end = layout.cds_end();
+    Ok((pinned(five, 0)?, pinned(three, cds_end)?))
+}
+
 /// The codon lattice a spec is folded over: the plain one, or the one its pins
 /// restrict. A restricted residue's best remaining codon sits at adaptation
 /// zero, and [`Dfa::codon_offset`] carries what the restriction removed, so
 /// every point adds it back.
+///
+/// `five` and `three` already carry the pins over them ([`spec_flanks`]); this
+/// is the CDS half of the same lowering.
 fn spec_graph<S: AsRef<str>>(
     aa: &[usize],
     usage: &CodonUsage,
@@ -206,10 +246,6 @@ fn spec_graph<S: AsRef<str>>(
         return Ok(build(None).expect("an unrestricted lattice"));
     };
     let layout = Layout::new(five.len() as u32, aa.len() as u32, three.len() as u32);
-    for (flank, base) in [(five, 0), (three, layout.cds_end())] {
-        pins.flank_mask(&layout, base, &flank.masks())
-            .map_err(Infeasible::Pins)?;
-    }
     let allowed = pins.cds_codon_sets(&layout, aa).map_err(Infeasible::Pins)?;
     Ok(build(allowed.as_deref()).expect("cds_codon_sets leaves every residue at least one codon"))
 }
@@ -284,8 +320,7 @@ pub fn motif_front_tallied<S: AsRef<str>>(
         return Err(BeamError::SoftRegionUnsupported);
     }
     let aa = crate::residues(protein)?;
-    let five = Flank::parse(spec.utr5)?;
-    let three = Flank::parse(spec.utr3)?;
+    let (five, three) = spec_flanks(spec, aa.len())?;
     let graph = spec_graph(&aa, usage, spec, &five, &three)?;
     let region = PairConstraint::new(&spec.constraints, &graph);
     let (ac, scope) = Ac::for_windows(spec.motifs)?;
@@ -5410,8 +5445,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
         return plain();
     }
     let aa = crate::residues(protein)?;
-    let five = Flank::parse(spec.utr5)?;
-    let three = Flank::parse(spec.utr3)?;
+    let (five, three) = spec_flanks(spec, aa.len())?;
     let graph = spec_graph(&aa, usage, spec, &five, &three)?;
     let region = PairConstraint::new(&spec.constraints, &graph);
     let (ac, scope) = Ac::for_windows(spec.motifs)?;
@@ -6752,7 +6786,7 @@ const ROOM_PER_POINT: f64 = 40.0;
 
 /// Hand the memory freed so far back to the system, so that resident memory
 /// reads what is still held.
-fn release_freed() {
+pub(crate) fn release_freed() {
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     // SAFETY: `malloc_trim` only returns free heap pages to the system.
     unsafe {
@@ -6960,6 +6994,7 @@ fn solve_gap(
     cut_s: f64,
     (stop, slices, threads): (Stop<'_>, SliceBudget, usize),
 ) -> Result<GapFront, GapRest> {
+    assert_gap_ends_ordered(a, b);
     let lambda = cut.lambda;
     let started = std::time::Instant::now();
     let stop = Stop {
@@ -7594,13 +7629,34 @@ fn settle(
         under_chord,
         counts,
     };
-    if brd(v.mfe, v.cai, lambda) < score - TOL {
+    if splits_pair(a, b, v) && brd(v.mfe, v.cai, lambda) < score - TOL {
         return Settled::Vertex(v, probe);
     }
     match gap(&cut, None) {
         Ok(front) => Settled::Gap(front, Some(probe)),
         Err(rest) => Settled::Rest(rest, Some(probe)),
     }
+}
+
+/// Whether a design a pair's probe found splits the pair: only one that lies
+/// strictly between the pair's ends in energy does. A design beyond an end
+/// scores below the pair at its tie weight when the ends are not adjacent on
+/// the hull, and splitting at it would leave a box with its ends reversed and
+/// one that overlaps boxes already open. The pair's own gap is solved instead,
+/// as the front between its ends is the same either way.
+fn splits_pair(a: MotifVertexPoint, b: MotifVertexPoint, v: MotifVertexPoint) -> bool {
+    a.mfe.0 < v.mfe.0 && v.mfe.0 < b.mfe.0
+}
+
+/// A gap runs from its more stable end up to its more adapted one; ends the
+/// other way round leave no energy range to solve.
+fn assert_gap_ends_ordered(a: MotifVertexPoint, b: MotifVertexPoint) {
+    assert!(
+        a.mfe.0 <= b.mfe.0,
+        "a gap's ends are reversed: ({}, {}]",
+        a.mfe.0,
+        b.mfe.0
+    );
 }
 
 /// The chords to the motif-free outside at weight 0 a probe at `lambda`
@@ -7797,6 +7853,36 @@ impl Designs {
 
 #[cfg(test)]
 mod tests {
+    /// A probe's design splits its pair only between the pair's ends: one
+    /// beyond an end would leave a box with its ends reversed.
+    #[test]
+    fn a_design_beyond_an_end_does_not_split_its_pair() {
+        use super::{splits_pair, Energy, MotifVertexPoint};
+        let at = |mfe: i32| MotifVertexPoint {
+            mfe: Energy(mfe),
+            cai: 0.0,
+        };
+        let (a, b) = (at(-227420), at(-227270));
+        assert!(splits_pair(a, b, at(-227300)));
+        assert!(!splits_pair(a, b, at(-214060)), "above the adapted end");
+        assert!(!splits_pair(a, b, at(-228000)), "below the stable end");
+        assert!(!splits_pair(a, b, a), "an end is not a split");
+        assert!(!splits_pair(a, b, b), "an end is not a split");
+    }
+
+    /// A gap whose ends are reversed is refused up front, naming the ends,
+    /// not after its folds with an unrelated count.
+    #[test]
+    #[should_panic(expected = "a gap's ends are reversed: (-223450, -224660]")]
+    fn a_reversed_gap_is_refused_naming_its_ends() {
+        use super::{assert_gap_ends_ordered, Energy, MotifVertexPoint};
+        let at = |mfe: i32| MotifVertexPoint {
+            mfe: Energy(mfe),
+            cai: 0.0,
+        };
+        assert_gap_ends_ordered(at(-223450), at(-224660));
+    }
+
     /// Merging gathered batches by energy buckets keeps exactly the points,
     /// in the order and with the provenance, that sorting them keeps: over
     /// runs of batches into one front, with repeated energies, equal

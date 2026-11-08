@@ -13,7 +13,13 @@ const MOTIF: &str = "GCC";
 /// Run `derna front` on the molecule with these further words, writing
 /// `name`, and read back what it wrote.
 fn front_file(extra: &[&str], name: &str) -> (std::path::PathBuf, show::Rendered) {
-    let dir = std::env::temp_dir().join(format!("derna-motif-rest-{}", std::process::id()));
+    front_file_in("rest", extra, name)
+}
+
+/// [`front_file`] in a directory named by `tag`, so tests running at once do
+/// not remove each other's files.
+fn front_file_in(tag: &str, extra: &[&str], name: &str) -> (std::path::PathBuf, show::Rendered) {
+    let dir = std::env::temp_dir().join(format!("derna-motif-{tag}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let out = dir.join(name);
     let _ = std::fs::remove_file(&out);
@@ -120,4 +126,85 @@ fn a_front_stopped_inside_its_gaps_resumes_from_the_header_to_the_whole_front() 
         assert_eq!((a.0, a.2), (b.0, b.2));
         assert!((a.1 - b.1).abs() < 1e-9, "{a:?} against {b:?}");
     }
+}
+
+/// A box whose probe finds a design beyond one of its ends is settled as its
+/// own gap, not split there, so the walk neither panics on a reversed gap nor
+/// writes one that a resume refuses.
+///
+/// The box is made by marking a front point that lies strictly under the
+/// chord of the hull vertices around it as a hull vertex, and leaving open
+/// the box from the stable vertex to it. The probe at that box's tie weight
+/// finds the next hull vertex, which is more adapted than the box's adapted
+/// end. Splitting there leaves a box with its ends reversed: solving it
+/// panics, and stopping before it is solved writes it into the header.
+#[test]
+fn a_probe_beyond_a_box_end_neither_panics_nor_writes_a_reversed_box() {
+    let (whole_path, whole) = front_file_in("beyond", &[], "whole.jsonl");
+    let points = &whole.points;
+    let at = |p: &serde_json::Value| (p["mfe"].as_f64().unwrap(), p["cai_log"].as_f64().unwrap());
+    let hull: Vec<usize> = (0..points.len())
+        .filter(|&k| points[k]["on_hull"] == true)
+        .collect();
+    // Two adjacent hull vertices with a point strictly under their chord.
+    let (lo, inner) = hull
+        .windows(2)
+        .find_map(|w| {
+            let ((m0, c0), (m1, c1)) = (at(&points[w[0]]), at(&points[w[1]]));
+            (w[0] + 1..w[1])
+                .find(|&k| {
+                    let (m, c) = at(&points[k]);
+                    c < c0 + (c1 - c0) * (m - m0) / (m1 - m0) - 1e-6
+                })
+                .map(|k| (w[0], k))
+        })
+        .expect("a front point under a hull chord");
+    let ((mlo, clo), (mhi, chi)) = (at(&points[lo]), at(&points[inner]));
+    let mut header = whole.header.clone();
+    header["complete"] = false.into();
+    header["stopped_by"] = "secs".into();
+    header["open"] = serde_json::json!([
+        {"mfe_lo": mlo, "mfe_hi": mhi, "cai_log_lo": clo, "cai_log_hi": chi}
+    ]);
+    let mut lines = vec![header.to_string()];
+    for (k, p) in points.iter().enumerate() {
+        let mut p = p.clone();
+        if k == inner {
+            p["on_hull"] = true.into();
+        }
+        lines.push(p.to_string());
+    }
+    let crafted = whole_path.with_file_name("crafted.jsonl");
+    std::fs::write(&crafted, lines.join("\n") + "\n").unwrap();
+    let crafted = crafted.to_str().unwrap();
+    // Run whole, the box's own gap is solved and the front is unchanged.
+    let (_, resumed) = front_file_in("beyond", &["--resume", crafted], "resumed.jsonl");
+    assert_eq!(resumed.header["complete"], true);
+    assert_eq!(resumed.points.len(), points.len());
+    for (a, b) in resumed.points.iter().zip(points) {
+        let (a, b) = (objectives(a), objectives(b));
+        assert_eq!(a.0, b.0);
+        assert!((a.1 - b.1).abs() < 1e-9, "{a:?} against {b:?}");
+    }
+    // Stopped after one gap fold, every box it leaves open can be resumed.
+    let (stopped, read) = front_file_in(
+        "beyond",
+        &["--resume", crafted, "--max-gap-folds", "1"],
+        "stopped.jsonl",
+    );
+    for open in read.header["open"].as_array().unwrap() {
+        let f = |k: &str| open[k].as_f64().unwrap();
+        assert!(
+            f("mfe_lo") <= f("mfe_hi") && f("cai_log_lo") <= f("cai_log_hi"),
+            "a reversed box was written: {open}"
+        );
+    }
+    if read.header["complete"] == false {
+        front_file_in(
+            "beyond",
+            &["--resume", stopped.to_str().unwrap()],
+            "again.jsonl",
+        );
+    }
+    std::fs::remove_dir_all(whole_path.parent().unwrap()).unwrap();
 }

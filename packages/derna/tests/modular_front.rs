@@ -345,6 +345,18 @@ fn a_search_resumed_from_its_checkpoint_returns_the_same_front() {
             .count()
     };
     let checked = count(&log);
+    // A design this run checked carries the free fold its verdict was read
+    // from, over the whole molecule.
+    for v in log
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|v| v.get("checked").is_some())
+    {
+        let free = v["free_structure"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{v}"));
+        assert_eq!(free.len(), v["checked"].as_str().unwrap().len(), "{v}");
+    }
     assert_eq!(
         checked as u64,
         whole[0]["constrained_points"].as_u64().unwrap()
@@ -385,6 +397,79 @@ fn a_search_resumed_from_its_checkpoint_returns_the_same_front() {
     for f in [&first, &progress, &cut] {
         std::fs::remove_file(f).unwrap();
     }
+}
+
+/// With a motif, `--checkpoint` records the modular search beside `--out`
+/// as it does without one, and `--resume-search` from that record returns
+/// the front the uninterrupted run did, carrying every point it had checked.
+#[test]
+fn a_motif_search_resumed_from_its_checkpoint_returns_the_same_front() {
+    let first = scratch("motif-ckpt");
+    let progress = std::path::PathBuf::from(format!("{}.search.jsonl", first.display()));
+    let _ = std::fs::remove_file(&progress);
+    let whole = checkpointed(&first, &["--motif", "CGC"]);
+    let log = std::fs::read_to_string(&progress)
+        .unwrap_or_else(|e| panic!("no search record at {}: {e}", progress.display()));
+    let count = |text: &str| {
+        text.lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| v.get("checked").is_some())
+            .count()
+    };
+    let checked = count(&log);
+    assert!(checked > 0, "{log}");
+    assert!(whole[0]["resumed_search"].is_null(), "{}", whole[0]);
+
+    let again_out = scratch("motif-ckpt-resumed");
+    let again_log = std::path::PathBuf::from(format!("{}.search.jsonl", again_out.display()));
+    let _ = std::fs::remove_file(&again_log);
+    let again = checkpointed(
+        &again_out,
+        &[
+            "--motif",
+            "CGC",
+            "--resume-search",
+            progress.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(designs(&again[1..]), designs(&whole[1..]));
+    every_point_is_a_witness(&again);
+    let resumed = &again[0]["resumed_search"];
+    assert_eq!(
+        resumed["checked"].as_u64(),
+        Some(checked as u64),
+        "{resumed}"
+    );
+    let carried = std::fs::read_to_string(&again_log).unwrap();
+    assert_eq!(count(&carried), checked, "{carried}");
+    for f in [&first, &progress, &again_out, &again_log] {
+        std::fs::remove_file(f).unwrap();
+    }
+}
+
+/// The header names the search's schedule: the regions a round walks side by
+/// side and the first round's span, so a stopped front can be read against
+/// the span its regions were given. These are the defaults, which the
+/// `ModularLanes` and `ModularFirstRoundS` development settings override.
+///
+/// The settings are read through the library's reader rather than by name, so
+/// this file names no environment variable: a build that reads no development
+/// setting answers both as unset, which is when the defaults are what the
+/// header must carry.
+#[test]
+fn the_header_names_the_search_schedule() {
+    use derna_lib::dev_env::{var_os, Setting};
+    if var_os(Setting::ModularLanes).is_some() || var_os(Setting::ModularFirstRoundS).is_some() {
+        return;
+    }
+    let lines = run(&["--threads", "4"]);
+    assert_eq!(lines[0]["lanes"].as_u64(), Some(2), "{}", lines[0]);
+    assert_eq!(
+        lines[0]["first_round_s"].as_f64(),
+        Some(30.0),
+        "{}",
+        lines[0]
+    );
 }
 
 #[test]
@@ -902,6 +987,29 @@ fn epsilon_is_refused_where_it_cannot_act() {
     }
     let twice = refused(&["--modular", "--epsilon", "0.1", "--epsilon", "0.2"]);
     assert!(twice.contains("twice"), "{twice}");
+}
+
+/// `--anchors-from` seeds the modular search over every design,
+/// and the search over motif-free designs reads no anchors, so the flag is
+/// refused rather than accepted and ignored.
+#[test]
+fn anchors_from_is_refused_where_it_cannot_act() {
+    let refused = |extra: &[&str]| {
+        let mut argv: Vec<String> = ["front", "--protein", "MPRGLA", "--utr5", "CCGCGG"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        argv.extend(extra.iter().map(|s| s.to_string()));
+        derna_cli::run(argv).unwrap_err().to_string()
+    };
+    let anchors = std::env::temp_dir().join("derna-anchors-refused.jsonl");
+    let path = anchors.to_str().unwrap();
+    assert!(refused(&["--anchors-from", path]).contains("--modular"));
+    let motif = refused(&["--modular", "--motif", "CGC", "--anchors-from", path]);
+    assert!(
+        motif.contains("--anchors-from") && motif.contains("--motif"),
+        "{motif}"
+    );
 }
 
 /// A search checkpointed within one epsilon is not resumed within another,

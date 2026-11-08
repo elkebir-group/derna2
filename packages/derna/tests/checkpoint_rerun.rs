@@ -422,6 +422,52 @@ fn a_modular_rerun_continues_the_walk_and_the_search() {
     assert!(!walk.exists(), "a complete front kept its walk");
 }
 
+/// The resume the equality test above cannot establish. A run that threw the
+/// progress file away and checked all 465 points again would write the same
+/// front, so equality is consistent with no resume at all; the planted
+/// verdict is not. One point that passed its check is recorded as a point
+/// that did not — a verdict the check would never return for it — and the
+/// resumed run must seed its search with one point fewer and never check that
+/// point again.
+#[test]
+fn a_settled_point_a_resumed_modular_search_reads_is_not_checked_again() {
+    let dir = scratch_dir("modular-planted");
+    let out = dir.join("so.jsonl");
+    modular(&out, &[]).unwrap();
+    let whole = read_lines(&out);
+    let seeds = whole[0]["seeds"].as_u64().unwrap();
+    assert!(seeds > 0, "{}", whole[0]);
+
+    let search = beside(&out, ".search.jsonl");
+    let mut log = read_lines(&search);
+    let planted = log
+        .iter_mut()
+        .find(|l| l["modular"] == true)
+        .expect("a point whose check passed");
+    planted["modular"] = json!(false);
+    let demoted = planted["checked"].as_str().unwrap().to_string();
+    write_lines(&search, &log);
+
+    std::fs::remove_file(&out).unwrap();
+    modular(&out, &[]).unwrap();
+    let again = read_lines(&out);
+    assert_eq!(
+        again[0]["resumed_search"]["checked"],
+        whole[0]["constrained_points"]
+    );
+    assert_eq!(
+        again[0]["seeds"].as_u64().unwrap(),
+        seeds - 1,
+        "the resumed run seeded the search with the planted point"
+    );
+    // And the run never folded it: a point it checked itself would be in the
+    // progress file with the verdict its own check returned.
+    let checked_again = read_lines(&search)
+        .iter()
+        .any(|l| l["checked"] == demoted.as_str() && l["modular"] == true);
+    assert!(!checked_again, "the resumed run checked {demoted} again");
+}
+
 #[test]
 fn a_modular_rerun_refuses_another_molecules_search() {
     let dir = scratch_dir("modular-foreign");

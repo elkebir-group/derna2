@@ -19,6 +19,11 @@
 //! only past a given coding position, which is what a set targeting
 //! *internal* occurrences of a pattern needs when the pattern can also be
 //! spelled across the 5′ boundary.
+//!
+//! `--max-homopolymer K` is a motif set and nothing more: a run longer than
+//! `K` contains a run of exactly `K + 1`, so the cap is the four patterns
+//! [`homopolymer_patterns`] spells, forbidden on the same exact path as any
+//! other blacklist.
 
 use derna_lib::ac::expand_iupac_motif;
 use derna_lib::{MotifWindow, PositionalSpec};
@@ -52,6 +57,28 @@ pub struct SequenceConstraints {
     pub motif_window: Option<(i64, i64)>,
     /// `--pin` entries as written, each `K:LETTERS`.
     pub pins: Vec<String>,
+    /// `--max-homopolymer K`, the longest run of one nucleotide a design may
+    /// spell. The four patterns it stands for are already in
+    /// [`Self::motifs`]; the cap is kept beside them so the flag can be
+    /// refused twice over and reported as what the caller wrote.
+    pub max_homopolymer: Option<usize>,
+}
+
+/// The four patterns a cap of `k` on homopolymer run length forbids: each
+/// nucleotide repeated `k + 1` times.
+///
+/// The cap needs no machinery of its own because a run longer than `k`
+/// contains a run of exactly `k + 1`, and conversely a run of `k + 1` is a run
+/// longer than `k` — so *no run longer than `k`* and *none of these four
+/// patterns occurs* select the same sequences, over codon boundaries and over
+/// a CDS/UTR boundary alike. The equivalence is proven against an independent
+/// run-length reference in `derna-lib`'s `homopolymer_cap` tests, so the flag
+/// forbids four motifs on the exact path the blacklist already takes.
+pub fn homopolymer_patterns(k: usize) -> Vec<String> {
+    ['A', 'C', 'G', 'U']
+        .iter()
+        .map(|c| c.to_string().repeat(k + 1))
+        .collect()
 }
 
 impl SequenceConstraints {
@@ -72,6 +99,27 @@ impl SequenceConstraints {
                     return Err("--motif-window is given twice".into());
                 }
                 self.motif_window = Some(parse_window("--motif-window", &value)?);
+            }
+            "--max-homopolymer" => {
+                let value = flags.value(flag)?;
+                if self.max_homopolymer.is_some() {
+                    return Err("--max-homopolymer is given twice".into());
+                }
+                let k = parse_cap(&value)?;
+                self.max_homopolymer = Some(k);
+                // Expanded here rather than at enforcement, so the cap is a
+                // motif set from this point on: the header records its four
+                // patterns, an occurrence of one in a fixed flank is warned
+                // about, and an infeasible run names them.
+                self.motifs
+                    .extend(
+                        homopolymer_patterns(k)
+                            .into_iter()
+                            .map(|pattern| ScopedMotif {
+                                pattern,
+                                window: None,
+                            }),
+                    );
             }
             "--motifs" | "--pins" => {
                 return Err(format!(
@@ -97,6 +145,20 @@ impl SequenceConstraints {
     /// something, and its own bounds would never be checked against the
     /// molecule either.
     pub fn validate(&self) -> Result<()> {
+        // A cap is a property of the whole molecule, and `--motif-window` is
+        // set-wide, so accepting both would silently narrow the cap — and not
+        // even to the window, since every occurrence *overlapping* the window
+        // is forbidden, so a run that merely straddles the window's edge is
+        // forbidden too. Neither reading is the one a caller asked for, and a
+        // caller who does want a scoped cap can write the four patterns as
+        // `--motif`, where the window plainly applies to them.
+        if self.max_homopolymer.is_some() && self.motif_window.is_some() {
+            return Err("--max-homopolymer caps runs over the whole molecule, and \
+                        --motif-window narrows the whole motif set, so the two together \
+                        would narrow the cap; write the runs as --motif patterns if a \
+                        scoped cap is what you want"
+                .into());
+        }
         if self.motif_window.is_some() && self.motifs.is_empty() {
             return Err(
                 "--motif-window narrows where the motifs are forbidden, and this run \
@@ -390,6 +452,24 @@ fn in_words(window: Option<(i64, i64)>) -> String {
     }
 }
 
+/// `--max-homopolymer`'s value: the longest run a design may spell.
+///
+/// `0` is refused rather than taken literally. It would forbid every single
+/// nucleotide — a one-letter pattern per nucleotide, so no sequence at all —
+/// and the run would come back infeasible with no indication that the cap, not
+/// the protein, was the impossible part.
+fn parse_cap(value: &str) -> Result<usize> {
+    match value.trim().parse::<usize>() {
+        Ok(0) => Err("--max-homopolymer 0 forbids every nucleotide; a cap is at least 1".into()),
+        Ok(k) => Ok(k),
+        Err(_) => Err(format!(
+            "--max-homopolymer expects the longest run of one nucleotide a design \
+             may spell, e.g. --max-homopolymer 6, got {value:?}"
+        )
+        .into()),
+    }
+}
+
 /// `LO..HI`, both in CDS coordinates. `what` names where the range was
 /// written, since a window reaches the parser from a flag, from a `--motif`
 /// value's suffix, or from a line of a set file.
@@ -451,6 +531,9 @@ Sequence constraints
                             line; repeatable
   --motif-window LO..HI     forbid only over this coding sub-window
                             [default: the whole coding sequence]
+  --max-homopolymer K       cap the longest run of one nucleotide at K, by
+                            forbidding the four (K+1)-runs; not combinable
+                            with --motif-window
   --pin PATH|K:LETTERS      fix coding nucleotides from position K (IUPAC),
                             or a file of one per line; repeatable
 ";
@@ -515,6 +598,67 @@ mod tests {
             assert!(parse(&["--motif-window", bad]).is_err(), "{bad}");
         }
         assert!(parse(&["--motif-window", "1..2", "--motif-window", "3..4"]).is_err());
+    }
+
+    #[test]
+    fn a_homopolymer_cap_expands_to_exactly_the_four_runs_one_longer() {
+        // The whole of the flag: four patterns, one per nucleotide, each the
+        // cap plus one long, each over the same span as any unscoped motif. A
+        // fifth pattern, a wrong length or a window of their own would all be
+        // a different constraint from the cap.
+        let sc = parse(&["--max-homopolymer", "4"]).unwrap();
+        assert_eq!(sc.max_homopolymer, Some(4));
+        assert_eq!(sc.patterns(), ["AAAAA", "CCCCC", "GGGGG", "UUUUU"]);
+        assert!(sc.motifs.iter().all(|m| m.window.is_none()));
+        assert!(!sc.is_scoped());
+        assert_eq!(
+            parse(&["--max-homopolymer", "1"]).unwrap().patterns(),
+            ["AA", "CC", "GG", "UU"]
+        );
+        // A cap sits beside an explicit set rather than replacing it, so a run
+        // can forbid restriction sites and cap runs at once.
+        let sc = parse(&["--motif", "GAAUUC", "--max-homopolymer", "2"]).unwrap();
+        assert_eq!(sc.patterns(), ["GAAUUC", "AAA", "CCC", "GGG", "UUU"]);
+        assert!(sc.validate().is_ok());
+    }
+
+    #[test]
+    fn a_nonsensical_homopolymer_cap_is_refused() {
+        let e = parse(&["--max-homopolymer", "0"]).unwrap_err().to_string();
+        assert!(e.contains("a cap is at least 1"), "{e}");
+        for bad in ["", "-1", "4.5", "six", "4..6"] {
+            assert!(parse(&["--max-homopolymer", bad]).is_err(), "{bad:?}");
+        }
+        assert!(parse(&["--max-homopolymer", "4", "--max-homopolymer", "6"]).is_err());
+    }
+
+    #[test]
+    fn a_homopolymer_cap_and_a_set_wide_window_are_refused_together() {
+        // `--motif-window` narrows the whole set, so it would narrow the cap —
+        // and not to the window either, since an occurrence overlapping the
+        // window is forbidden, so a run straddling its edge still is. Refused
+        // rather than given one of the two readings.
+        let e = parse(&["--max-homopolymer", "4", "--motif-window", "9..-9"])
+            .unwrap()
+            .validate()
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("would narrow the cap"), "{e}");
+        // The order it is written in does not change the refusal.
+        assert!(
+            parse(&["--motif-window", "9..-9", "--max-homopolymer", "4"])
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+        // A pattern's *own* window is a different flag and stays allowed: it
+        // scopes that pattern and leaves the cap over the whole molecule.
+        assert!(
+            parse(&["--motif", "GGAUCC@5..-1", "--max-homopolymer", "4"])
+                .unwrap()
+                .validate()
+                .is_ok()
+        );
     }
 
     #[test]

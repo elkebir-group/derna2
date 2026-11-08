@@ -149,9 +149,36 @@ since the designs of one such front do not share a suffix; a run with a given
 or absent stop carries no per-point field, because the header's applies to all
 of them.
 
-`--codon-usage` is `human` (the vendored Kazusa table) or a path in the
+`--codon-usage` is a bundled table's name or a path in the
 `amino_acid,codon,fraction` format. A result file embeds the whole table it was
-scored against, so a reader never has to guess which one a run used.
+scored against, so a reader never has to guess which one a run used. A value
+that is neither a bundled name nor a readable file is refused in one message
+naming both, since a misspelled name and a mistyped path look the same here.
+
+Five tables are bundled, all from the Kazusa Codon Usage Database. The CDS and
+codon counts are the basis each one was tabulated over, and they differ by more
+than two orders of magnitude, so they belong beside any CAI a run reports:
+
+| Name | Organism | CDS | Codons |
+|---|---|---|---|
+| `human` | *Homo sapiens* | not recorded | not recorded |
+| `mouse` | *Mus musculus* | 53,036 | 24,533,776 |
+| `cho` | *Cricetulus griseus* | 331 | 153,527 |
+| `ecoli` | *Escherichia coli* | 8,087 | 2,330,943 |
+| `yeast` | *Saccharomyces cerevisiae* | 14,411 | 6,534,504 |
+
+Three things to know before comparing CAI across them.
+`cho` rests on 331 coding sequences, the thinnest basis of the five by two
+orders of magnitude, and it is the only *Cricetulus griseus* entry the database
+has. `ecoli` is the database's species-level entry and claims no strain: the
+entry labelled K-12 there holds 14 coding sequences and is not a reference set.
+And `human` is an earlier, deliberately frozen snapshot than the other four,
+which carry GenBank release 160.0 — it predates the counts the others report,
+which is why it has none, and a CAI difference between `human` and one of the
+others is therefore partly a difference of corpus vintage rather than of
+organism.
+`packages/derna-codon-dp/data/PROVENANCE.md` records each table's source entry,
+retrieval date and how its numbers were checked.
 
 `--params PATH` loads energy parameters from a file, on `design`, `front` and
 `check`. Without it every fold uses the built-in Turner 2004 table. The file
@@ -275,6 +302,51 @@ Two consequences are worth knowing before you hit them:
 `--motif-window LO..HI` narrows enforcement to a coding sub-window; with no
 `--motif` it is refused, since it would scope nothing.
 
+**`--max-homopolymer K` caps the longest run of one nucleotide**, and is a
+motif set and nothing more. A run longer than `K` contains a run of exactly
+`K + 1`, and a run of `K + 1` is a run longer than `K`, so the cap is exactly
+the four patterns `A…A`, `C…C`, `G…G`, `U…U` of length `K + 1` — over codon
+boundaries and over the CDS/UTR boundary alike, since neither direction of that
+argument mentions a boundary. The flag expands to those four and they are
+forbidden on the same exact path as any other blacklist; it adds no machinery
+and buys no approximation. The header records the four patterns rather than the
+flag's value, because the patterns are what the run was under:
+
+```bash
+derna design --protein hbb.fasta --lambda 0.5 --max-homopolymer 6
+derna front --protein hbb.fasta --motif sites.txt --max-homopolymer 9 --out front.jsonl
+```
+
+Four points to know:
+
+- **It sits beside `--motif`**, adding four patterns to whatever that names.
+- **`--max-homopolymer 0` is refused**: it would forbid every single
+  nucleotide, and the run would come back infeasible without saying that the
+  cap, not the protein, was impossible. A small cap can still be infeasible —
+  `1` has no encoding of any protein holding `K` (`AAA`/`AAG`) or `F`
+  (`UUU`/`UUC`) — and that run is refused naming the patterns.
+- **`--motif-window` is refused with it.** `--motif-window` narrows the whole
+  set, so the two together would narrow the cap; and not to the window either,
+  since every occurrence *overlapping* the enforced span is forbidden, so a run
+  that merely straddles the span's edge is forbidden too. Neither reading is a
+  windowed cap, so the combination is refused rather than given one of them.
+  A pattern's *own* window (`--motif PATH@LO..HI`) is a different flag and
+  stays allowed: it scopes that pattern and leaves the cap over the whole
+  molecule.
+- **A cap at or above the molecule's longest unconstrained run forbids
+  nothing**, and the run then emits the unconstrained design byte-identically.
+  Read `max_homopolymer` on the result (see [Sequence
+  metrics](#sequence-metrics)) to see what the design actually spells; a cap
+  longer than the molecule is accepted and does nothing.
+
+A run lying wholly inside a fixed UTR is the general motif rule's case: no
+codon assignment can remove it, so the run proceeds and warns. A run straddling
+the 5′ boundary whose coding side is forced refuses, as any such straddler
+does.
+
+`--max-homopolymer` on `show` and `pick` is the same quantity as a **filter**
+over points already written, not a constraint on a run.
+
 A **pattern may carry its own window** instead, so one run can forbid one
 blacklist over the whole coding sequence and another only past a given coding
 position. Two
@@ -322,8 +394,9 @@ coding nucleotides from position `K`, keeping for each residue exactly the
 synonymous codons that spell them; a residue left with no codon is refused up
 front, naming it, and a coordinate carrying a region prefix (`cds:9`,
 `5utr:-6`) is refused so that there is one spelling. `design` takes all
-three; `front` takes `--motif` and `--motif-window` (see [The motif-excluded
-front](#the-motif-excluded-front)), and `--pin` with `--motif` only.
+four; `front` takes `--motif`, `--motif-window` and `--max-homopolymer` (see
+[The motif-excluded front](#the-motif-excluded-front)), and `--pin` with
+`--motif` only.
 
 ## Results
 
@@ -510,7 +583,7 @@ read off its sequence alone — no folding:
 | `gc_cds` | GC fraction of the coding sequence |
 | `u_cds` | U fraction of the coding sequence |
 | `gc_window_min`, `gc_window_max` | the least and greatest GC fraction over every 50-nt window of the whole molecule; the whole molecule's GC when it is shorter than 50 nt |
-| `max_homopolymer` | the longest run of one nucleotide in the whole molecule |
+| `max_homopolymer` | the longest run of one nucleotide in the whole molecule — what [`--max-homopolymer`](#sequence-constraints) caps on a run, and what `show --max-homopolymer` filters on afterwards |
 
 The coding sequence runs from the start codon, after the 5′ UTR, through the
 stop codon — given or designed — or through the last residue's codon when the
@@ -1171,11 +1244,43 @@ modular point it found, each with a `status`:
 - `provisional` — modular and dominated by nothing found, but a
   region still open could hold a design that dominates it.
 
-The header says `complete`, `stopped_by` (`time`, `memory` or `null`) and lists
+The header says `complete`, `stopped_by` (`time`, `memory`, `signal`,
+`empty-rounds` or `null`) and lists
 every region left `open`: a CAI interval (`cai_log_lo`..`cai_log_hi`, `null` for
 an open end) and the least energy a missing point there can have
 (`mfe_floor` at `cai_log_lo`, rising by `slope` per unit of `cai_log`; `null`
 when only the constrained front bounds it).
+
+**A run ended from outside writes its front too.** `SIGINT`, `SIGTERM` and
+`SIGHUP` stop the search where a spent `--max-secs` would have stopped it, so
+a run killed by an operator, by a job manager or at the end of a lease leaves
+the same partial, labelled answer rather than nothing: `complete: false` and
+`stopped_by: "signal"`, with every region it had not closed `open`. The run
+then exits 0, as a run stopped by its budget does; a second signal goes
+through and ends it at once, which is what to send if the front it is writing
+is not wanted. The stop reaches the search's walks, so a run signalled during
+its certification stage certifies the points it has left — `certify_s`
+measures that — before the front comes out. `SIGKILL` cannot be caught, and a
+run ended by one leaves `OUT.search.jsonl` and no result, which is what
+`--checkpoint` is for.
+
+**Three counts, and the summary line names each.** They coincide on a run
+that certifies every point and finds nothing, so one word for two of them
+reads correctly there and nowhere else:
+
+```text
+300 point(s) on the modular front, 298 of them certified, from 293 modular seed(s)
+```
+
+| the count | where it is in the result | what it counts |
+|---|---|---|
+| **points on the modular front** | header `points` | the points the run emitted: one line each |
+| **of them certified** | the points' own `status` field | those of the emitted points that are `certified` rather than `provisional` |
+| **modular seed(s)** | header `seeds` | the constrained-front points whose own check passed, which seeded the search. `constrained_points` is how many were offered and `unchecked` how many the budget never reached |
+
+So certification's share of a front is `seeds / points`, and the certified
+count is a statement about what is still open rather than about what passed a
+check.
 
 ### Keeping the constrained front
 
@@ -1417,15 +1522,16 @@ below the lowest seed's energy, and −24.80 at 0.9772, past the
 best-adapted seed. Then the budget runs out:
 
 ```text
-16 point(s) on the modular front, 16 certified, from 13 seed(s); stopped by the time budget with 1 region(s) open (62.67s)
+16 point(s) on the modular front, 16 of them certified, from 13 modular seed(s); stopped by the time budget with 1 region(s) open (62.67s)
 ```
 
 All 16 are `certified`: no region the budget left open can hold a design that
-dominates any of them. The open region is the band above the best-adapted
-point, where a better-adapted modular design could still exist. A ten-minute
-budget (`--max-secs 600`) gives the same 16 points with the same region still
-open, so the extra nine minutes buy nothing on this cell. `show --plot` draws
-the 16 as filled circles. The last `pick` writes the best-adapted one's coding
+dominates any of them. The three counts are the three of the table above, and
+on this cell two of them read 16. The open region is the band above the
+best-adapted point, where a better-adapted modular design could still exist.
+A ten-minute budget (`--max-secs 600`) gives the same 16 points with the same
+region still open, so the extra nine minutes buy nothing on this cell.
+`show --plot` draws the 16 as filled circles. The last `pick` writes the best-adapted one's coding
 sequence, start codon to stop, as DNA:
 
 ```text
