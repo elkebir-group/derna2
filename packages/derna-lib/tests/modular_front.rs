@@ -945,11 +945,11 @@ fn an_empty_search_gives_up_and_a_search_with_a_point_does_not() {
     );
     let give_up = SearchPolicy {
         give_up_empty: Some((0, 0)),
-        hold_barren: false,
+        ..SearchPolicy::default()
     };
     let hold = SearchPolicy {
-        give_up_empty: None,
         hold_barren: true,
+        ..SearchPolicy::default()
     };
     // Compared on objectives, not spellings: a point with co-optimal
     // spellings may be represented by either, depending on the schedule.
@@ -989,4 +989,220 @@ fn an_empty_search_gives_up_and_a_search_with_a_point_does_not() {
         }
     }
     assert!(gave_up > 0, "no cell exercised the stop");
+}
+
+/// A derivation cap ends each window walk where it says, and what it caps is
+/// the walk's own count rather than a span of time.
+///
+/// The uncapped arm is the non-vacuity control and it has to come first: a cap
+/// that binds nothing reads exactly like a cap that is never applied, and the
+/// count the uncapped walk reaches is what says which of the two this is.
+#[test]
+fn a_derivation_cap_ends_a_window_walk_at_its_count() {
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let (protein, utr5, utr3) = ("MSLRLSPRAV", "GGGAAAUAAGAGAG", "UGAUAAUAGGCUGG");
+    let table = RegionConstraints::symmetric_isolation(Enforcement::Forbid);
+    let walked = design_front_walk_with_utr(
+        &params,
+        protein,
+        &usage,
+        &UtrSpec::Fixed(utr5.into()),
+        &UtrSpec::Fixed(utr3.into()),
+        table,
+        EPSILON,
+        1.0 - EPSILON,
+        WalkOptions::default(),
+        1,
+    )
+    .expect("the constrained front");
+    let search = |max_derivations: Option<u64>| {
+        modular_front_resuming(
+            &params,
+            protein,
+            &usage,
+            (utr5, utr3),
+            table,
+            (&walked.front, &[]),
+            (20.0, 1),
+            (None, None),
+            (
+                TopSearch::Window,
+                0.0,
+                SearchPolicy {
+                    max_derivations,
+                    ..SearchPolicy::default()
+                },
+            ),
+        )
+        .expect("the search returns")
+    };
+    // The most any one walk took. The cap is per walk, not per run, and a run
+    // whose walks each end after one derivation is given its share back and
+    // spends it on further rounds -- so the run's *total* rises under the cap
+    // and says nothing about it. This is the quantity the cap bounds.
+    let most = |f: &ModularFront| -> u64 {
+        f.stretches
+            .iter()
+            .filter(|s| s.walked)
+            .map(|s| s.derivations)
+            .max()
+            .unwrap_or(0)
+    };
+
+    let uncapped = search(None);
+    let free = most(&uncapped);
+    assert!(
+        free > 1,
+        "no uncapped walk took more than {free} derivations, so a cap of 1 could not bind"
+    );
+
+    let capped = search(Some(1));
+    for s in capped.stretches.iter().filter(|s| s.walked) {
+        assert!(
+            s.derivations <= 1,
+            "a walk took {} derivations under a cap of 1",
+            s.derivations
+        );
+    }
+    assert!(
+        most(&capped) < free,
+        "the longest capped walk took {} derivations against {free} uncapped",
+        most(&capped)
+    );
+    assert!(
+        capped
+            .stretches
+            .iter()
+            .any(|s| s.walked && s.stopped == "derivations"),
+        "no walk reported the cap as what ended it: {:?}",
+        capped
+            .stretches
+            .iter()
+            .filter(|s| s.walked)
+            .map(|s| (s.derivations, s.stopped))
+            .collect::<Vec<_>>()
+    );
+}
+
+/// Stopping the search below the band above the best modular design it holds
+/// returns the modular front of the designs at or below that ceiling, which
+/// is three claims and not one equality: no point above the ceiling is
+/// returned, no point of the exhaustive front at or below it is missing, and a
+/// point returned need not be on the exhaustive front — but only because a
+/// design in the unsearched band dominates it, since anything dominated from
+/// at or below the ceiling was searched.
+///
+/// Non-vacuity is the pair of runs on each cell. Where a ceiling applies, the
+/// searched mode walks a stretch whose upper end is open — the band — and this
+/// mode walks none, so the ceiling removed a region the other mode searched
+/// rather than renaming one. And on a cell with no modular design to stop at
+/// no ceiling is applied, the whole exhaustive front comes back, and
+/// `top_band` is unset: a run told apart from a capped one by that field
+/// alone.
+#[test]
+fn stopping_below_the_top_band_keeps_the_exhaustive_front_under_the_ceiling() {
+    let (params, usage) = (
+        Params::load_default().unwrap(),
+        CodonUsage::load_default().unwrap(),
+    );
+    let (mut dropped, mut uncapped, mut capped, mut extra) = (0, 0, 0, 0);
+    for cell in cells() {
+        let truth = exhaustive(&cell, &params, &usage);
+        let searched =
+            computed_within(&cell, &params, &usage, (TopSearch::Window, 0.0), None).unwrap();
+        let got = computed_within(&cell, &params, &usage, (TopSearch::None, 0.0), None).unwrap();
+        // A walked stretch with no upper end is the band: the region nothing
+        // caps, and the one the ceiling takes away.
+        let open_ended = |f: &ModularFront| {
+            f.stretches
+                .iter()
+                .filter(|s| s.walked && s.cai_log_hi.is_none())
+                .count()
+        };
+        let ceiling = match &got.top_band {
+            Some(band) => {
+                capped += 1;
+                assert_eq!(
+                    band.cai_log_hi, None,
+                    "{}: the band runs to the lattice's own top",
+                    cell.protein
+                );
+                assert!(
+                    open_ended(&searched) > 0 && open_ended(&got) == 0,
+                    "{}: the searched mode walked {} open-ended stretch(es) and the capped \
+                     one {}, so the ceiling removed no region",
+                    cell.protein,
+                    open_ended(&searched),
+                    open_ended(&got)
+                );
+                band.cai_log_lo.expect("a ceiling is a design's adaptation")
+            }
+            // No modular design to stop at, so no ceiling: the assertion
+            // below is then against the whole exhaustive front.
+            None => {
+                uncapped += 1;
+                f64::INFINITY
+            }
+        };
+        let under: Vec<Point> = truth
+            .iter()
+            .copied()
+            .filter(|p| p.1 <= ceiling + 1e-9)
+            .collect();
+        let over: Vec<Point> = truth
+            .iter()
+            .copied()
+            .filter(|p| p.1 > ceiling + 1e-9)
+            .collect();
+        dropped += over.len();
+        assert!(
+            searched.complete && got.complete,
+            "{}: a run left a region open",
+            cell.protein
+        );
+        let got_points = points(&got);
+        // Nothing above the ceiling is returned.
+        assert!(
+            got_points.iter().all(|p| p.1 <= ceiling + 1e-9),
+            "{}: a point above the ceiling: {:?}",
+            cell.protein,
+            got_points
+        );
+        // Nothing at or below it is missing.
+        for p in &under {
+            assert!(
+                got_points
+                    .iter()
+                    .any(|q| q.0 == p.0 && (q.1 - p.1).abs() < 1e-6),
+                "{}: the whole front's {p:?} is missing\n got {got_points:?}",
+                cell.protein
+            );
+        }
+        // And the other direction is the one the guarantee does not give: a
+        // point returned need not be on the whole front, but only because a
+        // design in the unsearched band dominates it. Anything dominated from
+        // at or below the ceiling would have been searched.
+        for p in &got_points {
+            let on_front = under.iter().any(|q| q.0 == p.0 && (q.1 - p.1).abs() < 1e-6);
+            let dominated_from_above = over
+                .iter()
+                .any(|q| q.0 <= p.0 && q.1 >= p.1 - 1e-9 && (q.0 < p.0 || q.1 > p.1 + 1e-9));
+            assert!(
+                on_front || dominated_from_above,
+                "{}: {p:?} is neither on the whole front nor dominated from the band\n \
+                 truth {truth:?}",
+                cell.protein
+            );
+            if !on_front {
+                extra += 1;
+            }
+        }
+    }
+    assert!(capped > 0, "no cell applied a ceiling at all");
+    assert!(uncapped > 0, "no cell ran without a ceiling");
+    eprintln!(
+        "ceilings {capped}, no ceiling {uncapped}, whole-front points above a ceiling \
+         {dropped}, points kept that the whole front drops {extra}"
+    );
 }

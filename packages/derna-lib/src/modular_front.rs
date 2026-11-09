@@ -79,6 +79,7 @@ use crate::free_fold::{
 };
 use crate::outside::lazy::window::{adaptation, window_front_sharing, WindowReport};
 use crate::outside::lazy::{Build, CutSchedule, ExactFold, LazyError, Verify, Walk};
+use crate::outside::lazy::{MemoryBreakdown, WalkPhases};
 use crate::pins::Pins;
 use crate::positional::Infeasible;
 use crate::region::RegionConstraints;
@@ -321,6 +322,54 @@ pub struct Stretch {
     pub walk_s: f64,
     pub derivations: u64,
     pub stopped: &'static str,
+    /// Whole molecules the walk reached and spelled and the caller's
+    /// own test then refused, before the modularity check. Work the walk
+    /// paid for and nothing read.
+    ///
+    /// Zero for the top band, and zero whenever the caller passes no test —
+    /// which is every search but the motif-excluded one. A zero there says
+    /// there was nothing to refuse, not that nothing was refused.
+    pub refused: u64,
+    /// Of `reached` (whole designs the bound let through), those whose
+    /// adaptation lies outside the window, tested first; the bound cuts any
+    /// design farther out than its slack, so this is rarely above zero.
+    pub outside: u64,
+    /// Of `reached`, the designs inside the window that a modular design known
+    /// to the search (one an earlier walk or the seeds gave it, or one this
+    /// walk has found) dominates or ties, tested next: with nothing `offered`,
+    /// a count here says the walk reached the window and found the designs
+    /// there dominated.
+    pub covered: u64,
+    /// Candidate derivations the window's bound put back on their node's
+    /// queue at a later value instead of taking, counted over the whole walk.
+    pub bound_requeued: u64,
+    /// Partial derivations that reached the window bound's first test, and
+    /// of them those it cut because every completion lies outside the window.
+    pub outside_tested: u64,
+    pub cut_outside: u64,
+    /// Of `outside_tested - cut_outside`, which all reach it, the derivations
+    /// cut because every in-window completion lies where the modular designs
+    /// known to the search cover, spans worked out only once the walk has
+    /// reached a design: a count here says the walk reached the window and
+    /// found it dominated.
+    pub covered_tested: u64,
+    pub cut_covered: u64,
+    /// Whether the walk ran with the window's energy bound, which the search
+    /// turns on every second round; when false, `energy_tested`, `energy_cut`
+    /// and `nodes_closed` were not measured and their zeros are not evidence.
+    pub energy_bound: bool,
+    /// Derivations that reached the energy bound's test (only on a round that
+    /// runs it, and only at a cell), and of them those it cut as dominated.
+    pub energy_tested: u64,
+    pub energy_cut: u64,
+    /// Cells the energy bound closed whole, ahead of every other test.
+    pub nodes_closed: u64,
+    /// Where `walk_s` went: taking the next derivation off the root,
+    /// spelling it, keeping the duplicate counts, and in the visitor.
+    pub phases: WalkPhases,
+    /// The walk's heap when it ended, by structure. Empty for the top
+    /// band and an unwalked stretch, which hold no forest.
+    pub memory: MemoryBreakdown,
 }
 
 /// The modular front, whole or as far as the budget reached.
@@ -363,6 +412,27 @@ pub struct ModularFront {
     /// it would have walked next and the derivations its walks had taken. The
     /// front is then empty and incomplete; it is not shown empty.
     pub gave_up: Option<(usize, u64)>,
+    /// The band [`TopSearch::None`] stopped the search below, which it did not
+    /// visit: every adaptation above `cai_log_lo`, the best-adapted modular
+    /// design the search held when it planned its regions. `None` when the
+    /// search covered the whole adaptation range, and `complete` is then the
+    /// whole story.
+    ///
+    /// Set, it is the clause on both `complete` and each point's
+    /// [`ModularPoint::certified`], which are statements about the designs at
+    /// or below `cai_log_lo` and not about every design:
+    ///
+    /// - every point of the whole modular front at or below `cai_log_lo` is
+    ///   returned, so nothing under the ceiling is missing;
+    /// - no point above `cai_log_lo` is returned at all — the ceiling is the
+    ///   most adapted design the search held, and nothing it walked lies above
+    ///   it — so the most adapted modular design, which is on the modular
+    ///   front whatever its energy, is missing whenever one lies in this band;
+    /// - a point returned may be dominated by a design in this band, so it is
+    ///   a modular design and need not be on the whole modular front. The
+    ///   band's floors bound what it can hold, and a point the floors leave
+    ///   dominable is marked `provisional` rather than `certified`.
+    pub top_band: Option<OpenRegion>,
 }
 
 /// When the search stops or holds back a region before its budget runs out.
@@ -380,6 +450,12 @@ pub struct SearchPolicy {
     /// other region is open. The time goes to the regions after it, so this
     /// changes what a budget finds.
     pub hold_barren: bool,
+    /// The most derivations any one window walk may take off its root
+    /// before it ends and reports what it reached; `None` leaves it
+    /// uncapped, and the time budget is then the only stop. A cap makes a
+    /// run's walking comparable between two builds, which a span of time
+    /// does not.
+    pub max_derivations: Option<u64>,
 }
 
 /// What an earlier search of the same molecule and constrained front settled,
@@ -497,6 +573,21 @@ pub enum TopSearch {
     /// walk's slope, with the region's open end left to its report.
     #[default]
     Window,
+    /// Not at all. The search stops at the best-adapted modular design it
+    /// holds when the regions are planned — a seed, or a design a caller
+    /// handed it — and the band above that design is returned as
+    /// [`ModularFront::top_band`] instead of being visited.
+    ///
+    /// It is the one region a found point cannot cap, so a walk of it ends
+    /// only once it has passed every design at every energy above the floor.
+    /// Dropping it bounds the search, and what the run returns is then the
+    /// modular front of the designs at or below the ceiling rather than the
+    /// whole modular front: see [`ModularFront::top_band`] for what that
+    /// leaves unsaid.
+    ///
+    /// With no modular design to stop at there is no ceiling, and the search
+    /// runs as it does with the band searched.
+    None,
 }
 
 /// A test a whole molecule must pass to count as a design.
@@ -776,6 +867,12 @@ fn search(
         }
         open.retain(|r| r.lo < r.hi);
     }
+    // The band above the best-adapted modular design is the region nothing
+    // caps; `TopSearch::None` stops the search there rather than walking it.
+    let top_band = match m.top {
+        TopSearch::None => stop_at_top(&mut open, &found),
+        TopSearch::Band | TopSearch::Window => None,
+    };
     let mut share = first_round_s();
     // What a window spends before its walk begins, learnt from the windows
     // this run has already walked. A window pays its fold cut and outside
@@ -894,7 +991,11 @@ fn search(
         share *= 2.0;
     }
 
-    let mut points = merge(found, &open, &bound, offset);
+    // A point is certified against every region that may hold a design
+    // dominating it, and the band the search stopped below is such a region
+    // however complete the rest of the run is: unsearched, not closed.
+    let unproven: Vec<Open> = open.iter().chain(top_band.iter()).cloned().collect();
+    let mut points = merge(found, &unproven, &bound, offset);
     for p in &mut points {
         p.check = seed_checks.remove(&p.sequence);
     }
@@ -913,7 +1014,33 @@ fn search(
         schedule: (lane_count(m.threads), first_round_s()),
         cut_build_s,
         gave_up,
+        top_band: top_band.map(|r| r.on_scale(offset, &bound)),
     })
+}
+
+/// The band [`TopSearch::None`] stops the search below, clamping `open` to it:
+/// the adaptations above the best-adapted design in `found`.
+///
+/// That band is the one region a find cannot cap. [`cap_above`] wants a found
+/// point at or above a region's top, and the top region's top is the lattice's
+/// own, which only the most adapted design reaches — so a walk of the band
+/// ends only once it has passed every design at every energy above the floor.
+/// A region the ceiling leaves empty holds no design and is not open.
+///
+/// `None` when `found` is empty: there is no modular design to stop at, so
+/// there is no ceiling and nothing is clamped.
+fn stop_at_top(open: &mut Vec<Open>, found: &[(Axes, String)]) -> Option<Open> {
+    let ceiling = found
+        .iter()
+        .map(|(a, _)| a.adaptation)
+        .max_by(f64::total_cmp)?;
+    for region in open.iter_mut().filter(|r| r.hi > ceiling) {
+        region.hi = ceiling;
+    }
+    open.retain(|r| r.lo < r.hi);
+    // No walk of this run reached the band, so it carries no walk's floor and
+    // the constrained front is the only floor it has.
+    Some(Open::unwalked(ceiling, f64::INFINITY))
 }
 
 /// Every synonymous codon of each residue, and every stop codon at a designed
@@ -1221,7 +1348,7 @@ impl Molecule<'_> {
                         slope,
                         known,
                         energy_slopes,
-                        u64::MAX,
+                        self.policy.max_derivations.unwrap_or(u64::MAX),
                         seconds,
                         verify(self.threads),
                         walk(),
@@ -1591,6 +1718,20 @@ impl Stretch {
             walk_s: r.stats.walk_s,
             derivations: r.stats.derivations,
             stopped: r.stats.stopped,
+            refused: r.refused,
+            outside: r.outside,
+            covered: r.covered,
+            bound_requeued: r.stats.bound_requeued,
+            outside_tested: r.stats.bound_outside_tested,
+            cut_outside: r.stats.bound_outside_cut,
+            covered_tested: r.stats.bound_covered_tested,
+            cut_covered: r.stats.bound_covered_cut,
+            energy_bound: !r.energy_slopes.is_empty(),
+            energy_tested: r.stats.bound_energy_tested,
+            energy_cut: r.stats.bound_energy_cut,
+            nodes_closed: r.stats.bound_nodes_closed,
+            phases: r.stats.phases,
+            memory: r.stats.memory.clone(),
         }
     }
 }
@@ -1805,6 +1946,12 @@ mod tests {
             .collect()
     }
 
+    /// An open region is one of the **two** regions that can make a point
+    /// provisional. The other is the band [`TopSearch::None`] leaves
+    /// unsearched, which is not open — the search is over — and is covered by
+    /// `a_point_the_unsearched_band_can_dominate_is_provisional`. So a
+    /// provisional point no longer implies an open region, and `complete` no
+    /// longer implies every point certified.
     #[test]
     fn a_point_is_provisional_only_where_an_open_region_can_dominate_it() {
         let point = || vec![(at(-420.0, -1.5), "p".to_string())];
@@ -1950,5 +2097,82 @@ mod tests {
         let boxed = plan_stretches(&[0, 1, 3], &floor, &[(0.2, 0.8)]);
         let walked: Vec<bool> = boxed.iter().map(|p| p.walk).collect();
         assert_eq!(walked, [false, true, true, true]);
+    }
+
+    #[test]
+    fn the_stretch_above_the_best_seed_is_the_one_no_find_can_cap() {
+        let floor = vec![at(-5.0, 0.0), at(-4.0, 1.0), at(-3.0, 2.0)];
+        let plan = plan_stretches(&[0, 2], &floor, &[]);
+        let top = plan.last().unwrap();
+        assert!(top.walk && top.hi.is_infinite());
+        // Every stretch below it takes its cap from the seed above it; the top
+        // one has nothing above, and a find anywhere — here at the most
+        // adapted design the floor knows — does not give it one either.
+        let found = vec![
+            (at(-3.0, 2.0), "seed".to_string()),
+            (at(-1.0, 2.0), "find".to_string()),
+        ];
+        assert!(cap_above(&found, plan[1].hi).is_some());
+        assert!(
+            cap_above(&found, top.hi).is_none(),
+            "a capped top stretch would make the ceiling pointless"
+        );
+    }
+
+    #[test]
+    fn the_ceiling_drops_the_band_above_the_best_modular_design() {
+        let found = vec![
+            (at(-500.0, -2.0), "low".to_string()),
+            (at(-450.0, -1.0), "best".to_string()),
+        ];
+        let mut regions = vec![
+            open(-3.0, -2.0, None, 0.0),
+            open(-1.5, f64::INFINITY, Some(-900.0), 50.0),
+            open(-0.5, 0.0, None, 0.0),
+        ];
+        let band = stop_at_top(&mut regions, &found).expect("a design to stop at");
+        assert_eq!(band.lo, -1.0);
+        assert!(band.hi.is_infinite());
+        assert!(
+            band.lines.is_empty(),
+            "no walk of this run reached the band"
+        );
+        // The region below the ceiling is untouched, the one straddling it is
+        // clamped to it, and the one wholly above it holds nothing and goes.
+        let bounds: Vec<(f64, f64)> = regions.iter().map(|r| (r.lo, r.hi)).collect();
+        assert_eq!(bounds, [(-3.0, -2.0), (-1.5, -1.0)]);
+        // The clamped region is capped by the design the ceiling is, which is
+        // what lets its walk end.
+        assert!(cap_above(&found, regions[1].hi).is_some());
+    }
+
+    #[test]
+    fn with_no_modular_design_there_is_no_ceiling_and_nothing_is_dropped() {
+        let mut regions = vec![open(f64::NEG_INFINITY, f64::INFINITY, None, 0.0)];
+        assert!(stop_at_top(&mut regions, &[]).is_none());
+        assert_eq!(regions.len(), 1);
+        assert!(regions[0].lo.is_infinite() && regions[0].hi.is_infinite());
+    }
+
+    #[test]
+    fn a_point_the_unsearched_band_can_dominate_is_provisional() {
+        // An anchor the constrained front beats on energy, so a modular design
+        // more adapted than it and no less stable is not ruled out — and the
+        // band such a design would sit in is the one the ceiling leaves
+        // unsearched. The ceiling is the anchor, since it is the only design
+        // the search holds.
+        let anchor = at(-390.0, -0.5);
+        let found = vec![(anchor, "anchor".to_string())];
+        let mut regions = Vec::new();
+        let band = stop_at_top(&mut regions, &found).unwrap();
+        assert_eq!(certified(found.clone(), &[]), [true]);
+        assert_eq!(
+            certified(found, std::slice::from_ref(&band)),
+            [false],
+            "the band's floor reaches below the anchor's energy"
+        );
+        // And a point the floor cannot reach under stays proven.
+        let stable = vec![(at(-490.0, -1.5), "stable".to_string())];
+        assert_eq!(certified(stable, &[band]), [true]);
     }
 }

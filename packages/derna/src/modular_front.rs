@@ -664,6 +664,19 @@ pub fn fixed_violations(fixed: &[bool], violations: &[(usize, usize)]) -> Value 
 
 /// The header fields that say what the modular front is and how
 /// far the budget reached.
+/// The clause a run's summary needs when it stopped below a band rather than
+/// searching it: `complete` is then complete at or below the ceiling, and the
+/// most adapted modular design is missing whenever one sits above it. `None`
+/// when the search covered every adaptation.
+pub fn top_band_note(front: &ModularFront) -> Option<String> {
+    let band = front.top_band.as_ref()?;
+    Some(format!(
+        "the band above cai_log {:.6} was not searched: at or below it this front is \
+         the modular front, above it nothing was looked for",
+        band.cai_log_lo.unwrap_or(f64::NEG_INFINITY),
+    ))
+}
+
 pub fn header_fields(
     front: &ModularFront,
     constrained: usize,
@@ -701,6 +714,7 @@ pub fn header_fields(
         }))),
     );
     extra.insert("hold_barren".into(), json!(policy.hold_barren));
+    extra.insert("max_derivations".into(), json!(policy.max_derivations));
     extra.insert("lanes".into(), front.schedule.0.into());
     extra.insert("first_round_s".into(), front.schedule.1.into());
     extra.insert("max_secs".into(), json!(budget.max_secs));
@@ -724,11 +738,29 @@ pub fn header_fields(
         })
         .collect();
     extra.insert("open".into(), open.into());
+    // The clause on `complete` and on every point's `status`: with a band
+    // left unsearched, both are statements about the designs at or below its
+    // `cai_log_lo`. Nothing under it is missing, nothing above it is here,
+    // and a point here may be dominated by a design in the band — so the
+    // front is not a subset of the modular front either, which is why the
+    // band is read as a dominating region and such a point is provisional.
+    // Null whenever the search covered the whole adaptation range, so a
+    // capped front is told from an uncapped one by this field alone.
+    extra.insert(
+        "top_band".into(),
+        json!(front.top_band.as_ref().map(|o| json!({
+            "cai_log_lo": o.cai_log_lo,
+            "cai_log_hi": o.cai_log_hi,
+            "mfe_floor": o.mfe_floor_kcal_mol,
+            "slope": o.slope_kcal_mol,
+            "mfe_floor_constrained": o.mfe_floor_constrained_kcal_mol,
+        }))),
+    );
     let stretches: Vec<Value> = front
         .stretches
         .iter()
         .map(|s| {
-            json!({
+            let mut v = json!({
                 "round": s.round,
                 "cai_log_lo": s.cai_log_lo,
                 "cai_log_hi": s.cai_log_hi,
@@ -751,7 +783,46 @@ pub fn header_fields(
                 "walk_s": s.walk_s,
                 "derivations": s.derivations,
                 "stopped": s.stopped,
-            })
+                "refused": s.refused,
+                "outside": s.outside,
+                "covered": s.covered,
+                "bound_requeued": s.bound_requeued,
+                "phases": {
+                    "next_s": s.phases.next_s,
+                    "spell_s": s.phases.spell_s,
+                    "dedup_s": s.phases.dedup_s,
+                    "visit_s": s.phases.visit_s,
+                },
+                "memory": {
+                    "derivations": s.memory.derivations,
+                    "derivations_used": s.memory.derivations_used,
+                    "candidates": s.memory.candidates,
+                    "edges": s.memory.edges,
+                    "nodes": s.memory.nodes,
+                    "designs": s.memory.designs,
+                    "node_sets": s.memory.node_sets,
+                    "shelf": s.memory.shelf,
+                    "held": s.memory.held,
+                    "held_used": s.memory.held_used,
+                    "held_queued": s.memory.held_queued,
+                },
+            });
+            // A second step: one `json!` of every key passes the macro's
+            // recursion limit.
+            let o = v.as_object_mut().expect("an object");
+            for (k, n) in [
+                ("outside_tested", s.outside_tested),
+                ("cut_outside", s.cut_outside),
+                ("covered_tested", s.covered_tested),
+                ("cut_covered", s.cut_covered),
+                ("energy_tested", s.energy_tested),
+                ("energy_cut", s.energy_cut),
+                ("nodes_closed", s.nodes_closed),
+            ] {
+                o.insert(k.into(), n.into());
+            }
+            o.insert("energy_bound".into(), s.energy_bound.into());
+            v
         })
         .collect();
     extra.insert("stretches".into(), stretches.into());

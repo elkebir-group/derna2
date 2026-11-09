@@ -33,7 +33,7 @@ const DESIGN_FLAGS: [&str; 20] = [
 ];
 
 /// Every flag `derna front` accepts.
-const FRONT_FLAGS: [&str; 39] = [
+const FRONT_FLAGS: [&str; 40] = [
     "--quiet",
     "--params",
     "--walk-secs",
@@ -60,6 +60,7 @@ const FRONT_FLAGS: [&str; 39] = [
     "--empty-stop-rounds",
     "--empty-stop-derivations",
     "--hold-barren",
+    "--max-derivations",
     "--front-out",
     "--front-from",
     "--narrow-from",

@@ -207,9 +207,21 @@ Modular front
                             constrained walk before it runs whole
   --front-out PATH          also write the constrained front, as a plain
                             `front` writes it
-  --top-search band|window  how a region no found point caps is searched:
-                            every design, most adapted first, or a window
-                            walk [default: window]
+  --top-search band|window|none
+                            how a region no found point caps is searched:
+                            every design, most adapted first; a window walk;
+                            or not at all. `none` stops the search at the
+                            best-adapted modular design it holds — a seed or
+                            an --anchors-from design — and reports the band
+                            above it as `top_band` instead of walking it. That
+                            band is the region nothing can cap, so it is what
+                            a budget is spent on; without it the search can
+                            finish, and the front it returns is the modular
+                            front of the designs at or below that adaptation.
+                            Nothing under the ceiling is missing, nothing
+                            above it is returned, and a point `top_band` could
+                            hold a dominating design for is provisional rather
+                            than certified [default: window]
   --empty-stop-rounds R     stop a search that has found no point once R
                             rounds are over and its walks have taken at least
                             --empty-stop-derivations N (default 1000000); the
@@ -219,6 +231,14 @@ Modular front
                             that found nothing no more time than that visit
                             while another region is open; changes what a
                             budget finds
+  --max-derivations N       end each window walk once it has taken N
+                            derivations off its root, whatever time is
+                            left of its share; the stretch then reads
+                            stopped: derivations. A span of time measures
+                            a machine as much as a build, so an A/B of two
+                            builds under --max-secs alone compares runs
+                            that walked different amounts; this gives both
+                            the same amount to walk [default: uncapped]
   --epsilon E               return the front of the designs whose gap (how far
                             the free MFE sits below the constrained MFE) is at
                             most E kcal/mol (not with --motif),
@@ -333,9 +353,10 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
                 args.top_search = match flags.value(&flag)?.as_str() {
                     "band" => modular_front::TopSearch::Band,
                     "window" => modular_front::TopSearch::Window,
+                    "none" => modular_front::TopSearch::None,
                     other => {
                         return Err(format!(
-                            "derna front: --top-search is band or window, not {other:?}"
+                            "derna front: --top-search is band, window or none, not {other:?}"
                         )
                         .into())
                     }
@@ -359,6 +380,15 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
                 }
             }
             "--hold-barren" => args.policy.hold_barren = true,
+            "--max-derivations" => {
+                let n: u64 = flags.parsed(&flag)?;
+                if n == 0 {
+                    return Err(format!("{flag} {n}: give a count of 1 or more").into());
+                }
+                if args.policy.max_derivations.replace(n).is_some() {
+                    return Err("--max-derivations is given twice".into());
+                }
+            }
             "--walk-secs" => {
                 let s: f64 = flags.parsed(&flag)?;
                 if !(s >= 0.0 && s.is_finite()) {
@@ -569,6 +599,13 @@ pub fn parse(words: impl IntoIterator<Item = String>) -> Result<FrontArgs> {
     }
     if args.budget.shed_on_memory && args.budget.max_rss_gb.is_none() {
         return Err("--shed-on-memory needs --max-rss-gb".into());
+    }
+    if args.policy.max_derivations.is_some() && !args.modular {
+        return Err(
+            "derna front: --max-derivations caps the modular search's window walks; \
+                    a plain front walks to the whole front and takes --max-secs"
+                .into(),
+        );
     }
     if !batch {
         settle_rerun(&mut args)?;
@@ -1762,6 +1799,9 @@ fn write_motif_modular(
         front.seeds,
         modular_front::stop_line(&front),
     );
+    if let Some(note) = modular_front::top_band_note(&front) {
+        eprintln!("{note}");
+    }
     let Value::Object(mut header) = header else {
         return Err("a header is an object".into());
     };
@@ -2605,6 +2645,9 @@ fn write_modular(
         modular_front::stop_line(&front),
         started.elapsed().as_secs_f64()
     );
+    if let Some(note) = modular_front::top_band_note(&front) {
+        eprintln!("{note}");
+    }
     let mut extra =
         modular_front::header_fields(&front, walked.front.len(), args.budget, args.policy);
     extra.insert("constrained_open".into(), boxes.len().into());
@@ -2666,7 +2709,8 @@ fn refuse_another_runs_search(m: &Molecule, path: &Path) -> Result<()> {
 }
 
 /// Once a complete modular front has landed, the walk kept beside it under
-/// `--checkpoint` has nothing left to protect. A stopped front keeps it, so
+/// `--checkpoint` has nothing left to protect. A stopped front keeps it, and
+/// so does one that stopped below a band, so
 /// running the command again continues the search from the same walk. The
 /// search's own progress file stays either way: it is a record of what the
 /// search checked as well as a way to resume it.
@@ -2674,7 +2718,11 @@ fn landed(args: &FrontArgs, front: &derna_lib::modular_front::ModularFront) {
     let Some(path) = checkpoint_path(args) else {
         return;
     };
-    if modular_front::stopped_by(front).is_none() && path.exists() {
+    // A front that stopped below a band keeps it too: the band is unsearched,
+    // so a rerun that searches it has work left, and throwing the walk away
+    // would make that rerun walk the constrained front again.
+    let whole = modular_front::stopped_by(front).is_none() && front.top_band.is_none();
+    if whole && path.exists() {
         if let Err(err) = std::fs::remove_file(&path) {
             eprintln!("derna front: {} was left behind: {err}", path.display());
         }
@@ -3091,6 +3139,54 @@ mod tests {
             argv.extend(words(other));
             assert!(parse(argv).is_ok(), "{other:?}");
         }
+    }
+
+    /// The derivation cap reaches the policy the search reads, and the values
+    /// that cannot mean anything are refused rather than taken and ignored.
+    #[test]
+    fn a_derivation_cap_reaches_the_policy_or_is_refused() {
+        let args = parse(words(&[
+            "--protein",
+            "MK",
+            "--modular",
+            "--max-derivations",
+            "7",
+        ]))
+        .expect("a modular run takes the cap");
+        assert_eq!(args.policy.max_derivations, Some(7));
+
+        let zero = parse(words(&[
+            "--protein",
+            "MK",
+            "--modular",
+            "--max-derivations",
+            "0",
+        ]))
+        .unwrap_err()
+        .to_string();
+        assert!(zero.contains("1 or more"), "{zero}");
+
+        let twice = parse(words(&[
+            "--protein",
+            "MK",
+            "--modular",
+            "--max-derivations",
+            "7",
+            "--max-derivations",
+            "9",
+        ]))
+        .unwrap_err()
+        .to_string();
+        assert!(twice.contains("given twice"), "{twice}");
+
+        // A plain front walks to the whole front, so the cap would be read
+        // from the command line, reported in the header and applied to
+        // nothing.
+        let plain = parse(words(&["--protein", "MK", "--max-derivations", "7"]))
+            .unwrap_err()
+            .to_string();
+        assert!(plain.contains("--max-derivations"), "{plain}");
+        assert!(plain.contains("modular"), "{plain}");
     }
 
     #[test]

@@ -875,19 +875,65 @@ fn a_checkpointed_run_writes_the_motif_front_to_the_front_out() {
 /// designs they certify raise the floor the walk prunes against, so how far
 /// the walk gets before the window is covered depends on when those finds
 /// land. Its counters vary between runs; the points it returns do not.
+/// `covered`, `bound_requeued` and the window bound's `outside_tested`,
+/// `cut_outside`, `covered_tested` and `cut_covered` read that floor too and
+/// are seen to differ between runs at one thread (7 and 8, 112 and 113,
+/// 18,691 and 39,537 on this cell under a loaded host). The energy bound's
+/// counts are zero on this cell, which ends in its first round, and are
+/// compared, as is `outside`, which is zero unless a design sits within the
+/// window bound's slack of its edge.
 fn untimed(header: &Value) -> Value {
     let mut h = header.clone();
     let o = h.as_object_mut().unwrap();
-    for k in ["wall_s", "certify_s", "cut_build_s", "peak_rss_kb"] {
-        o.remove(k);
-    }
+    o.remove("peak_rss_kb");
     for s in o["stretches"].as_array_mut().unwrap() {
-        s.as_object_mut().unwrap().retain(|k, _| {
-            !k.ends_with("_s")
-                && !["derivations", "reached", "offered", "folds"].contains(&k.as_str())
+        let s = s.as_object_mut().unwrap();
+        s.retain(|k, _| {
+            ![
+                "derivations",
+                "reached",
+                "covered",
+                "offered",
+                "folds",
+                "bound_requeued",
+                "outside_tested",
+                "cut_outside",
+                "covered_tested",
+                "cut_covered",
+            ]
+            .contains(&k.as_str())
         });
+        // A stretch's diagnostic blocks are nested objects, and the retain
+        // above tests a stretch's own key names: `phases` holds per-phase wall
+        // clocks and `memory` holds allocation high-water marks, and neither
+        // name ends in `_s` or appears in the list, so every quantity inside
+        // them reached the comparison. Both vary run to run — the header says
+        // `deterministic: false` — which made this equality an equality over
+        // two walks' instrumentation.
+        //
+        // Dropped by **shape** rather than by name: a stretch's nested objects
+        // are instrumentation and its scalars are the answer, so a block added
+        // later cannot put a nondeterministic quantity back in. What is
+        // compared is every scalar a stretch carries — its region bounds,
+        // point and design counts, slope, stop reason, thread count and
+        // completeness.
+        s.retain(|_, v| !v.is_object());
     }
+    drop_seconds(&mut h);
     h
+}
+
+/// Remove every key ending in `_s`, at any depth: a timing nested in an
+/// object a run adds later is still a timing.
+fn drop_seconds(v: &mut Value) {
+    match v {
+        Value::Object(o) => {
+            o.retain(|k, _| !k.ends_with("_s"));
+            o.values_mut().for_each(drop_seconds);
+        }
+        Value::Array(a) => a.iter_mut().for_each(drop_seconds),
+        _ => {}
+    }
 }
 
 /// `--epsilon 0` is the run without it, line for line: the same header — its
@@ -901,6 +947,192 @@ fn epsilon_zero_returns_what_a_run_without_it_returns() {
     assert_eq!(zero[0]["epsilon"], 0.0);
     assert_eq!(zero[0]["outcome"], "tight");
     assert!(zero[1..].iter().all(|p| p["epsilon"] == 0.0));
+}
+
+/// The walk counters of every stretch, by name.
+fn walk_counters(s: &Value) -> [u64; 6] {
+    [
+        "reached",
+        "outside",
+        "covered",
+        "refused",
+        "offered",
+        "bound_requeued",
+    ]
+    .map(|k| {
+        s[k].as_u64()
+            .unwrap_or_else(|| panic!("stretch has no `{k}` count: {s}"))
+    })
+}
+
+/// A modular front written before stretches carried the walk's counters
+/// (`outside`, `covered`, `bound_requeued`) and the bound's cuts by reason
+/// still reads: `show` and `check` take it, and it seeds
+/// a search. What `show` reads back leaves the counters absent rather than
+/// filling them in, so a reader can tell "not recorded" from zero.
+#[test]
+fn a_front_whose_stretches_predate_the_walk_counters_still_reads() {
+    let mut lines = run(&[]);
+    let new = [
+        "outside",
+        "covered",
+        "bound_requeued",
+        "outside_tested",
+        "cut_outside",
+        "covered_tested",
+        "cut_covered",
+        "energy_bound",
+        "energy_tested",
+        "energy_cut",
+        "nodes_closed",
+    ];
+    for s in lines[0]["stretches"].as_array_mut().unwrap() {
+        let s = s.as_object_mut().unwrap();
+        for k in new {
+            assert!(s.remove(k).is_some(), "the run wrote no `{k}`");
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("derna-so-old-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let old = dir.join("old.jsonl");
+    let text: Vec<String> = lines.iter().map(Value::to_string).collect();
+    std::fs::write(&old, text.join("\n") + "\n").unwrap();
+
+    let read = derna_cli::show::read(Some(&old)).unwrap();
+    for s in read.header["stretches"].as_array().unwrap() {
+        for k in new {
+            assert!(s.get(k).is_none(), "`{k}` read back as {}", s[k]);
+        }
+    }
+    derna_cli::show::render(
+        &derna_cli::show::parse(Vec::<String>::new()).unwrap(),
+        &read,
+    );
+
+    let checked = dir.join("checked.jsonl");
+    let argv: Vec<String> = [
+        "check",
+        old.to_str().unwrap(),
+        "--out",
+        checked.to_str().unwrap(),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    derna_cli::run(argv).unwrap();
+
+    let seeded = run(&["--anchors-from", old.to_str().unwrap()]);
+    assert_eq!(
+        seeded[0]["anchors"]["points"].as_u64(),
+        Some((lines.len() - 1) as u64)
+    );
+    for f in [&old, &checked] {
+        std::fs::remove_file(f).unwrap();
+    }
+    std::fs::remove_dir(&dir).unwrap();
+}
+
+/// Every walked stretch says where the whole designs its walk reached went,
+/// under the keys a reader looks them up by, whether its walk completed or was
+/// stopped: `outside`, `covered`, `refused` and `offered` partition `reached`,
+/// less the one design that completed the window's coverage and ended the walk.
+/// What the bound cut before it was a design is not in `reached` at all.
+#[test]
+fn every_walked_stretch_says_where_its_designs_went() {
+    let sorted = |lines: &[Value]| -> Vec<(String, [u64; 6])> {
+        let mut out = Vec::new();
+        for s in lines[0]["stretches"].as_array().unwrap() {
+            let c = walk_counters(s);
+            let [reached, outside, covered, refused, offered, _] = c;
+            if s["walked"] == false {
+                assert_eq!(c, [0; 6], "{s}");
+                continue;
+            }
+            let landed = outside + covered + refused + offered;
+            assert!(
+                reached == landed || (reached == landed + 1 && s["stopped"] == "visitor"),
+                "{s}"
+            );
+            out.push((s["stopped"].as_str().unwrap().to_string(), c));
+        }
+        out
+    };
+    let whole = sorted(&run(&["--threads", "1"]));
+    assert!(whole.iter().any(|(_, c)| c[0] > 0), "{whole:?}");
+    let capped = sorted(&run(&["--threads", "1", "--max-derivations", "20"]));
+    assert!(
+        capped
+            .iter()
+            .any(|(stopped, c)| stopped == "derivations" && c[0] > 0),
+        "no stopped walk reached a design: {capped:?}"
+    );
+}
+
+/// The bound's counters, each beside the count that arrived at its test, and
+/// each non-zero here, so none is satisfied by a zero.
+///
+/// The cell and cap were chosen by measuring: of five small cells, each run
+/// uncapped and at caps of 200, 50 and 20 derivations, this is the cheapest
+/// where all nine move. Uncapped, or at 200 or 50, the search ends in its
+/// first round, which runs without the energy bound, so `energy_tested`,
+/// `energy_cut` and `nodes_closed` read zero; a cap of 20 leaves regions open
+/// for a second round, which runs it. The counts held across ten runs. The
+/// `outside` counter is planted by the library's window test,
+/// `outside_counts_the_designs_reached_beyond_the_window`.
+#[test]
+fn every_bound_counter_fires_beside_what_reached_its_test() {
+    let lines = run(&["--threads", "1", "--max-derivations", "20"]);
+    let stretches = lines[0]["stretches"].as_array().unwrap();
+    let n = |s: &Value, k: &str| -> u64 {
+        s[k].as_u64()
+            .unwrap_or_else(|| panic!("stretch has no `{k}` count: {s}"))
+    };
+    for s in stretches {
+        assert_eq!(
+            n(s, "covered_tested"),
+            n(s, "outside_tested") - n(s, "cut_outside"),
+            "{s}"
+        );
+        assert!(
+            n(s, "energy_tested") <= n(s, "covered_tested") - n(s, "cut_covered"),
+            "{s}"
+        );
+        assert!(n(s, "energy_cut") <= n(s, "energy_tested"), "{s}");
+    }
+    for k in [
+        "covered",
+        "bound_requeued",
+        "outside_tested",
+        "cut_outside",
+        "covered_tested",
+        "cut_covered",
+        "energy_tested",
+        "energy_cut",
+        "nodes_closed",
+    ] {
+        let sum: u64 = stretches.iter().map(|s| n(s, k)).sum();
+        assert!(sum > 0, "`{k}` is zero on every stretch: {stretches:?}");
+    }
+    // The energy bound is in force on the rounds that run it and no other, and
+    // its counters are zero wherever it was not.
+    let mut by_flag = [false; 2];
+    for s in stretches.iter().filter(|s| s["walked"] == true) {
+        let on = s["energy_bound"].as_bool().expect("an `energy_bound` flag");
+        assert_eq!(on, n(s, "round") % 2 == 1, "{s}");
+        if !on {
+            assert_eq!(
+                [
+                    n(s, "energy_tested"),
+                    n(s, "energy_cut"),
+                    n(s, "nodes_closed")
+                ],
+                [0; 3],
+                "{s}"
+            );
+        }
+        by_flag[usize::from(on)] = true;
+    }
+    assert_eq!(by_flag, [true; 2], "{stretches:?}");
 }
 
 /// Within an epsilon every point says so and has a gap at most it, and both
@@ -1126,4 +1358,83 @@ fn a_front_within_epsilon_reads_as_one_through_check_and_show() {
     .join("\n");
     assert!(shown.contains("within 0.5 kcal/mol, by gap: "), "{shown}");
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `--top-search none` stops the search below the band above the best modular
+/// design it holds, and the header says so: `top_band` names the band, and it
+/// is what tells a capped front from an uncapped one. What it returns holds
+/// every point the searched run has at or below the ceiling and none above
+/// it; a point it holds that the searched run does not is a modular design
+/// the band's own designs dominate, which is the half of the guarantee that
+/// does not point the same way.
+///
+/// Non-vacuity: the same cell with the band searched walks a region this run
+/// does not, so the ceiling takes a region away and the comparison is not
+/// between two copies of one answer.
+#[test]
+fn stopping_below_the_top_band_says_so_and_keeps_the_front_under_it() {
+    let whole = run(&[]);
+    let capped = run(&["--top-search", "none"]);
+    assert_eq!(whole[0]["top_band"], Value::Null, "{}", whole[0]);
+    let band = &capped[0]["top_band"];
+    let ceiling = band["cai_log_lo"].as_f64().unwrap();
+    assert_eq!(
+        band["cai_log_hi"],
+        Value::Null,
+        "the band runs to the lattice's own top"
+    );
+    assert_eq!(capped[0]["complete"], true, "{}", capped[0]);
+    assert!(capped[0]["open"].as_array().unwrap().is_empty());
+    type Point = (f64, f64);
+    let axes =
+        |p: &Value| -> Point { (p["mfe"].as_f64().unwrap(), p["cai_log"].as_f64().unwrap()) };
+    let kept: Vec<Point> = capped[1..].iter().map(axes).collect();
+    let searched: Vec<Point> = whole[1..].iter().map(axes).collect();
+    let under: Vec<Point> = searched
+        .iter()
+        .copied()
+        .filter(|p| p.1 <= ceiling + 1e-9)
+        .collect();
+    let over: Vec<Point> = searched
+        .iter()
+        .copied()
+        .filter(|p| p.1 > ceiling + 1e-9)
+        .collect();
+    assert!(
+        kept.iter().all(|p| p.1 <= ceiling + 1e-9),
+        "a point above the ceiling: {kept:?}"
+    );
+    for p in &under {
+        assert!(kept.contains(p), "{p:?} is missing from the capped front");
+    }
+    for p in &kept {
+        assert!(
+            under.contains(p)
+                || over
+                    .iter()
+                    .any(|q| q.0 <= p.0 && q.1 >= p.1 && (q.0 < p.0 || q.1 > p.1)),
+            "{p:?} is neither on the searched run's front nor dominated from the band"
+        );
+    }
+    // Non-vacuity: the band is a region the searched run walks and this one
+    // does not, so the ceiling removed a region rather than renaming one. A
+    // walked stretch with no upper end is that region.
+    let open_ended = |lines: &[Value]| {
+        lines[0]["stretches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["walked"] == true && s["cai_log_hi"] == Value::Null)
+            .count()
+    };
+    assert!(
+        open_ended(&whole) > 0 && open_ended(&capped) == 0,
+        "the searched run walked {} open-ended stretch(es) and the capped one {}",
+        open_ended(&whole),
+        open_ended(&capped)
+    );
+    for p in &capped[1..] {
+        assert_eq!(p["modular"], true, "{p}");
+        assert_eq!(p["gap"], 0.0, "{p}");
+    }
 }

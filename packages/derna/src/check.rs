@@ -734,12 +734,24 @@ fn check_header(
 ///
 /// Carried through unchanged when the input is itself a checked file, so that
 /// checking a check does not lose the front the chain started from.
+///
+/// `top_band` travels with `complete`, because it is the clause on it: a front
+/// whose search stopped below a band is complete at or below that adaptation
+/// and says nothing above it, and `complete: true` carried without the band
+/// reads as a front with nothing above it.
 fn front_run(input: &Value) -> Option<Value> {
     if let Some(carried) = input.get("front_run") {
         return Some(carried.clone());
     }
     let mut front = Map::new();
-    for field in ["complete", "stopped_by", "open", "seeds", "unchecked"] {
+    for field in [
+        "complete",
+        "stopped_by",
+        "open",
+        "top_band",
+        "seeds",
+        "unchecked",
+    ] {
         if let Some(value) = input.get(field) {
             front.insert(field.into(), value.clone());
         }
@@ -805,6 +817,7 @@ mod tests {
             gap_kcal_mol: 2.0,
             free_structure: "(())".into(),
             reinstated_pairs: vec![(0, 3)],
+            unpaired_required_positions: Vec::new(),
             classes: derna_lib::ClassBreakdown::default(),
             emitted: None,
         };
@@ -838,6 +851,44 @@ mod tests {
         assert_eq!(carried["stopped_by"], json!("time"));
         assert_eq!(carried["open"], json!(1));
         assert_eq!(carried["seeds"], json!(0));
+    }
+
+    /// The band a search stopped below travels with the verdict, and the
+    /// assertion fires both ways: a front that searched every adaptation
+    /// carries `top_band` null, so `complete: true` beside a null band is a
+    /// whole front and beside a band is not. A front written before the field
+    /// existed carries no key at all, as it carries no other absent field.
+    #[test]
+    fn a_front_that_stopped_below_a_band_carries_the_band_into_the_check() {
+        let band = json!({
+            "cai_log_lo": -8.399275672453966, "cai_log_hi": Value::Null,
+            "mfe_floor": Value::Null, "slope": 0.0, "mfe_floor_constrained": -300.2,
+        });
+        let header = |top_band: Value| {
+            json!({
+                "record": "header", "command": "front", "complete": true,
+                "stopped_by": Value::Null, "open": 0, "seeds": 293,
+                "unchecked": 0, "top_band": top_band,
+            })
+        };
+        let capped = front_run(&header(band.clone())).expect("a verdict");
+        assert_eq!(capped["complete"], json!(true));
+        assert_eq!(capped["top_band"], band);
+        let searched = front_run(&header(Value::Null)).expect("a verdict");
+        assert_eq!(searched["complete"], json!(true));
+        assert_eq!(
+            searched["top_band"],
+            Value::Null,
+            "a front that searched every adaptation says so"
+        );
+        let older = json!({
+            "record": "header", "command": "front", "complete": true, "seeds": 1,
+        });
+        let before = front_run(&older).expect("a verdict");
+        assert!(
+            before.get("top_band").is_none(),
+            "a field the input never carried was invented: {before}"
+        );
     }
 
     #[test]

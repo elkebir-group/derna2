@@ -181,6 +181,32 @@ struct Coverage {
     capped: usize,
     resumed: usize,
     tight: usize,
+    cut_outside: u64,
+    cut_covered: u64,
+}
+
+/// Every cut the bound makes has one reason: the derivation's completions
+/// all lie outside the window, or all in-window ones lie in a covered span,
+/// or the energy bound dominates them, or it closed the cell. Each test sees
+/// what the one before it let through, and no more.
+fn cuts_by_reason(got: &WindowReport, cov: &mut Coverage) {
+    let s = &got.stats;
+    assert_eq!(
+        s.bound_cut,
+        s.bound_outside_cut + s.bound_covered_cut + s.bound_energy_cut + s.bound_nodes_closed,
+        "{s:?}"
+    );
+    assert_eq!(
+        s.bound_covered_tested,
+        s.bound_outside_tested - s.bound_outside_cut,
+        "{s:?}"
+    );
+    assert!(
+        s.bound_energy_tested <= s.bound_covered_tested - s.bound_covered_cut,
+        "{s:?}"
+    );
+    cov.cut_outside += s.bound_outside_cut;
+    cov.cut_covered += s.bound_covered_cut;
 }
 
 fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
@@ -284,6 +310,7 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
                 walk,
             );
             same(&format!("slope {mu}, energy {energy:?}"), &got, &want);
+            cuts_by_reason(&got, cov);
             cov.cut += got.stats.bound_cut;
             cov.energy_cut += got.energy_cut;
             cov.closed += got.stats.bound_nodes_closed;
@@ -322,6 +349,7 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
                     &got,
                     &want,
                 );
+                cuts_by_reason(&got, cov);
                 cov.energy_cut += got.energy_cut;
                 cov.closed += got.stats.bound_nodes_closed;
                 cov.skipped += got.stats.bound_edges_skipped;
@@ -571,6 +599,114 @@ fn a_shared_cut_changes_no_window_front() {
     );
 }
 
+/// `outside` counts the designs the walk reaches beyond its window, and the
+/// bound cuts a whole molecule outside it by more than its slack, so only a
+/// design within that slack of an edge is ever counted. A window of zero
+/// width set just below a design's adaptation plants such designs, and the
+/// count is predicted from the enumeration: every encoding whose adaptation
+/// lies within the slack of the edge but beyond the walk's tolerance, and
+/// nothing else, since nothing lies inside the window to offer or cover.
+#[test]
+fn outside_counts_the_designs_reached_beyond_the_window() {
+    const SLACK: f64 = 1e-7;
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let case = Case {
+        protein: "MLRS",
+        utr5: "GGGAUCCG",
+        utr3: "AAAAAAAA",
+        constraints: RegionConstraints::five_prime_isolation(Enforcement::Forbid),
+    };
+    let all = enumerate(&params, &usage, &case);
+    let mut cais: Vec<f64> = all.iter().map(|p| p.cai).collect();
+    cais.sort_by(f64::total_cmp);
+    let edge = cais[cais.len() / 2] - SLACK / 2.0;
+    let beyond = |c: f64| {
+        let d = (c - edge).abs();
+        d > CAI_TOL && d <= SLACK
+    };
+    let want = all.iter().filter(|p| beyond(p.cai)).count() as u64;
+    assert!(want > 0, "no design planted at the edge");
+    assert!(
+        all.iter().all(|p| (p.cai - edge).abs() > 2.0 * CAI_TOL
+            && ((p.cai - edge).abs() - SLACK).abs() > 1e-12),
+        "a design sits on a tolerance, so the count is not predictable"
+    );
+    let got = run(
+        &params,
+        &usage,
+        &case,
+        (edge, edge, &[]),
+        (30.0, &[]),
+        u64::MAX,
+        Verify::folds(1),
+        DEDUP,
+    );
+    assert_eq!(got.outside, want, "{got:?}");
+    assert_eq!(got.reached, want, "{got:?}");
+    assert_eq!(
+        (got.covered, got.refused, got.offered),
+        (0, 0, 0),
+        "{got:?}"
+    );
+}
+
+/// A window of zero width between two designs' adaptations, farther than
+/// the bound's slack from both, holds no design and reaches none: the walk
+/// derives its way through the lattice and every cut it makes is for lying
+/// outside the window. Nothing is reached, so nothing covers a span, and
+/// without the energy bound nothing is cut or closed for dominance.
+#[test]
+fn a_window_between_designs_cuts_only_as_outside() {
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let case = Case {
+        protein: "MLRS",
+        utr5: "GGGAUCCG",
+        utr3: "AAAAAAAA",
+        constraints: RegionConstraints::five_prime_isolation(Enforcement::Forbid),
+    };
+    let all = enumerate(&params, &usage, &case);
+    let mut cais: Vec<f64> = all.iter().map(|p| p.cai).collect();
+    cais.sort_by(f64::total_cmp);
+    cais.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+    let mid = cais.len() / 2;
+    let edge = (cais[mid] + cais[mid + 1]) / 2.0;
+    assert!(all.iter().all(|p| (p.cai - edge).abs() > 1e-6));
+    let got = run(
+        &params,
+        &usage,
+        &case,
+        (edge, edge, &[]),
+        (30.0, &[]),
+        u64::MAX,
+        Verify::folds(1),
+        DEDUP,
+    );
+    let s = &got.stats;
+    assert_eq!(got.reached, 0, "{got:?}");
+    assert!(s.bound_cut > 0, "{s:?}");
+    assert_eq!(s.bound_outside_cut, s.bound_cut, "{s:?}");
+    // What passes the first test is a derivation with completions on both
+    // sides of the window: it reaches the covered test, which has no span to
+    // cut on, and the energy bound is off.
+    assert_eq!(
+        s.bound_covered_tested,
+        s.bound_outside_tested - s.bound_outside_cut,
+        "{s:?}"
+    );
+    assert_eq!(
+        (
+            s.bound_covered_cut,
+            s.bound_energy_tested,
+            s.bound_energy_cut,
+            s.bound_nodes_closed
+        ),
+        (0, 0, 0, 0),
+        "{s:?}"
+    );
+}
+
 #[test]
 fn the_window_front_is_the_enumerated_front() {
     let three_class = RegionConstraints::full_mutual_isolation(Enforcement::Forbid);
@@ -612,6 +748,8 @@ fn the_window_front_is_the_enumerated_front() {
     );
     assert!(cov.empty_windows > 0, "every window held a point: {cov:?}");
     assert!(cov.cut > 0, "the bound cut nothing: {cov:?}");
+    assert!(cov.cut_outside > 0, "nothing was cut as outside: {cov:?}");
+    assert!(cov.cut_covered > 0, "nothing was cut as covered: {cov:?}");
     assert!(cov.energy_cut > 0, "the energy bound cut nothing: {cov:?}");
     assert!(cov.closed > 0, "the energy bound closed no node: {cov:?}");
     assert!(

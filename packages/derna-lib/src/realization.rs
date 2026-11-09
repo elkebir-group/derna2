@@ -49,7 +49,6 @@ use rna_mfe::Params;
 
 use crate::coords::Layout;
 use crate::free_fold::FreeFoldError;
-use crate::must_pair::MustPairConstraint;
 use crate::region::{PairConstraint, RegionConstraints};
 use crate::structure::StructureConstraints;
 use crate::Beam;
@@ -150,27 +149,18 @@ pub fn honouring_mfe(
     constraints: &StructureConstraints,
     beam: Beam,
 ) -> Result<f64, FreeFoldError> {
-    let bad_byte =
-        || FreeFoldError::InvalidNucleotide(sequence.as_bytes().first().copied().unwrap_or(b'?'));
-    let nts = crate::parse_utr(sequence).map_err(|_| bad_byte())?;
-    let graph = crate::dfa::build_fixed_mrna(&nts);
     let region = PairConstraint::for_cds(
         &RegionConstraints::default(),
         layout.cds_start(),
         layout.cds_end(),
     )
     .with_mask(constraints.pair_mask());
-    let must = MustPairConstraint::new(&constraints.required_positions(), graph.seq_len);
-    let tables = crate::scan::scan_with_constraints(
+    let mfe = crate::free_fold::fixed_mrna_mfe(
         params,
-        &graph,
-        1.0,
-        crate::ScanConfig {
-            beam,
-            ..crate::ScanConfig::default()
-        },
+        sequence.as_bytes(),
         region,
-        must,
-    );
-    Ok(tables.c[graph.ix(graph.end())].map_or(f64::INFINITY, |best| best.mfe.to_kcal_mol()))
+        &constraints.required_positions(),
+        beam,
+    )?;
+    Ok(mfe.unwrap_or(f64::INFINITY))
 }

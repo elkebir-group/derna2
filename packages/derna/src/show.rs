@@ -387,6 +387,7 @@ fn table_lines(
     let mut out = header_lines(&rendered.header);
     out.push(summary_line(all, kept.len()));
     out.extend(epsilon_line(&rendered.header, all));
+    out.extend(top_band_line(&rendered.header));
     out.extend(unanswerable(args, all));
     out.push(String::new());
     out.push(table_heading());
@@ -521,6 +522,18 @@ fn epsilon_line(header: &Value, all: &[Value]) -> Option<String> {
     let mut gaps = modular_front::GapHistogram::default();
     gaps.count(all);
     Some(format!("  within {epsilon} kcal/mol, by gap: {gaps}"))
+}
+
+/// On a front whose search stopped below a band, where it stopped. The rows
+/// are then the modular front of the designs at or below that adaptation and
+/// nothing above it was searched, which the counts above cannot show.
+/// `None` on a front that searched every adaptation — every front without the
+/// field.
+fn top_band_line(header: &Value) -> Option<String> {
+    let lo = header["top_band"]["cai_log_lo"].as_f64()?;
+    Some(format!(
+        "  searched to cai_log {lo:.4}; the band above it was not searched"
+    ))
 }
 
 fn summary_line(all: &[Value], kept: usize) -> String {
@@ -678,6 +691,25 @@ mod tests {
         assert_eq!(
             within(0.5.into()).as_deref(),
             Some("  within 0.5 kcal/mol, by gap: 0.00×1 0.20×1")
+        );
+    }
+
+    /// Only a front whose search stopped below a band gets the line, and a
+    /// header without the field — every front written before it existed — is
+    /// a front that searched every adaptation.
+    #[test]
+    fn the_top_band_line_is_for_a_front_that_stopped_below_a_band() {
+        assert_eq!(top_band_line(&serde_json::json!({})), None);
+        assert_eq!(
+            top_band_line(&serde_json::json!({"top_band": Value::Null})),
+            None
+        );
+        assert_eq!(
+            top_band_line(&serde_json::json!({
+                "top_band": {"cai_log_lo": -8.399275672, "cai_log_hi": Value::Null}
+            }))
+            .as_deref(),
+            Some("  searched to cai_log -8.3993; the band above it was not searched")
         );
     }
 

@@ -276,6 +276,15 @@ pub(super) struct Bound {
     outs: Vec<f64>,
     /// Derivations the energy bound cut.
     pub(super) energy_cut: u64,
+    /// Derivations cut because every completion falls outside the window, and
+    /// because every in-window completion falls in a covered span.
+    pub(super) cut_outside: u64,
+    pub(super) cut_covered: u64,
+    /// Derivations that reached each of the three tests, so each cut count
+    /// has the population it was taken from.
+    pub(super) tested_outside: u64,
+    pub(super) tested_covered: u64,
+    pub(super) tested_energy: u64,
     /// Per slope, the cuts whose bound at the lowest in-window adaptation
     /// that slope gave.
     pub(super) binding: Vec<u64>,
@@ -374,6 +383,11 @@ impl Bound {
             slopes: Arc::clone(&window.slopes),
             outs: Vec::new(),
             energy_cut: 0,
+            cut_outside: 0,
+            cut_covered: 0,
+            tested_outside: 0,
+            tested_covered: 0,
+            tested_energy: 0,
             binding: vec![0; window.slopes.len()],
         }
     }
@@ -411,14 +425,19 @@ impl Bound {
         let worst = cai + self.worst_in[at(a)] + self.worst_out[at(b)];
         // A span no path reaches gives `NaN` and is kept: the walk only
         // derives spans on the lattice, so this never prunes on it.
+        self.tested_outside += 1;
         if best < self.lo - PRUNE_SLACK || worst > self.hi + PRUNE_SLACK {
+            self.cut_outside += 1;
             return Admit::Cut;
         }
         let (x, y) = (worst.max(self.lo), best.min(self.hi));
+        self.tested_covered += 1;
         if x <= y && self.floor.covers(x, y) {
+            self.cut_covered += 1;
             return Admit::Cut;
         }
         if let Some(outs) = outs.filter(|_| x <= y) {
+            self.tested_energy += 1;
             if self.eb.dominated(&outs, &stairs, energy, cai, (x, y)) {
                 self.energy_cut += 1;
                 if let Some(i) = self.eb.binding(&outs, cai, x) {
@@ -904,10 +923,11 @@ pub fn window_front_sharing(
     if !weights.is_empty() && !weights.contains(&lambda) {
         weights.push(lambda);
     }
-    // One exact scan and outside pass per slope, each on its own thread: they
-    // share nothing, and together they can cost more than the walk. The
-    // passes already run side by side, so they split the scan's threads
-    // between them rather than each taking all of them.
+    // One exact scan and outside pass per slope: they share nothing, and
+    // together they can cost more than the walk. They run side by side and
+    // split the scan's threads between them rather than each taking all of
+    // them, but no more of them at once than there are threads
+    // ([`run_passes`]).
     let exact = ScanConfig {
         beam: crate::Beam::exact(),
         threads: (config.threads / weights.len().max(1)).max(1),
@@ -940,20 +960,7 @@ pub fn window_front_sharing(
         let keep = (reuse && l == lambda).then_some(tables);
         Ok(Some((l, (1.0 - l) * 100.0, out, keep)))
     };
-    let passes: Vec<_> = std::thread::scope(|scope| {
-        let handles: Vec<_> = weights
-            .iter()
-            .map(|&l| {
-                let deep = std::thread::Builder::new().stack_size(PASS_STACK);
-                crate::task_clock::spawn_built(deep, scope, move || pass(l))
-                    .expect("spawn an outside pass")
-            })
-            .collect();
-        handles
-            .into_iter()
-            .map(|h| h.join().expect("an outside pass panicked"))
-            .collect()
-    });
+    let passes = run_passes(&weights, config.threads, &pass);
     let mut slopes: Slopes = Vec::new();
     let mut scanned = None;
     for p in passes {
@@ -1133,6 +1140,47 @@ pub fn window_front_sharing(
     }))
 }
 
+/// `pass` at each of `weights`, in their order, with at most `threads` of
+/// them running at once, each on its own thread.
+///
+/// A pass holds its scan's tables until its outside values are computed, and
+/// those tables are most of its peak. Passes started past the threads there
+/// are to run them finish no sooner, but each holds a whole scan's tables
+/// meanwhile, so a pass waits for a thread before it starts.
+fn run_passes<T: Send>(
+    weights: &[f64],
+    threads: usize,
+    pass: &(dyn Fn(f64) -> T + Sync),
+) -> Vec<T> {
+    let lanes = threads.clamp(1, weights.len().max(1));
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let mut done: Vec<(usize, T)> = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..lanes)
+            .map(|_| {
+                let deep = std::thread::Builder::new().stack_size(PASS_STACK);
+                let next = &next;
+                crate::task_clock::spawn_built(deep, scope, move || {
+                    let mut mine = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, Relaxed);
+                        let Some(&l) = weights.get(i) else {
+                            return mine;
+                        };
+                        mine.push((i, pass(l)));
+                    }
+                })
+                .expect("spawn an outside pass")
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().expect("an outside pass panicked"))
+            .collect()
+    });
+    done.sort_by_key(|&(i, _)| i);
+    done.into_iter().map(|(_, p)| p).collect()
+}
+
 /// The parts of `[lo, hi]` no merged span covers.
 fn uncovered(lo: f64, hi: f64, spans: &[(f64, f64)]) -> Vec<(f64, f64)> {
     let mut open = Vec::new();
@@ -1187,7 +1235,31 @@ fn pareto(found: &[Found]) -> Vec<FrontPoint> {
 
 #[cfg(test)]
 mod tests {
-    use super::{stairs, EnergyBound, CAI_TOL};
+    use super::{run_passes, stairs, EnergyBound, CAI_TOL};
+
+    /// No more passes run at once than there are threads, each weight's
+    /// result comes back in its place, and with more threads than weights
+    /// every pass runs side by side.
+    #[test]
+    fn passes_wait_for_a_thread() {
+        use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+        use std::time::Duration;
+        let weights = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
+        for (threads, most) in [(1, 1), (2, 2), (4, 4), (16, 6)] {
+            let (running, peak) = (AtomicUsize::new(0), AtomicUsize::new(0));
+            let pass = |l: f64| {
+                let now = running.fetch_add(1, SeqCst) + 1;
+                peak.fetch_max(now, SeqCst);
+                // Long enough that every pass started at once overlaps.
+                std::thread::sleep(Duration::from_millis(50));
+                running.fetch_sub(1, SeqCst);
+                l * 10.0
+            };
+            let got = run_passes(&weights, threads, &pass);
+            assert_eq!(got, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], "threads {threads}");
+            assert_eq!(peak.load(SeqCst), most, "threads {threads}");
+        }
+    }
 
     /// A small deterministic generator, so the cases are the same each run.
     struct Rng(u64);
