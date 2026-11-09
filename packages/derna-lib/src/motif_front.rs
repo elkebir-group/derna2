@@ -5422,6 +5422,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
     let slice_budget = SliceBudget {
         points: gap_budget.unwrap_or_else(default_gap_budget),
         grow: slice_grow.unwrap_or_else(default_slice_grow),
+        // a GiB, as everywhere this figure is read; KiB is two binary steps down
         max_rss_kb: budget.max_rss_gb.map(|gb| gb * 1024.0 * 1024.0),
         workers: threads.max(1),
         open_in_room: gap_room(),

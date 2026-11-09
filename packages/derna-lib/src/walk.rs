@@ -229,6 +229,8 @@ impl Budget {
         self.deadline.is_some_and(|d| std::time::Instant::now() > d)
     }
 
+    /// `max_rss_gb` is a **GiB**, matching every other reader of the figure;
+    /// `rss_kb` is KiB, so the comparison is two binary steps up.
     fn memory_over(&self) -> bool {
         self.max_rss_gb
             .is_some_and(|gb| rss_kb().is_some_and(|kb| kb as f64 > gb * 1024.0 * 1024.0))

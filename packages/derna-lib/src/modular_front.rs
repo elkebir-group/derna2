@@ -322,6 +322,10 @@ pub struct Stretch {
     pub walk_s: f64,
     pub derivations: u64,
     pub stopped: &'static str,
+    /// Whether `stopped` ended the visit in its setup, before the walk
+    /// began: the passes left then never started, and the walk took no
+    /// derivation.
+    pub stopped_in_setup: bool,
     /// Whole molecules the walk reached and spelled and the caller's
     /// own test then refused, before the modularity check. Work the walk
     /// paid for and nothing read.
@@ -976,10 +980,15 @@ fn search(
             };
             for ((region, step), seconds) in wave.iter().zip(steps).zip(given) {
                 let step = step?;
-                if step.found.is_empty() && step.open.iter().any(|r| r.key() == region.key()) {
-                    barren.insert(region.key(), seconds);
-                } else {
-                    barren.remove(&region.key());
+                // A visit a stop ended in its setup walked nothing, so it
+                // says nothing about whether the region is barren.
+                let walked = !step.stretch.as_ref().is_some_and(|s| s.stopped_in_setup);
+                if walked {
+                    if step.found.is_empty() && step.open.iter().any(|r| r.key() == region.key()) {
+                        barren.insert(region.key(), seconds);
+                    } else {
+                        barren.remove(&region.key());
+                    }
                 }
                 setup_s = setup_s.max(step.setup_s);
                 found.extend(step.found);
@@ -1499,9 +1508,12 @@ fn verify(threads: usize) -> Verify {
 
 /// The walk's settings. [`Walk::dedup_index`] is on: it answers the same
 /// membership question as a set of fingerprints, since a probe reads a
-/// derivation back only once the hashes agree and then compares the whole
+/// derivation back wherever a slot's tag agrees and compares the whole
 /// fingerprint, so the walk visits the same designs in the same order while
-/// each node's dedup set takes about a third fewer bytes. [`Walk::tight_lists`]
+/// each slot holds five bytes against a fingerprint's sixteen — and the
+/// saving is resident, as the index vector's empty marker is not all-zero
+/// and is written through at allocation, while the tag vector's zero free
+/// marker becomes resident as its slots are written. [`Walk::tight_lists`]
 /// stays off: the growth slack it removes is capacity that was never written,
 /// so it shrinks the lists' reserved bytes without shrinking resident memory.
 fn walk() -> Walk {
@@ -1718,6 +1730,7 @@ impl Stretch {
             walk_s: r.stats.walk_s,
             derivations: r.stats.derivations,
             stopped: r.stats.stopped,
+            stopped_in_setup: r.stopped_in_setup,
             refused: r.refused,
             outside: r.outside,
             covered: r.covered,

@@ -723,7 +723,8 @@ pub struct WindowReport {
     pub refused: u64,
     pub cut_s: f64,
     /// The energy bound's slopes, the seconds its outside passes took, and
-    /// the derivations it cut.
+    /// the derivations it cut. A window stopped in its setup lists only the
+    /// slopes whose passes ran.
     pub energy_slopes: Vec<f64>,
     pub energy_s: f64,
     pub energy_cut: u64,
@@ -734,6 +735,11 @@ pub struct WindowReport {
     pub folds: u64,
     pub skipped: u64,
     pub wall_s: f64,
+    /// Whether a stop ended the window before its walk began: in its fold
+    /// cut or its outside passes. `stats.stopped` then says which stop
+    /// (`seconds`, `requested` or `shed`), the walk took no derivation, and
+    /// the whole window is `open` with no floor of its own.
+    pub stopped_in_setup: bool,
 }
 
 /// A design's adaptation over the lattice a window walk uses: the sum of
@@ -874,6 +880,11 @@ pub fn window_front_sharing(
     admit: Option<&(dyn Fn(&str) -> bool + Sync)>,
 ) -> Result<Option<WindowReport>, LazyError> {
     let started = Instant::now();
+    // The walk's stops reach its setup too: the cut and the outside passes
+    // hold the most memory a window holds before its walk, and a stop that
+    // waited for them would let a memory budget be passed by all of it.
+    let shed = super::walks_shed();
+    let stop = || setup_stop(started, max_seconds, shed);
     let Some(graph) = lattice(protein, usage, allowed, utr5, utr3)? else {
         return Ok(None);
     };
@@ -881,6 +892,38 @@ pub fn window_front_sharing(
     let lambda = slope_lambda(mu, cai_max - cai_min);
     let slope = 100.0 * (1.0 - lambda) / lambda;
     let (lo, top) = (lo.max(cai_min), hi.min(cai_max));
+    let stopped = |why: &'static str, cut_s: f64, ran: &[f64], energy_s: f64| WindowReport {
+        lambda,
+        slope,
+        cai_max,
+        cai_min,
+        found: 0,
+        front: Vec::new(),
+        complete: false,
+        capped: false,
+        last_g: None,
+        open: uncovered(lo, top, &[]),
+        reached: 0,
+        outside: 0,
+        covered: 0,
+        offered: 0,
+        refused: 0,
+        cut_s,
+        energy_slopes: ran.iter().map(|l| 100.0 * (1.0 - l) / l).collect(),
+        energy_s,
+        energy_cut: 0,
+        energy_binding: Vec::new(),
+        verify_s: 0.0,
+        witness_rejects: 0,
+        folds: 0,
+        skipped: 0,
+        wall_s: started.elapsed().as_secs_f64(),
+        stats: WalkStats::unwalked(0.0, why),
+        stopped_in_setup: true,
+    };
+    if let Some(why) = stop() {
+        return Ok(Some(stopped(why, 0.0, &[], 0.0)));
+    }
 
     // The cut's lattice is built before the walk whatever `verify.cut` says:
     // a window walk is long, and the cut is a small part of it.
@@ -960,7 +1003,8 @@ pub fn window_front_sharing(
         let keep = (reuse && l == lambda).then_some(tables);
         Ok(Some((l, (1.0 - l) * 100.0, out, keep)))
     };
-    let passes = run_passes(&weights, config.threads, &pass);
+    let passes = run_passes(&weights, config.threads, &pass, &|| stop().is_some());
+    let ran = passes.len();
     let mut slopes: Slopes = Vec::new();
     let mut scanned = None;
     for p in passes {
@@ -984,6 +1028,11 @@ pub fn window_front_sharing(
         crate::motif_front::release_freed();
     }
     let energy_s = energy_start.elapsed().as_secs_f64();
+    // A stop that skipped passes is still on, as is one that fired during
+    // the last of them: each stop, once it fires, stays fired.
+    if let Some(why) = stop() {
+        return Ok(Some(stopped(why, cut_s, &weights[..ran], energy_s)));
+    }
     let ctx = check::Context {
         params,
         cds: CdsWindow {
@@ -1137,11 +1186,33 @@ pub fn window_front_sharing(
         skipped: out.skipped,
         wall_s: started.elapsed().as_secs_f64(),
         stats,
+        stopped_in_setup: false,
     }))
 }
 
+/// Why a window's setup should stop before its next stage, in the walk's own
+/// words: `requested` once [`super::stop_walks`] was called, `shed` once
+/// [`super::shed_walks`] was called after the count read `shed`, `seconds`
+/// once `max_seconds` from `started` have passed. Each stays true once it
+/// is. A stop from outside the window is named before its own time, which
+/// a setup it held up has often spent as well.
+fn setup_stop(started: Instant, max_seconds: f64, shed: u64) -> Option<&'static str> {
+    if super::walks_stopped() {
+        Some("requested")
+    } else if super::walks_shed() != shed {
+        Some("shed")
+    } else if started.elapsed().as_secs_f64() >= max_seconds {
+        Some("seconds")
+    } else {
+        None
+    }
+}
+
 /// `pass` at each of `weights`, in their order, with at most `threads` of
-/// them running at once, each on its own thread.
+/// them running at once, each on its own thread. A pass starts only while
+/// `stop` reads `false`; one already running finishes. What comes back is
+/// the passes that ran, which are always the first ones: a pass is taken in
+/// order, and only after `stop` was read.
 ///
 /// A pass holds its scan's tables until its outside values are computed, and
 /// those tables are most of its peak. Passes started past the threads there
@@ -1151,6 +1222,7 @@ fn run_passes<T: Send>(
     weights: &[f64],
     threads: usize,
     pass: &(dyn Fn(f64) -> T + Sync),
+    stop: &(dyn Fn() -> bool + Sync),
 ) -> Vec<T> {
     let lanes = threads.clamp(1, weights.len().max(1));
     let next = std::sync::atomic::AtomicUsize::new(0);
@@ -1162,6 +1234,9 @@ fn run_passes<T: Send>(
                 crate::task_clock::spawn_built(deep, scope, move || {
                     let mut mine = Vec::new();
                     loop {
+                        if stop() {
+                            return mine;
+                        }
                         let i = next.fetch_add(1, Relaxed);
                         let Some(&l) = weights.get(i) else {
                             return mine;
@@ -1255,10 +1330,35 @@ mod tests {
                 running.fetch_sub(1, SeqCst);
                 l * 10.0
             };
-            let got = run_passes(&weights, threads, &pass);
+            let got = run_passes(&weights, threads, &pass, &|| false);
             assert_eq!(got, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], "threads {threads}");
             assert_eq!(peak.load(SeqCst), most, "threads {threads}");
         }
+    }
+
+    /// A stop that fires while passes run lets those finish and starts no
+    /// other, and what comes back is the first passes, in order. The stop
+    /// fires as the first pass ends; every lane is then inside a pass it
+    /// took before that, so exactly one per lane runs.
+    #[test]
+    fn a_stop_starts_no_further_pass() {
+        use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+        use std::time::Duration;
+        let weights = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
+        for threads in [1, 2, 3] {
+            let fired = AtomicBool::new(false);
+            let pass = |l: f64| {
+                // Every lane takes its first pass before any of them ends.
+                std::thread::sleep(Duration::from_millis(300));
+                fired.store(true, SeqCst);
+                l * 10.0
+            };
+            let got = run_passes(&weights, threads, &pass, &|| fired.load(SeqCst));
+            let want: Vec<f64> = (1..=threads).map(|k| k as f64).collect();
+            assert_eq!(got, want, "threads {threads}");
+        }
+        let got = run_passes(&weights, 2, &|l: f64| l, &|| true);
+        assert!(got.is_empty(), "a pass started under a stop: {got:?}");
     }
 
     /// A small deterministic generator, so the cases are the same each run.

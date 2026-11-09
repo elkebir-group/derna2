@@ -351,6 +351,18 @@ fn flank3(m: &Molecule) -> String {
 /// over a few seconds, not at once.
 const SHED_GRACE: Duration = Duration::from_secs(30);
 
+/// The resident-memory limit `--max-rss-gb G` sets, in bytes. The unit is a
+/// **GiB**, not a decimal gigabyte: `G` of 1 is 1,073,741,824 bytes, and every
+/// other reader of this figure is binary too.
+///
+/// The flag is spelled `gb`, which invites the decimal reading. Taking it
+/// would loosen every cap by 7.4% and would not compare with any resident
+/// peak this project has recorded, since those were all measured against the
+/// binary limit. The spelling is what stays; the unit is what is documented.
+fn resident_limit_bytes(gb: f64) -> u64 {
+    (gb * 1024.0 * 1024.0 * 1024.0) as u64
+}
+
 /// Stop every walk once resident memory reaches `gb`, checked every second.
 /// With `shed`, first end only the walks running then, and stop the search
 /// only if memory is still over `gb` after [`SHED_GRACE`].
@@ -358,7 +370,7 @@ const SHED_GRACE: Duration = Duration::from_secs(30);
 /// The constrained walk that comes first is not stopped by it: only the
 /// modular front's walks read the stop.
 fn watch_memory(gb: f64, shed: bool) {
-    let limit = (gb * 1024.0 * 1024.0 * 1024.0) as u64;
+    let limit = resident_limit_bytes(gb);
     let over = move || rss_bytes().is_some_and(|b| b >= limit);
     std::thread::spawn(move || loop {
         if over() {
@@ -783,6 +795,7 @@ pub fn header_fields(
                 "walk_s": s.walk_s,
                 "derivations": s.derivations,
                 "stopped": s.stopped,
+                "stopped_in_setup": s.stopped_in_setup,
                 "refused": s.refused,
                 "outside": s.outside,
                 "covered": s.covered,
@@ -825,6 +838,18 @@ pub fn header_fields(
             v
         })
         .collect();
+    // How many visits a stop ended before their walk began, in the fold cut
+    // or the outside passes: with `stopped_by`, where a budget took the run
+    // and on what.
+    extra.insert(
+        "setup_stops".into(),
+        front
+            .stretches
+            .iter()
+            .filter(|s| s.stopped_in_setup)
+            .count()
+            .into(),
+    );
     extra.insert("stretches".into(), stretches.into());
     extra.insert("certify_s".into(), front.certify_s.into());
     extra.insert("cut_build_s".into(), front.cut_build_s.into());
@@ -879,6 +904,16 @@ pub fn outcome(front: &ModularFront) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+
+    /// `--max-rss-gb` is binary, and the decimal reading its spelling invites
+    /// is named here so a change to it cannot pass.
+    #[test]
+    fn the_resident_cap_is_binary_gibibytes() {
+        assert_eq!(resident_limit_bytes(1.0), 1_073_741_824);
+        assert_eq!(resident_limit_bytes(200.0), 214_748_364_800);
+        assert_ne!(resident_limit_bytes(1.0), 1_000_000_000);
+        assert_ne!(resident_limit_bytes(200.0), 200_000_000_000);
+    }
     use super::*;
     use crate::input::NamedSequence;
 

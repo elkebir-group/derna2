@@ -739,7 +739,7 @@ the default constraint:
 | 50 | 17 | 33 | 80 | 131 MB | 68 s |
 | 100 | 33 | 65 | 258 | 428 MB | 3.5 min |
 | 150 | 46 | 91 | 462 | 912 MB | 14.4 min |
-| 200 | 58 | 115 | 763 | 1.73 GB | 25.6 min |
+| 200 | 58 | 115 | 763 | 1.73 GiB | 25.6 min |
 
 Over 50 to 200 residues the fold count grows **roughly in proportion to the
 length** — as `n^0.91` on this protein and `n^1.00` on another measured over
@@ -786,9 +786,9 @@ to three times. Budget roughly
 peak ≈ 35 MB + 0.04 × (residues)² MB
 ```
 
-— about 0.4 GB at 100 residues, 1 GB at 150, 10 GB at 500. Against two dozen
+— about 0.4 GiB at 100 residues, 1 GiB at 150, 10 GiB at 500. Against two dozen
 measured runs on five proteins the formula lands within **20 %** from 100
-residues up, and the 550-residue walk's 14 GB sits in that band too; below
+residues up, and the 550-residue walk's 14 GiB sits in that band too; below
 ~50 residues the floor dominates and it reads as much as 1.6× high.
 
 **If you have run your own protein once, scale from that instead.** The
@@ -800,7 +800,7 @@ formula and costs a run you were going to make anyway.
 
 For scale at the other end, a front at **550 residues** (no flanks, no
 constraint, four threads) finished in **4 h 09 m**, having folded 277 times
-over a 139-vertex hull to return 2,771 points — and it peaked at **14.5 GB of
+over a 139-vertex hull to return 2,771 points — and it peaked at **14.5 GiB of
 memory**, which is the figure likeliest to decide whether you can run it at
 all. The ladder's own identity holds there too: 277 = 2 × 139 − 1.
 
@@ -870,7 +870,7 @@ of the same molecule:
 | P0DTC2, 50 | 37 of 80 | 98 / 80 | 20 | 7.5 / 13 s | 137 / 129 MB |
 | P0DTC2, 100 | 173 of 258 | 247 / 258 | 33 | 31 / 66 s | 458 / 436 MB |
 | P0DTC2, 150 | 462 of 462 | 505 / 462 | 46 | 104 / 190 s | 857 / 840 MB |
-| P0DTC2, 200 | 734 of 763 | 768 / 763 | 53 | 320 / 415 s | 1.54 / 1.53 GB |
+| P0DTC2, 200 | 734 of 763 | 768 / 763 | 53 | 320 / 415 s | 1.54 / 1.53 GiB |
 | Q14442, 20 | 0 of 10 | 10 / 10 | 7 | 0.7 / 1.2 s | 30 / 34 MB |
 | Q14442, 50 | 49 of 56 | 55 / 56 | 13 | 9.7 / 15 s | 150 / 144 MB |
 | Q14442, 100 | 115 of 157 | 180 / 157 | 23 | 50 / 81 s | 497 / 485 MB |
@@ -893,10 +893,10 @@ exact.
 
 Past 200 residues the cost climbs steeply. Under the same motifs, constraint
 and 2 threads, P0DTC2's first 300 residues were stopped by a 3,000 s budget
-with 83 points written and 14 gaps open (3.5 GB peak), and its first 400 by a
-6,600 s budget with 240 points and 12 gaps open (6.3 GB). A set of 21
+with 83 points written and 14 gaps open (3.5 GiB peak), and its first 400 by a
+6,600 s budget with 240 points and 12 gaps open (6.3 GiB). A set of 21
 patterns (restriction sites, processing signals and runs) at 250 residues was
-stopped by a 4,800 s budget with 624 points and 6 gaps open (2.5 GB). At
+stopped by a 4,800 s budget with 624 points and 6 gaps open (2.5 GiB). At
 these lengths, run with `--checkpoint` and continue with `--resume`.
 
 **A budget returns part of the front, all of it exact.** `--max-secs` and
@@ -905,8 +905,8 @@ gap's front fold already running stops at the deadline (the two end folds and
 a hull probe, once started, run to completion, so no probe is started when
 less time is left than the longest one so far took). Memory is read between folds, so
 a run's peak passes `--max-rss-gb` by whatever the folds in flight hold — above
-all the two end folds, which run before the first check and peak at 3.1 GB side
-by side at 400 residues and 4.7 GB at 500. Every point the run writes is
+all the two end folds, which run before the first check and peak at 3.1 GiB side
+by side at 400 residues and 4.7 GiB at 500. Every point the run writes is
 a point of the exact front — the walk's gaps lie between hull vertices that
 are front points themselves, so nothing in a gap left unsolved can dominate a
 point found in another — and every hull vertex found is written, even beside a
@@ -1375,6 +1375,18 @@ an open end) and the least energy a missing point there can have
 (`mfe_floor` at `cai_log_lo`, rising by `slope` per unit of `cai_log`; `null`
 when only the constrained front bounds it).
 
+**A budget stops a window's setup too, not only its walk.** Before a window
+walk begins it builds the fold cut and runs the energy bound's outside passes
+— on a 300-residue protein at `--threads 2` this setup alone held 1.7 GB — and
+a spent time share, a memory stop or a shed is read between those stages and
+before each pass starts. A stretch it ends there reads `stopped_in_setup: true`
+with `stopped` naming the stop (`seconds`, `requested` or `shed`), took no
+derivation and leaves its whole window `open`; the header counts such
+stretches in `setup_stops`, and `stopped_by` says whether memory or time ran
+out. A pass already running is not interrupted, so a memory budget can still
+be passed by up to `--threads` passes' tables. Results written before these
+two fields existed lack them; read a missing one as `false` and `0`.
+
 **A run ended from outside writes its front too.** `SIGINT`, `SIGTERM` and
 `SIGHUP` stop the search where a spent `--max-secs` would have stopped it, so
 a run killed by an operator, by a job manager or at the end of a lease leaves
@@ -1544,7 +1556,7 @@ the front has been kept.
 **What it costs, measured.** On the [worked example](#a-worked-example) —
 20 residues behind 25-nucleotide flanks, where 13 of the constrained front's
 19 points pass and seed the search — a 60-second budget on four threads
-returns 16 certified points with one region left open (1.3 GB peak, a loaded
+returns 16 certified points with one region left open (1.3 GiB peak, a loaded
 shared host). A 600-second budget returns the same 16 points with that region
 still open, so the time beyond the first minute goes to the band above the
 best-adapted point and finds nothing there. Correctness is tested against exhaustive

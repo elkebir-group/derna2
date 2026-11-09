@@ -760,3 +760,50 @@ fn the_window_front_is_the_enumerated_front() {
     assert!(cov.capped > 0, "no walk ended at its cap: {cov:?}");
     assert!(cov.resumed > 0, "no walk was resumed: {cov:?}");
 }
+
+/// A window whose time is spent before its setup ends stops there: no
+/// outside pass starts, the walk takes no derivation, and the report says
+/// the setup stopped and why, with the whole window left open. Before, the
+/// setup ran every pass whatever the budget said and only the walk read it.
+#[test]
+fn a_spent_budget_stops_the_window_in_its_setup() {
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let case = Case {
+        protein: "MLRS",
+        utr5: "GGGAUCCG",
+        utr3: "AAAAAAAA",
+        constraints: RegionConstraints::five_prime_isolation(Enforcement::Forbid),
+    };
+    let got = window_front(
+        &params,
+        case.protein,
+        &usage,
+        &full_sets(case.protein),
+        case.utr5,
+        case.utr3,
+        case.constraints,
+        ScanConfig::default(),
+        (f64::NEG_INFINITY, f64::INFINITY),
+        30.0,
+        &[],
+        &ENERGY,
+        u64::MAX,
+        0.0,
+        wide(),
+        DEDUP,
+        None,
+    )
+    .expect("the walk runs")
+    .expect("a lattice");
+    assert!(got.energy_slopes.is_empty(), "a pass ran: {got:?}");
+    assert_eq!(
+        (got.stats.derivations, got.reached, got.found),
+        (0, 0, 0),
+        "{got:?}"
+    );
+    assert!(!got.complete && got.last_g.is_none(), "{got:?}");
+    assert_eq!(got.open, [(got.cai_min, got.cai_max)], "{got:?}");
+    assert_eq!(got.stats.stopped, "seconds", "{got:?}");
+    assert!(got.stopped_in_setup, "{got:?}");
+}
