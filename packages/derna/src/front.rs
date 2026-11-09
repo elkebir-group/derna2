@@ -166,7 +166,7 @@ Budget
   --max-secs S              stop the walk after S seconds and return the
                             partial front, naming the boxes left open
                             [default: no limit]
-  --max-rss-gb G            stop the walk at G GB resident and return the
+  --max-rss-gb G            stop the walk at G GiB resident and return the
                             partial front (Linux only, resident memory being
                             read from /proc) [default: no limit]
   --max-gap-folds N         stop the walk after N gap folds and return the
@@ -174,7 +174,7 @@ Budget
                             fixed amount of work on any machine, so --resume
                             continues a long front in pieces [default: no
                             limit]
-  --shed-on-memory          (with --modular --max-rss-gb) at G GB end only
+  --shed-on-memory          (with --modular --max-rss-gb) at G GiB end only
                             the walks running then, leaving their regions
                             open, and go on; stop only if memory stays over
                             G once they let go

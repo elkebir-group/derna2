@@ -2219,9 +2219,11 @@ pub struct Walk {
     /// design from its own last one whatever [`Self::incremental_spell`]
     /// says. The visitor sees the same designs in the same order.
     pub spellers: usize,
-    /// Keep each node's dedup set as (index, hash) slots into its own
-    /// derivations ([`seen::IndexSet`]) rather than 16-byte fingerprints.
-    /// The same designs in the same order, in less memory.
+    /// Keep each node's dedup set as bare indices into its own derivations
+    /// ([`seen::IndexSet`]) rather than 16-byte fingerprints: a slot is a
+    /// 4-byte index and a 1-byte tag of the key's hash, and a probe reads a
+    /// key back out of the derivation list only where a tag agrees. The same
+    /// designs in the same order, in less memory.
     pub dedup_index: bool,
     /// Grow each node's per-derivation lists by a quarter rather than
     /// doubling: the walk keeps hundreds of millions of derivations across
@@ -2555,8 +2557,9 @@ pub struct WalkStats {
     pub max_per_design: u64,
     /// Seconds walking, visits included.
     pub walk_s: f64,
-    /// Why the walk ended: `visitor`, `exhausted`, `derivations` or `seconds`
-    /// (and `incumbent` from [`first_modular`]).
+    /// Why the walk ended: `visitor`, `exhausted`, `derivations`, `seconds`,
+    /// `requested` ([`stop_walks`]) or `shed` ([`shed_walks`]) (and
+    /// `incumbent` from [`first_modular`]).
     pub stopped: &'static str,
     /// Of the build: seconds computing the inside values (the reference sweep,
     /// or the production scan), and in lifting recorded instances (zero on
@@ -2614,6 +2617,50 @@ pub struct WalkStats {
     pub bound_edges_skipped: u64,
     /// Per slope of the energy bound, the cuts whose bound it gave.
     pub bound_energy_binding: Vec<u64>,
+}
+
+impl WalkStats {
+    /// A walk that took no derivation and ended for `stopped`, after
+    /// `build_s` seconds of building.
+    pub(crate) fn unwalked(build_s: f64, stopped: &'static str) -> Self {
+        Self {
+            build_s,
+            nodes: 0,
+            edges: 0,
+            optimum: f64::NAN,
+            last_value: f64::NAN,
+            derivations: 0,
+            designs: 0,
+            duplicate_molecules: cfg!(debug_assertions).then_some(0),
+            max_per_design: 0,
+            walk_s: 0.0,
+            stopped,
+            sweep_s: 0.0,
+            lift_s: 0.0,
+            inside_s: 0.0,
+            index_s: 0.0,
+            cells: 0,
+            touched_cells: 0,
+            touched_fills: 0,
+            touched_instances: 0,
+            memory: MemoryBreakdown::default(),
+            node_dedup: None,
+            positions_copied: 0,
+            phases: WalkPhases::default(),
+            bound_cut: 0,
+            bound_requeued: 0,
+            bound_fills_closed: 0,
+            bound_energy_cut: 0,
+            bound_outside_cut: 0,
+            bound_covered_cut: 0,
+            bound_outside_tested: 0,
+            bound_covered_tested: 0,
+            bound_energy_tested: 0,
+            bound_nodes_closed: 0,
+            bound_edges_skipped: 0,
+            bound_energy_binding: Vec::new(),
+        }
+    }
 }
 
 /// Where a walk's seconds went, phase by phase.
@@ -3047,43 +3094,7 @@ where
     let mut spelled_by: FxHashMap<u128, Vec<u8>> = FxHashMap::default();
     #[cfg(debug_assertions)]
     let mut molecules: FxHashSet<Molecule> = FxHashSet::default();
-    let mut stats = WalkStats {
-        build_s,
-        nodes: 0,
-        edges: 0,
-        optimum: f64::NAN,
-        last_value: f64::NAN,
-        derivations: 0,
-        designs: 0,
-        duplicate_molecules: cfg!(debug_assertions).then_some(0),
-        max_per_design: 0,
-        walk_s: 0.0,
-        stopped: "exhausted",
-        sweep_s: 0.0,
-        lift_s: 0.0,
-        inside_s: 0.0,
-        index_s: 0.0,
-        cells: 0,
-        touched_cells: 0,
-        touched_fills: 0,
-        touched_instances: 0,
-        memory: MemoryBreakdown::default(),
-        node_dedup: None,
-        positions_copied: 0,
-        phases: WalkPhases::default(),
-        bound_cut: 0,
-        bound_requeued: 0,
-        bound_fills_closed: 0,
-        bound_energy_cut: 0,
-        bound_outside_cut: 0,
-        bound_covered_cut: 0,
-        bound_outside_tested: 0,
-        bound_covered_tested: 0,
-        bound_energy_tested: 0,
-        bound_nodes_closed: 0,
-        bound_edges_skipped: 0,
-        bound_energy_binding: Vec::new(),
-    };
+    let mut stats = WalkStats::unwalked(build_s, "exhausted");
     let walk_start = Instant::now();
     forest.root = root;
     forest.shed = SHED.load(std::sync::atomic::Ordering::Relaxed);

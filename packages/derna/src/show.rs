@@ -497,14 +497,16 @@ fn header_lines(h: &Value) -> Vec<String> {
     lines
 }
 
-/// Peak resident memory in the unit that shows it: a walk that used 40 MB and
-/// one that used 400 MB both read `0.0 GB`.
+/// Peak resident memory in the unit that shows it: a walk that used 40 MiB and
+/// one that used 400 MiB both read `0.0 GiB`. The units are binary, as every
+/// resident-memory figure this command reads or accepts is — `--max-rss-gb`
+/// included, whose `G` is a GiB.
 fn peak_memory(kb: u64) -> String {
     let mb = kb as f64 / 1024.0;
     if mb >= 1024.0 {
-        format!("{:.1} GB", mb / 1024.0)
+        format!("{:.1} GiB", mb / 1024.0)
     } else {
-        format!("{mb:.0} MB")
+        format!("{mb:.0} MiB")
     }
 }
 
@@ -876,12 +878,12 @@ mod tests {
 
     #[test]
     fn peak_memory_shows_the_unit_it_fits_in() {
-        assert_eq!(peak_memory(40 * 1024), "40 MB");
-        assert_eq!(peak_memory(400 * 1024), "400 MB");
-        assert_eq!(peak_memory(3 * 1024 * 1024), "3.0 GB");
+        assert_eq!(peak_memory(40 * 1024), "40 MiB");
+        assert_eq!(peak_memory(400 * 1024), "400 MiB");
+        assert_eq!(peak_memory(3 * 1024 * 1024), "3.0 GiB");
         // The header line names one of them rather than rounding both to 0.0.
         let out = rendered(&[]).join("\n");
-        assert!(out.contains("peak 2.0 GB"), "{out}");
+        assert!(out.contains("peak 2.0 GiB"), "{out}");
     }
 
     #[test]
