@@ -396,3 +396,51 @@ fn one_arm_is_a_join_of_one() {
         "the modular design survives inside the modular front"
     );
 }
+
+/// An arm whose search stopped below a band is refused, by name and with its
+/// ceiling. Such a front is the modular front of the designs at or below that
+/// adaptation, so the arms of one molecule can cover different ranges of CAI
+/// and their union is a front over none of them — and the arm's own
+/// `complete: true` does not say so, which is what makes the mix silent.
+///
+/// The non-vacuity arm is the pair that differs only in the field: the same
+/// two arms with `top_band` null join without complaint, so the refusal is
+/// this field's and not something else's.
+#[test]
+fn an_arm_that_stopped_below_a_band_is_refused_by_name() {
+    let dir = work_dir("top-band");
+    let whole = arm(
+        dir.as_path(),
+        "whole",
+        &header("UAA"),
+        &[point("AUGCCGCGCGGG", "UAA", -10.0, -2.0, true)],
+    );
+    let mut capped_header = header("UAG");
+    capped_header["top_band"] = json!({
+        "cai_log_lo": -1.25,
+        "cai_log_hi": Value::Null,
+        "mfe_floor": Value::Null,
+        "slope": 0.0,
+        "mfe_floor_constrained": -9.0,
+    });
+    let capped_point = point("AUGCCGCGCGGA", "UAG", -9.0, -1.5, true);
+    let capped = arm(
+        dir.as_path(),
+        "capped",
+        &capped_header,
+        std::slice::from_ref(&capped_point),
+    );
+    let out = dir.join("joined.jsonl");
+    let e = pool(&[&whole, &capped], &out)
+        .expect_err("an arm that stopped below a band is refused")
+        .to_string();
+    assert!(e.contains("capped"), "the capped file is not named: {e}");
+    assert!(
+        e.contains("-1.25"),
+        "the message does not say where the search stopped: {e}"
+    );
+    // The same pair with the band searched joins, so the field is what the
+    // refusal is about.
+    let searched = arm(dir.as_path(), "searched", &header("UAG"), &[capped_point]);
+    pool(&[&whole, &searched], &out).expect("pool joins arms that searched every design");
+}

@@ -51,6 +51,7 @@ use rna_mfe::{evaluate, Energy, EvalError, Params};
 use thiserror::Error;
 
 use crate::region::{PairClass, PairConstraint, Region, RegionConstraints, Verdict};
+use crate::structure::StructureConstraints;
 use crate::Design;
 
 /// The CDS's position window within a whole-mRNA sequence: `[start, end)` in
@@ -191,6 +192,24 @@ pub struct FreeFoldGap {
     /// structure rebuilds what the design excluded; because free optima are
     /// routinely co-optimal, an empty list is weaker evidence than a zero gap.
     pub reinstated_pairs: Vec<(usize, usize)>,
+    /// The positions the constraint requires to carry a pair and the free fold
+    /// leaves unpaired — absolute, 0-based, ascending.
+    ///
+    /// The attribution for the half a region table does not have. A region
+    /// table, an unpaired range and a forbidden pair only ever *forbid*, so this
+    /// is empty for them and [`Self::reinstated_pairs`] carries everything. A
+    /// required pair or a required position adds the other direction: the
+    /// molecule's own fold can decline to form what was required, which no pair
+    /// of the free structure witnesses. A required position the free fold pairs
+    /// with the *wrong* partner is not here — it is paired, and the pair it took
+    /// is one the constraint forbids, so it appears in
+    /// [`Self::reinstated_pairs`] instead.
+    ///
+    /// Attribution, not the verdict: [`Self::is_modular`] is the energy
+    /// comparison, as it is for the forbid half, because free optima are
+    /// routinely co-optimal and a required pair missing from one traceback may
+    /// be present in an equally optimal structure.
+    pub unpaired_required_positions: Vec<usize>,
     /// How the free fold's pairs distribute over the classes and the window,
     /// permitted classes included.
     pub classes: ClassBreakdown,
@@ -204,6 +223,15 @@ impl FreeFoldGap {
     /// Whether the free fold reinstates any constrained pair.
     pub fn reinstates(&self) -> bool {
         !self.reinstated_pairs.is_empty()
+    }
+
+    /// Whether the free fold does anything the constraint refuses — a pair it
+    /// forbids, or a required position it leaves unpaired.
+    ///
+    /// The two lists together, for a caller describing *what* the molecule did;
+    /// still not the verdict, which is [`Self::is_modular`].
+    pub fn violates(&self) -> bool {
+        self.reinstates() || !self.unpaired_required_positions.is_empty()
     }
 
     /// The verdict: whether the constrained and unconstrained optima of this
@@ -255,6 +283,14 @@ pub enum FreeFoldError {
     /// drop pairs.
     #[error("the constrained Zuker fold takes hard constraints only")]
     Soft,
+    /// No structure of the sequence satisfies the positional constraint, so
+    /// there is no constrained optimum for the free fold to be compared with.
+    ///
+    /// Unreachable for a design emitted under that constraint — its own
+    /// structure is such a structure — and reachable for any other sequence the
+    /// same constraint is applied to.
+    #[error("no structure of the sequence carries every required pair")]
+    NoSatisfyingStructure,
 }
 
 /// Measure `design` against the unconstrained fold of its own sequence, under
@@ -278,6 +314,61 @@ pub fn free_fold_gap(
 ) -> Result<FreeFoldGap, FreeFoldError> {
     let constraint = PairConstraint::for_cds(&constraints, cds.start as u32, cds.end as u32);
     let mut report = measure(params, design.sequence.as_bytes(), constraint.clone())?;
+    report.emitted = Some(rescore(params, design, &constraint)?);
+    Ok(report)
+}
+
+/// [`free_fold_gap`] under a positional structure constraint beside the region
+/// table — the verdict for `--structure`, `--helix`, `--unpaired` and
+/// `--forbid-pair`.
+///
+/// The same quantity over a larger constraint set, not a second measurement. The
+/// constrained half folds the emitted sequence under both statements at once:
+/// the mask drops the pairs either of them forbids
+/// ([`StructureConstraints::pair_mask`]), and every position the statement
+/// requires to pair is held paired, which is the half a region table has no
+/// form for. The free half is the same unconstrained fold.
+///
+/// So `gap_kcal_mol` is non-negative and zero exactly when some free-optimal
+/// structure satisfies both statements: the constrained set is a subset of every
+/// structure of the sequence whichever half shrank it, and the constrained
+/// optimum is itself a structure, so a zero gap exhibits one.
+/// [`FreeFoldGap::is_modular`] therefore reads on a positional constraint what
+/// it reads on a table.
+///
+/// The attribution gains [`FreeFoldGap::unpaired_required_positions`] beside
+/// [`FreeFoldGap::reinstated_pairs`], which the mask now contributes to.
+///
+/// An inert `structure` is [`free_fold_gap`] exactly, by the same call.
+///
+/// This is **the same gap** [`crate::realization_verdict`] reports, with the
+/// region table folded into the constrained half rather than left out of it —
+/// both constrained halves are [`fixed_mrna_mfe`], so with an inert
+/// `constraints` the two numbers agree. The two differ in what they buy beside
+/// the verdict: that one prices each required pair on its own, at one further
+/// fold per pair, and names the element the molecule declined; this one is the
+/// region report's fields over the whole constraint, at the region report's
+/// cost.
+///
+/// Costs one free fold and one constrained fold, as [`free_fold_gap`] does.
+pub fn free_fold_gap_with_structure(
+    params: &Params,
+    design: &Design,
+    cds: CdsWindow,
+    constraints: RegionConstraints,
+    structure: &StructureConstraints,
+) -> Result<FreeFoldGap, FreeFoldError> {
+    if structure.is_inert() {
+        return free_fold_gap(params, design, cds, constraints);
+    }
+    let constraint = PairConstraint::for_cds(&constraints, cds.start as u32, cds.end as u32)
+        .with_mask(structure.pair_mask());
+    let mut report = measure_requiring(
+        params,
+        design.sequence.as_bytes(),
+        constraint.clone(),
+        &structure.required_positions(),
+    )?;
     report.emitted = Some(rescore(params, design, &constraint)?);
     Ok(report)
 }
@@ -338,6 +429,7 @@ pub fn sequence_gap_given_constrained(
         free_mfe_kcal_mol: free,
         gap_kcal_mol: constrained_mfe_kcal_mol - free,
         reinstated_pairs,
+        unpaired_required_positions: Vec::new(),
         classes,
         free_structure,
         emitted: None,
@@ -426,6 +518,7 @@ pub fn sequence_gap_given_structure_reusing(
         free_mfe_kcal_mol: free,
         gap_kcal_mol: mfe_kcal_mol - free,
         reinstated_pairs,
+        unpaired_required_positions: Vec::new(),
         classes,
         free_structure,
         emitted: None,
@@ -814,8 +907,23 @@ pub(crate) fn measure(
     seq: &[u8],
     constraint: PairConstraint,
 ) -> Result<FreeFoldGap, FreeFoldError> {
+    measure_requiring(params, seq, constraint, &[])
+}
+
+/// [`measure`] with `required` positions held paired in the constrained fold —
+/// the require half, which only a positional statement has.
+///
+/// With `required` empty this is [`measure`] by the same code path, so the
+/// positional entry points cost a constraint that asks for nothing exactly what
+/// the class-only ones do.
+fn measure_requiring(
+    params: &Params,
+    seq: &[u8],
+    constraint: PairConstraint,
+    required: &[u32],
+) -> Result<FreeFoldGap, FreeFoldError> {
     let (free_structure, free_energy) = check_free_fold(params, seq)?;
-    let constrained = constrained_mfe(params, seq, constraint.clone())?;
+    let constrained = constrained_mfe_requiring(params, seq, constraint.clone(), required)?;
     let free = free_energy.to_kcal_mol();
     let (classes, reinstated_pairs) = classify(&free_structure, &constraint);
     Ok(FreeFoldGap {
@@ -823,10 +931,34 @@ pub(crate) fn measure(
         free_mfe_kcal_mol: free,
         gap_kcal_mol: constrained - free,
         reinstated_pairs,
+        unpaired_required_positions: left_unpaired(&free_structure, required),
         classes,
         free_structure,
         emitted: None,
     })
+}
+
+/// The positions of `required` that `structure` leaves unpaired, ascending.
+///
+/// A position past the end of `structure` counts as unpaired: a requirement the
+/// structure does not reach is one it does not meet.
+fn left_unpaired(structure: &str, required: &[u32]) -> Vec<usize> {
+    if required.is_empty() {
+        return Vec::new();
+    }
+    let mut paired = vec![false; structure.len()];
+    for_each_pair(structure, |i, j| {
+        paired[i] = true;
+        paired[j] = true;
+    });
+    let mut out: Vec<usize> = required
+        .iter()
+        .map(|&p| p as usize)
+        .filter(|&p| !paired.get(p).copied().unwrap_or(false))
+        .collect();
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 /// Re-score the design's own structure and compare it with the energy the design
@@ -867,19 +999,69 @@ fn constrained_mfe(
     seq: &[u8],
     constraint: PairConstraint,
 ) -> Result<f64, FreeFoldError> {
+    constrained_mfe_requiring(params, seq, constraint, &[])
+}
+
+/// [`constrained_mfe`] with every position of `required` (absolute, 0-based)
+/// holding a pair.
+///
+/// A forbid-only constraint always admits the all-unpaired structure, so the
+/// exterior parse always reaches the end node and the fold always has an
+/// answer. A requirement can be unsatisfiable for a given sequence, which is
+/// what [`FreeFoldError::NoSatisfyingStructure`] reports — the one way this fold
+/// has no optimum to return.
+fn constrained_mfe_requiring(
+    params: &Params,
+    seq: &[u8],
+    constraint: PairConstraint,
+    required: &[u32],
+) -> Result<f64, FreeFoldError> {
+    fixed_mrna_mfe(params, seq, constraint, required, crate::Beam::exact())?
+        .ok_or(FreeFoldError::NoSatisfyingStructure)
+}
+
+/// The best energy over the structures of a **fixed** mRNA `seq` that
+/// `constraint` allows and that pair every position of `required` — `None` when
+/// there is none.
+///
+/// One lane-of-one scan at `λ = 1`: pure MFE, since the adaptation half of the
+/// objective is identically zero over a graph with no codon lattice. The single
+/// place the constrained half of every verdict on an already-spelled sequence is
+/// folded, whether the constraint reached it as a region table
+/// ([`sequence_constrained_mfe`]), as a positional statement
+/// ([`crate::honouring_mfe`]) or as both ([`free_fold_gap_with_structure`]), so
+/// the three cannot drift apart.
+///
+/// `beam` is the CKY column policy. On [`crate::Beam::exact`] the energy is the
+/// optimum and `None` is a proof that no allowed structure of this sequence
+/// pairs them all — a real answer for a fixed sequence, unlike the design case
+/// where infeasibility is a claim about a whole lattice. Under a finite width
+/// the energy is an **upper bound** on that optimum and `None` is a statement
+/// about one search.
+pub(crate) fn fixed_mrna_mfe(
+    params: &Params,
+    seq: &[u8],
+    constraint: PairConstraint,
+    required: &[u32],
+    beam: crate::Beam,
+) -> Result<Option<f64>, FreeFoldError> {
     let bad_byte = || FreeFoldError::InvalidNucleotide(seq.first().copied().unwrap_or(b'?'));
     let nts = crate::parse_utr(std::str::from_utf8(seq).map_err(|_| bad_byte())?)
         .map_err(|_| bad_byte())?;
     let graph = crate::dfa::build_fixed_mrna(&nts);
-    let tables = crate::scan::scan_with_region(
+    let must = crate::must_pair::MustPairConstraint::new(required, graph.seq_len);
+    let tables = crate::scan::scan_with_constraints(
         params,
         &graph,
         1.0,
-        crate::ScanConfig::default(),
+        crate::ScanConfig {
+            beam,
+            ..crate::ScanConfig::default()
+        },
         constraint,
+        must,
     );
-    let best = tables.c[graph.ix(graph.end())].expect("exterior parse reaches the end node");
-    Ok(best.mfe.to_kcal_mol())
+    Ok(tables.c[graph.ix(graph.end())].map(|best| best.mfe.to_kcal_mol()))
 }
 
 /// One walk of `structure`, classifying every pair against `constraint`: how the

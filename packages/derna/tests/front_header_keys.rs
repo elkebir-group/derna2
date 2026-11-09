@@ -76,8 +76,8 @@ const PLAIN_KEYS: [&str; 28] = [
 ];
 
 /// Every key a modular front writes, for the argv in `so()`. It is
-/// `PLAIN_KEYS` less `checkpoint`, plus the search's own seventeen.
-const MODULAR_KEYS: [&str; 46] = [
+/// `PLAIN_KEYS` less `checkpoint`, plus the search's own.
+const MODULAR_KEYS: [&str; 48] = [
     "access",
     "anchors",
     "certify_s",
@@ -99,6 +99,7 @@ const MODULAR_KEYS: [&str; 46] = [
     "gave_up",
     "hold_barren",
     "lanes",
+    "max_derivations",
     "max_rss_gb",
     "max_secs",
     "modular_front",
@@ -118,6 +119,7 @@ const MODULAR_KEYS: [&str; 46] = [
     "stopped_by",
     "stretches",
     "threads",
+    "top_band",
     "unchecked",
     "utr3",
     "utr5",

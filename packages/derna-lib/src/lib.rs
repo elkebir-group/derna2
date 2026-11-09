@@ -175,9 +175,9 @@ pub use utr_profile::UtrProfile;
 /// puts back, and how that fold's pairs distribute over the region classes. A
 /// report on a finished design, never a gate on producing one.
 pub use free_fold::{
-    free_fold_gap, sequence_constrained_mfe, sequence_constrained_mfe_zuker,
-    sequence_free_fold_zuker, sequence_free_fold_zuker_reusing, sequence_gap,
-    sequence_gap_given_constrained, sequence_gap_given_structure,
+    free_fold_gap, free_fold_gap_with_structure, sequence_constrained_mfe,
+    sequence_constrained_mfe_zuker, sequence_free_fold_zuker, sequence_free_fold_zuker_reusing,
+    sequence_gap, sequence_gap_given_constrained, sequence_gap_given_structure,
     sequence_gap_given_structure_reusing, sequence_mfe_within, sequence_mfe_within_reusing,
     sequence_mfes_reusing, sequence_modular_mfe, sequence_modular_mfe_reusing, stacked_runs,
     within_epsilon, CdsWindow, ClassBreakdown, EmittedRescore, FreeFoldError, FreeFoldGap,

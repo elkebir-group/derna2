@@ -207,6 +207,36 @@ fn every_arm_certified(arms: &[Arm]) -> Result<()> {
     Ok(())
 }
 
+/// Refuse an arm whose search stopped below a band, naming the file and the
+/// ceiling. Such a front is the modular front of the designs at or below its
+/// own ceiling, so the arms of one molecule can be fronts over different
+/// ranges of CAI — and the union of those is a front over no range in
+/// particular. The arm's own `complete` says nothing about the band, which is
+/// what makes the mix silent, and joining it would hand the pooled header a
+/// completeness it cannot carry.
+///
+/// Refused rather than merged: a joined header can name one excluded set, and
+/// two arms that stopped at different adaptations do not have one.
+fn every_arm_searched_every_design(arms: &[Arm]) -> Result<()> {
+    for arm in arms {
+        let band = arm.header.get("top_band").unwrap_or(&Value::Null);
+        if !band.is_null() {
+            let at = band["cai_log_lo"]
+                .as_f64()
+                .map_or_else(|| "its ceiling".to_string(), |c| format!("cai_log {c:.4}"));
+            return Err(format!(
+                "derna pool: {} stopped its search at {at} and did not search the band \
+                 above it, so it is the modular front of the designs at or below that \
+                 adaptation. Joining it would claim a front over every design; run its \
+                 arm again without --top-search none",
+                arm.path.display()
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
 /// The stop codon a point spells, read from the molecule rather than from a
 /// label: a fixed-stop front carries its stop in the header and a designed one
 /// on every row, and a reader that trusts the wrong one silently relabels a
@@ -332,6 +362,7 @@ pub fn run(args: &PoolArgs) -> Result<()> {
     }
     one_molecule(&arms)?;
     every_arm_certified(&arms)?;
+    every_arm_searched_every_design(&arms)?;
 
     let pooled: Vec<Value> = arms
         .iter()

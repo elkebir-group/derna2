@@ -496,6 +496,25 @@ struct OnDemand {
 /// No hyperedge: the derivation of a leaf.
 const LEAF: u32 = u32::MAX;
 
+/// The edge of a candidate standing for a node's hyperedges whose first
+/// candidates are not yet queued ([`Unqueued`]): the least of them, at its
+/// value and order.
+const QUEUED: u32 = u32::MAX - 1;
+
+/// A node's hyperedges whose first candidates are not yet queued, least
+/// first by value and then by place: each edge with its place among the
+/// node's edges, which fixes the order its candidate takes. `next` is the
+/// first not yet taken; one candidate in the node's heap stands for it.
+///
+/// Most first candidates are never popped, so a node keeps 8 bytes per edge
+/// here rather than a queued [`Cand`] each, and the heap pops what it would
+/// have popped had every one been queued.
+struct Unqueued {
+    edges: Vec<(u32, u32)>,
+    first_order: u64,
+    next: usize,
+}
+
 /// A `(sequence, structure)` pair's 128-bit fingerprint
 /// ([`Fingerprint::molecule`]).
 type Molecule = u128;
@@ -721,6 +740,14 @@ struct Kbest {
     expanded: usize,
     d: Vec<Deriv>,
     cand: BinaryHeap<Cand>,
+    /// The rest, made when the node first records any of it: most nodes of
+    /// a forest are tails no derivation ever asks for, and a walk that
+    /// keeps none of it makes none.
+    x: Option<Box<KbExtra>>,
+}
+
+/// What a node keeps beside its derivations.
+struct KbExtra {
     /// The subsequences `d` spells ([`Fingerprint::design`]), kept only under
     /// [`Walk::node_dedup`].
     seen: seen::Seen,
@@ -729,6 +756,33 @@ struct Kbest {
     /// Each derivation's adaptation, beside `d`, kept only under a
     /// [`window::Bound`].
     cai: Vec<f64>,
+}
+
+impl Kbest {
+    /// The node's [`KbExtra`]; a node that recorded any of it has one.
+    fn x(&self) -> &KbExtra {
+        self.x.as_deref().expect("a node with side lists")
+    }
+
+    /// The node's [`KbExtra`], made now if the node has none, its dedup set
+    /// an index set when `dedup_index`.
+    fn x_mut(&mut self, dedup_index: bool) -> &mut KbExtra {
+        self.x.get_or_insert_with(|| {
+            Box::new(KbExtra {
+                seen: seen::Seen::new(dedup_index),
+                sids: Vec::new(),
+                cai: Vec::new(),
+            })
+        })
+    }
+
+    /// The adaptation of derivation `k`, NaN when none was recorded.
+    fn cai_at(&self, k: usize) -> f64 {
+        self.x
+            .as_deref()
+            .and_then(|x| x.cai.get(k).copied())
+            .unwrap_or(f64::NAN)
+    }
 }
 
 /// A kept derivation as a speller on another thread reads it
@@ -807,6 +861,9 @@ struct Forest<'g, 'a> {
     edges: Vec<Hyper>,
     spell_pool: SpellPool,
     kb: Vec<Kbest>,
+    /// Per node with more than one hyperedge, those whose first candidates
+    /// are not yet queued; dropped once the last is taken or the node closes.
+    unqueued: FxHashMap<u32, Unqueued>,
     /// Kept derivations and hyperedges for a speller on another thread
     /// ([`Walk::spellers`]).
     shelf: Option<Shelf>,
@@ -851,6 +908,9 @@ struct Forest<'g, 'a> {
     /// instances it kept from being lifted.
     bound_nodes_closed: u64,
     bound_edges_skipped: u64,
+    /// Hyperedges of initialized nodes, counted as each node's incoming list
+    /// is read and freed at its initialization.
+    instances_seen: usize,
 }
 
 /// What a bounded walk does with a candidate it pops.
@@ -877,10 +937,7 @@ impl<'g, 'a> Forest<'g, 'a> {
         self.keys.push(key);
         self.inside.push(inside);
         self.incoming.push(Vec::new());
-        self.kb.push(Kbest {
-            seen: seen::Seen::new(self.dedup_index),
-            ..Kbest::default()
-        });
+        self.kb.push(Kbest::default());
         id
     }
 
@@ -899,6 +956,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             edges: Vec::new(),
             spell_pool: SpellPool::default(),
             kb: Vec::new(),
+            unqueued: FxHashMap::default(),
             shelf: None,
             order: 0,
             start: 0,
@@ -922,6 +980,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             bound_fills_closed: 0,
             bound_nodes_closed: 0,
             bound_edges_skipped: 0,
+            instances_seen: 0,
         }
     }
 
@@ -1003,7 +1062,7 @@ impl<'g, 'a> Forest<'g, 'a> {
         let mut kids = [UNUSED; MAX_TAILS];
         if edge != LEAF {
             for (i, &t) in self.edges[edge as usize].tails.iter().enumerate() {
-                kids[i] = self.kb[t as usize].sids[idx[i] as usize];
+                kids[i] = self.kb[t as usize].x().sids[idx[i] as usize];
             }
         }
         let sid = shelf.nodes.push(SpellNode {
@@ -1011,7 +1070,12 @@ impl<'g, 'a> Forest<'g, 'a> {
             edge,
             kids,
         });
-        push_tight(self.tight_lists, &mut self.kb[v as usize].sids, sid);
+        let di = self.dedup_index;
+        push_tight(
+            self.tight_lists,
+            &mut self.kb[v as usize].x_mut(di).sids,
+            sid,
+        );
     }
 
     /// Record the grammar's instances up front, fills lifted into tails.
@@ -1137,6 +1201,90 @@ impl<'g, 'a> Forest<'g, 'a> {
         }
     }
 
+    /// Hyperedge `e`'s first candidate's value: its base plus its tails'
+    /// inside values, in tail order.
+    fn first_value(&self, e: u32) -> f64 {
+        let h = &self.edges[e as usize];
+        h.base
+            + h.tails
+                .iter()
+                .map(|&t| self.inside[t as usize])
+                .sum::<f64>()
+    }
+
+    /// Queue `v`'s first candidates: each hyperedge's at once when it has
+    /// one, otherwise one candidate standing for the least ([`Unqueued`]),
+    /// every edge's order taken now as if each had been pushed in turn.
+    fn queue_first(&mut self, v: u32, incoming: &[u32]) {
+        if incoming.len() <= 1 {
+            for &e in incoming {
+                let val = self.first_value(e);
+                let idx = Idx::zeros(self.edges[e as usize].tails.len());
+                self.push(v, e, idx, val);
+            }
+            return;
+        }
+        let first_order = self.order + 1;
+        self.order += incoming.len() as u64;
+        let mut edges: Vec<(f64, u32, u32)> = incoming
+            .iter()
+            .enumerate()
+            .map(|(i, &e)| (self.first_value(e), i as u32, e))
+            .collect();
+        edges.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        let (val, i, _) = edges[0];
+        self.kb[v as usize].cand.push(Cand {
+            val,
+            order: first_order + u64::from(i),
+            edge: QUEUED,
+            idx: Idx::empty(),
+        });
+        self.unqueued.insert(
+            v,
+            Unqueued {
+                edges: edges.into_iter().map(|(_, i, e)| (e, i)).collect(),
+                first_order,
+                next: 0,
+            },
+        );
+    }
+
+    /// `v`'s least hyperedge whose first candidate is not yet queued, as that
+    /// candidate; the next one's stands in for it in the heap.
+    fn next_queued(&mut self, v: u32) -> Cand {
+        let u = self.unqueued.get_mut(&v).expect("an unqueued edge");
+        let (e, i) = u.edges[u.next];
+        let order = u.first_order + u64::from(i);
+        u.next += 1;
+        match u.edges.get(u.next) {
+            Some(&(e2, i2)) => {
+                let order2 = u.first_order + u64::from(i2);
+                let val = self.first_value(e2);
+                self.kb[v as usize].cand.push(Cand {
+                    val,
+                    order: order2,
+                    edge: QUEUED,
+                    idx: Idx::empty(),
+                });
+            }
+            None => {
+                self.unqueued.remove(&v);
+            }
+        }
+        Cand {
+            val: self.first_value(e),
+            order,
+            edge: e,
+            idx: Idx::zeros(self.edges[e as usize].tails.len()),
+        }
+    }
+
+    /// Empty `v`'s heap, with the hyperedges not yet queued.
+    fn close(&mut self, v: u32) {
+        self.kb[v as usize].cand.clear();
+        self.unqueued.remove(&v);
+    }
+
     fn push(&mut self, v: u32, edge: u32, idx: Idx, val: f64) {
         self.order += 1;
         self.kb[v as usize].cand.push(Cand {
@@ -1162,7 +1310,12 @@ impl<'g, 'a> Forest<'g, 'a> {
             );
             self.shelve(v, LEAF, Idx::zeros(0));
             if self.bound.is_some() {
-                push_tight(self.tight_lists, &mut self.kb[v as usize].cai, 0.0);
+                let di = self.dedup_index;
+                push_tight(
+                    self.tight_lists,
+                    &mut self.kb[v as usize].x_mut(di).cai,
+                    0.0,
+                );
             }
             return;
         }
@@ -1176,17 +1329,10 @@ impl<'g, 'a> Forest<'g, 'a> {
         }
         self.expand_fill(v);
         self.expand_cell(v);
-        let incoming = self.incoming[v as usize].clone();
-        for e in incoming {
-            let h = &self.edges[e as usize];
-            let val = h.base
-                + h.tails
-                    .iter()
-                    .map(|&t| self.inside[t as usize])
-                    .sum::<f64>();
-            let idx = Idx::zeros(h.tails.len());
-            self.push(v, e, idx, val);
-        }
+        // Read once here and nowhere after, so the list is freed.
+        let incoming = std::mem::take(&mut self.incoming[v as usize]);
+        self.instances_seen += incoming.len();
+        self.queue_first(v, &incoming);
         self.pop(v);
     }
 
@@ -1199,6 +1345,11 @@ impl<'g, 'a> Forest<'g, 'a> {
         loop {
             let Some(c) = self.kb[v as usize].cand.pop() else {
                 return false;
+            };
+            let c = if c.edge == QUEUED {
+                self.next_queued(v)
+            } else {
+                c
             };
             let mut cai = f64::NAN;
             if self.bound.is_some() {
@@ -1225,7 +1376,7 @@ impl<'g, 'a> Forest<'g, 'a> {
                     Bounded::Close => {
                         self.bound_cut += 1;
                         self.bound_nodes_closed += 1;
-                        self.kb[v as usize].cand.clear();
+                        self.close(v);
                         return false;
                     }
                     Bounded::Cut => {
@@ -1235,7 +1386,7 @@ impl<'g, 'a> Forest<'g, 'a> {
                         // one is, and the fill is done.
                         if matches!(self.keys[v as usize], Key::Fill(..)) {
                             self.bound_fills_closed += 1;
-                            self.kb[v as usize].cand.clear();
+                            self.close(v);
                             return false;
                         }
                         // As for a repeat: its successors are reachable
@@ -1287,7 +1438,12 @@ impl<'g, 'a> Forest<'g, 'a> {
             );
             self.shelve(v, c.edge, c.idx);
             if self.bound.is_some() {
-                push_tight(self.tight_lists, &mut self.kb[v as usize].cai, cai);
+                let di = self.dedup_index;
+                push_tight(
+                    self.tight_lists,
+                    &mut self.kb[v as usize].x_mut(di).cai,
+                    cai,
+                );
                 #[cfg(debug_assertions)]
                 self.assert_span(v);
             }
@@ -1345,7 +1501,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             .iter()
             .map(|e| e.cai)
             .sum();
-        let kept = self.kb[v as usize].cai[k];
+        let kept = self.kb[v as usize].x().cai[k];
         assert!(
             (kept - cai).abs() < 1e-9,
             "{:?}: adaptation {kept} recorded, {cai} spelled",
@@ -1384,7 +1540,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             }
             let kb = &self.kb[t as usize];
             val += kb.d[k].val;
-            cai += kb.cai[k];
+            cai += kb.x().cai[k];
         }
         if val > c.val + BOUND_KEY_TOL {
             return Bounded::Later(val);
@@ -1411,11 +1567,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             return;
         }
         if let Some(e) = constrained_energy(grammar, val, seq) {
-            let cai = self.kb[root as usize]
-                .cai
-                .get(k)
-                .copied()
-                .unwrap_or(f64::NAN);
+            let cai = self.kb[root as usize].cai_at(k);
             self.audit_energy(root, k, (e, cai));
         }
     }
@@ -1429,7 +1581,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             let d = &self.kb[v as usize].d[k];
             (d.val, d.edge, d.idx)
         };
-        let cai = self.kb[v as usize].cai[k];
+        let cai = self.kb[v as usize].x().cai[k];
         if let Key::Cell(cell) = self.keys[v as usize] {
             let span = self.span(v);
             if let Some(bound) = self.bound.as_mut() {
@@ -1453,7 +1605,7 @@ impl<'g, 'a> Forest<'g, 'a> {
         self.tight_lists = tight_lists;
         for kb in &mut self.kb {
             debug_assert!(kb.d.is_empty(), "derivations kept before the walk");
-            kb.seen = seen::Seen::new(dedup_index);
+            kb.x = None;
         }
     }
 
@@ -1473,7 +1625,11 @@ impl<'g, 'a> Forest<'g, 'a> {
             // A fill's derivations are distinct paths, so distinct spellings.
             return false;
         };
-        let Kbest { seen, d, .. } = &mut self.kb[v as usize];
+        let di = self.dedup_index;
+        let kb = &mut self.kb[v as usize];
+        kb.x_mut(di);
+        let Kbest { x, d, .. } = kb;
+        let seen = &mut x.as_deref_mut().expect("made above").seen;
         if seen.insert(fp.design(), d.len() as u32, |i| d[i as usize].fp.design()) {
             return false;
         }
@@ -2439,6 +2595,17 @@ pub struct WalkStats {
     /// Of `bound_cut`: derivations cut by the window's energy bound
     /// ([`window::Bound`]), every in-window completion dominated by a find.
     pub bound_energy_cut: u64,
+    /// Of `bound_cut`: derivations whose every completion falls outside the
+    /// window, and derivations whose every in-window completion falls in an
+    /// adaptation span the finds already cover.
+    pub bound_outside_cut: u64,
+    pub bound_covered_cut: u64,
+    /// Derivations that reached the bound's outside-the-window test, its
+    /// covered-span test and its energy test: the populations the three cut
+    /// counts are taken from.
+    pub bound_outside_tested: u64,
+    pub bound_covered_tested: u64,
+    pub bound_energy_tested: u64,
     /// Cells the energy bound closed: no later derivation of theirs can
     /// complete to a point the window needs.
     pub bound_nodes_closed: u64,
@@ -2450,7 +2617,7 @@ pub struct WalkStats {
 }
 
 /// Where a walk's seconds went, phase by phase.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct WalkPhases {
     pub next_s: f64,
     pub spell_s: f64,
@@ -2460,17 +2627,19 @@ pub struct WalkPhases {
 
 /// The walk's heap by structure, estimated from lengths and element sizes
 /// (allocator slack and hash-table control bytes approximated), in bytes.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct MemoryBreakdown {
     /// Derivations kept per node, with a window's adaptations and each
     /// derivation's shelf index (the shelf itself is [`Self::shelf`]).
     pub derivations: usize,
-    /// Candidate heaps per node.
+    /// Candidate heaps per node, with the hyperedges whose first candidates
+    /// are not yet queued.
     pub candidates: usize,
     /// Hyperedges (their tails held inline), the pool of distinct spellings,
     /// and the incoming lists.
     pub edges: usize,
-    /// Node keys and their id map.
+    /// Node keys, their id map and inside values, each node's entry, and
+    /// the side lists' boxes of the nodes that made one.
     pub nodes: usize,
     /// Every `(sequence, structure)` fingerprint seen, for the duplicate count
     /// (debug assertions only).
@@ -2505,7 +2674,7 @@ fn held_use(forest: &Forest<'_, '_>) -> (usize, usize, usize) {
     let mut used: Vec<Vec<u64>> = forest.kb.iter().map(bits).collect();
     let mut queued: Vec<Vec<u64>> = forest.kb.iter().map(bits).collect();
     let mark = |set: &mut Vec<Vec<u64>>, edge: u32, idx: &Idx| {
-        if edge == LEAF {
+        if edge == LEAF || edge == QUEUED {
             return;
         }
         for (&t, &k) in forest.edges[edge as usize].tails.iter().zip(idx.iter()) {
@@ -2520,6 +2689,14 @@ fn held_use(forest: &Forest<'_, '_>) -> (usize, usize, usize) {
         }
         for c in kb.cand.iter() {
             mark(&mut queued, c.edge, &c.idx);
+        }
+    }
+    // A hyperedge not yet queued names its tails' first derivations, as its
+    // queued candidate would.
+    for u in forest.unqueued.values() {
+        for &(e, _) in &u.edges[u.next..] {
+            let idx = Idx::zeros(forest.edges[e as usize].tails.len());
+            mark(&mut queued, e, &idx);
         }
     }
     let (mut held, mut held_used, mut held_queued) = (0, 0, 0);
@@ -2559,17 +2736,30 @@ impl MemoryBreakdown {
                 Key::Cell(cell) => kind_of(cell),
                 Key::Fill(..) => 5,
             };
-            let d = vec_bytes(&kb.d) + vec_bytes(&kb.cai) + vec_bytes(&kb.sids);
+            let (side, side_used) = kb.x.as_deref().map_or((0, 0), |x| {
+                (
+                    vec_bytes(&x.cai) + vec_bytes(&x.sids),
+                    x.cai.len() * std::mem::size_of::<f64>()
+                        + x.sids.len() * std::mem::size_of::<u32>(),
+                )
+            });
+            let d = vec_bytes(&kb.d) + side;
             m.derivations += d;
             m.derivations_by_kind[kind] += d;
-            m.derivations_used += kb.d.len() * std::mem::size_of::<Deriv>()
-                + kb.cai.len() * std::mem::size_of::<f64>()
-                + kb.sids.len() * std::mem::size_of::<u32>();
+            m.derivations_used += kb.d.len() * std::mem::size_of::<Deriv>() + side_used;
             m.candidates += kb.cand.capacity() * std::mem::size_of::<Cand>();
-            let t = kb.seen.bytes();
+            let t = kb.x.as_deref().map_or(0, |x| x.seen.bytes());
             m.node_sets += t;
             m.node_sets_by_kind[kind] += t;
         }
+        m.candidates += table_bytes(
+            forest.unqueued.len(),
+            std::mem::size_of::<u32>() + std::mem::size_of::<Unqueued>(),
+        ) + forest
+            .unqueued
+            .values()
+            .map(|u| vec_bytes(&u.edges))
+            .sum::<usize>();
         if let Some(shelf) = &forest.shelf {
             m.shelf = shelf.nodes.bytes() + shelf.edges.bytes() + shelf.spelled.bytes();
         }
@@ -2580,6 +2770,7 @@ impl MemoryBreakdown {
         m.nodes = vec_bytes(&forest.keys)
             + vec_bytes(&forest.inside)
             + vec_bytes(&forest.kb)
+            + forest.kb.iter().filter(|kb| kb.x.is_some()).count() * std::mem::size_of::<KbExtra>()
             + table_bytes(
                 forest.ids.len(),
                 std::mem::size_of::<Key>() + std::mem::size_of::<u32>(),
@@ -2884,6 +3075,11 @@ where
         bound_requeued: 0,
         bound_fills_closed: 0,
         bound_energy_cut: 0,
+        bound_outside_cut: 0,
+        bound_covered_cut: 0,
+        bound_outside_tested: 0,
+        bound_covered_tested: 0,
+        bound_energy_tested: 0,
         bound_nodes_closed: 0,
         bound_edges_skipped: 0,
         bound_energy_binding: Vec::new(),
@@ -2944,12 +3140,8 @@ where
                 }
                 stats.designs += 1;
                 let job = Job {
-                    sid: forest.kb[root as usize].sids[k],
-                    cai: forest.kb[root as usize]
-                        .cai
-                        .get(k)
-                        .copied()
-                        .unwrap_or(f64::NAN),
+                    sid: forest.kb[root as usize].x().sids[k],
+                    cai: forest.kb[root as usize].cai_at(k),
                     bound_cut: forest.bound_cut,
                     objective: val + offset,
                     val,
@@ -2991,14 +3183,7 @@ where
                     (stats.designs, stats.derivations),
                     seq,
                     pairs,
-                    (
-                        forest.kb[root as usize]
-                            .cai
-                            .get(k)
-                            .copied()
-                            .unwrap_or(f64::NAN),
-                        forest.bound_cut,
-                    ),
+                    (forest.kb[root as usize].cai_at(k), forest.bound_cut),
                 )?;
                 split(&mut stats.phases.visit_s);
                 if stop {
@@ -3107,7 +3292,11 @@ where
         .filter(|&&v| matches!(forest.keys[v], Key::Cell(_)))
         .count();
     stats.touched_fills = touched.len() - stats.touched_cells;
-    stats.touched_instances = touched.iter().map(|&v| forest.incoming[v].len()).sum();
+    stats.touched_instances = forest.instances_seen
+        + touched
+            .iter()
+            .map(|&v| forest.incoming[v].len())
+            .sum::<usize>();
     stats.sweep_s = forest.sweep_s;
     stats.lift_s = forest.lift_s;
     stats.inside_s = forest.inside_s;
@@ -3124,6 +3313,11 @@ where
     stats.bound_requeued = forest.bound_requeued;
     stats.bound_fills_closed = forest.bound_fills_closed;
     stats.bound_energy_cut = forest.bound.as_ref().map_or(0, |b| b.energy_cut);
+    stats.bound_outside_cut = forest.bound.as_ref().map_or(0, |b| b.cut_outside);
+    stats.bound_covered_cut = forest.bound.as_ref().map_or(0, |b| b.cut_covered);
+    stats.bound_outside_tested = forest.bound.as_ref().map_or(0, |b| b.tested_outside);
+    stats.bound_covered_tested = forest.bound.as_ref().map_or(0, |b| b.tested_covered);
+    stats.bound_energy_tested = forest.bound.as_ref().map_or(0, |b| b.tested_energy);
     stats.bound_nodes_closed = forest.bound_nodes_closed;
     stats.bound_edges_skipped = forest.bound_edges_skipped;
     stats.bound_energy_binding = forest
@@ -3807,7 +4001,7 @@ mod tests {
             idx: Idx::empty(),
             fp: Fingerprint::default(),
         });
-        forest.kb[tail as usize].cai.push(0.0);
+        forest.kb[tail as usize].x_mut(false).cai.push(0.0);
         let v = forest.node(Key::Fill(start, start), 0.0);
         let mut tails = Tails::empty();
         tails.push(tail);

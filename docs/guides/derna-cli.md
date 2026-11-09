@@ -1213,8 +1213,118 @@ constrained front. It walks the constrained front first, exactly as a plain
    with an energy floor. `--top-search band` instead checks every design there,
    most adapted first; above a well-adapted point most of those fail their
    check, so the band spends a budget without finding points.
+
+   `--top-search none` does not search that region at all. The search stops at
+   the best-adapted modular design it holds when it plans its regions — a
+   seed, or a design `--anchors-from` supplied — and reports the band above
+   that design as the header's `top_band` rather than walking it. An anchor
+   above every seed therefore *raises* where the search stops, and turns the
+   stretch below it into a capped one a walk can finish; an anchor alone does
+   not close the top band, because that region's top is the lattice's own and
+   only a design at or above it would cap it. With no modular design to stop
+   at there is no ceiling and nothing is dropped.
+
+   **A run that stops below a band does not return the modular front**, and
+   the header says which run did: `top_band` is `null` on every run that
+   searched the whole range of CAI, and otherwise names the band left out —
+   `cai_log_lo` the ceiling, `cai_log_hi` `null`, and the same floors an open
+   region carries, which bound what the band can hold. What such a run returns
+   is the modular front of the designs at or below the ceiling:
+
+   - every point of the whole modular front at or below the ceiling is there,
+     so nothing under it is missing;
+   - no point above it is there, so the most adapted modular design — which is
+     on the front whatever its energy — is missing whenever one lies in the
+     band;
+   - and a point that is there may be dominated by a design in the band, which
+     would put it off the whole front. Such a point is `provisional` rather
+     than `certified`, so `complete: true` beside a `top_band` is a run that
+     finished what it searched, not a front with nothing above it.
+
+   `pool` refuses such a front: joining the stop-codon arms of a molecule
+   claims a front over every design, and a capped arm covers a narrower range
+   than the others.
 3. **Rounds.** A stretch that runs out of its share of the time is walked again
    in the next round, for twice as long, capped by everything found so far.
+
+Every stretch the header lists carries what its walk cost and what that bought:
+`derivations` and `stopped`, the seconds split over `build_s`, `sweep_s`,
+`walk_s`, `cut_s`, `energy_s` and `verify_s`, and three readings of work the
+walk paid for that nothing read — `refused` (whole molecules a filter
+turned away after the walk had reached and spelled them), `phases` (where
+`walk_s` went: `next_s`, `spell_s`, `dedup_s`, `visit_s`) and `memory` (the
+walk's heap when it ended, by structure, with `held`, `held_used` and
+`held_queued` separating the derivations something still reads from the ones
+only a cut candidate ever named). They are zero or empty for the top band and
+for a stretch nothing walked. `refused` is also zero on every run without
+`--motif`, because the motif filter is the only thing that refuses a whole
+molecule: a zero there means there was nothing to refuse, not that nothing was.
+
+A window walk turns designs away at two stages, and each stretch counts both.
+
+**Before a design exists.** The window's bound tests every partial derivation
+the walk takes and cuts it once no completion of it can be wanted. The tests
+run in order, and each pair says how many derivations arrived at a test and
+how many it cut:
+
+- `nodes_closed`: cells the energy bound closed whole, ahead of every test.
+- `outside_tested`, `cut_outside`: every completion lies outside the window.
+  These cuts say the walk was working away from the window.
+- `covered_tested`, `cut_covered`: every in-window completion lies where the
+  modular designs known to the search cover. Those designs are the seeds and
+  every earlier walk's finds as well as this walk's own. `covered_tested` is `outside_tested -
+  cut_outside`. The covered spans are worked out each time the walk reaches a
+  design, so `cut_covered` is zero by construction on a stretch whose
+  `reached` is zero.
+- `energy_tested`, `energy_cut`: the energy bound shows every in-window
+  completion dominated. This test runs only at a cell, and only when the
+  stretch's `energy_bound` is `true`. The search turns the bound on for odd
+  rounds (counting from 0) and off for even ones. When `energy_bound` is
+  `false`, `energy_tested`, `energy_cut` and `nodes_closed` were not
+  measured, and their zeros are not evidence of anything.
+
+`cut_covered`, `energy_cut` and `nodes_closed` say the walk reached the window
+and found it dominated. All of these count partial derivations, not designs,
+so they cannot be added to or compared with `reached`. A cut count is only
+meaningful beside the count that arrived at its test: a cut made earlier
+leaves fewer derivations to arrive later, so a later cut count can fall
+without its test cutting any less.
+
+**After a design exists.** `reached` counts the whole designs the bound let
+through. Four counters partition them, tested in this order:
+
+- `outside`: adaptation outside the stretch's window.
+- `covered`: inside the window, but dominated or tied by a modular design known
+  to the search. As for `cut_covered`, that design may be a seed, an earlier
+  walk's find or this walk's own.
+- `refused`
+- `offered`: handed to the modularity check.
+
+Each reached design lands in exactly one of them, except the design whose
+arrival completed the window's coverage and ended the walk, which lands in
+none. The bound has already cut every design more than its tolerance (10⁻⁷)
+outside the window, so `outside` is rarely above zero.
+
+Read together, the two stages separate the ways a stretch can offer nothing.
+`cut_covered`, `covered`, `energy_cut` or `nodes_closed` above zero says the
+walk reached the window and found it dominated. With `reached` at zero, only
+`energy_cut` and `nodes_closed` can say that, since the energy bound starts from
+the designs already known and the covered spans do not, and they say it only
+on a stretch whose `energy_bound` is `true`. A stretch with `reached` at zero
+and `energy_bound` false carries no evidence of dominance either way. One with
+`energy_bound` true and `reached`, `energy_cut` and `nodes_closed` all zero
+ended before its walk produced a whole design. `covered_tested` says how many partial derivations it
+had in play when it ended, and nothing says the window held a design it
+missed.
+
+`bound_requeued` counts something else: candidate derivations the bound put
+back on the queue at a later value instead of taking.
+
+All of these are zero for a region `--top-search band` searched, which checks
+designs without a walk, and for a stretch nothing walked; under `--top-search
+none` the region left out has no stretch at all. A
+result file written before they existed has no such keys, and a missing key
+reads as not recorded, not as zero.
 
 Two opt-in flags stop or hold back the rounds before the budget runs out. Both
 change what a budget finds, and neither is on by default.
@@ -1231,6 +1341,20 @@ change what a budget finds, and neither is on by default.
 - `--hold-barren` gives a region re-entered with unchanged bounds, after a
   visit that found nothing, no more time than that visit while some other
   region is open; the time goes to the regions after it.
+- `--max-derivations N` ends each window walk once it has taken `N`
+  derivations off its root, whatever is left of its share of the round; the
+  stretch then reads `stopped: "derivations"` instead of `"seconds"`. The
+  header carries `max_derivations`, `null` when the walk is uncapped, which is
+  the default. This is what makes an A/B of two builds a comparison: under
+  `--max-secs` alone the two arms walk whatever their host let them walk in
+  that span, so a difference in what they found is a difference in how much
+  walking they got, not in the walking. Under a derivation cap both arms walk
+  the same amount and the seconds are the measurement. It caps derivations and
+  not designs — a walk takes several derivations per design it reaches, and
+  `designs` in a stretch's report is the smaller count. It applies only to the
+  window walks, so `--top-search band` leaves the top region uncapped by it,
+  and a plain (non-`--modular`) front refuses the flag rather than reporting a
+  cap it never applied.
 
 **A budget returns a partial front, and says exactly how partial.**
 `--max-secs` and `--max-rss-gb` bound this second part, and with
@@ -1552,9 +1676,49 @@ help text names a flag its command refuses.
   the pin's restricted lattice; with `--motif` the pins reach both the motif
   front and its modular front.
 - **Positional structure constraints** (`--structure`, `--helix`, `--unpaired`,
-  `--forbid-pair`): no design emitted under them carries a free-fold check, so
-  a design whose own fold re-pairs an unpaired window would come back
-  unflagged. They stay on the instruments until the check covers them.
+  `--forbid-pair`) stay on the instruments, where they carry the free-fold
+  verdict: the emitted sequence's own fold is measured against the best fold
+  the whole statement allows, in the same `gap_kcal_mol` the region tables
+  report, and `--on-violation` sees the result. The verdict reports in both
+  directions a positional statement has — a pair the statement forbids that
+  the molecule forms anyway, and a position it requires to pair that the
+  molecule leaves unpaired. What a run under them records:
+
+  | field | what it carries |
+  |-------|-----------------|
+  | `constrained_mfe_kcal_mol` | the best energy the region table **and** the positional statement both allow |
+  | `free_mfe_kcal_mol`, `gap_kcal_mol`, `modular` | unchanged: the verdict is the two optima agreeing |
+  | `reinstated_pairs`, `reinstated_pair_count` | pairs of the free fold the statement forbids — `x` at an endpoint, a partner it reserved for someone else, a pair named outright |
+  | `unpaired_required_positions`, `unpaired_required_count` | positions the statement requires to pair that the free fold leaves unpaired. Present and empty under a region table, which has no such half |
+
+  The require-half pair is written on every `free_fold` record rather than only
+  on positional runs: an absent field is not a zero, and a reader cannot
+  otherwise tell a fold that met every requirement from a build that could not
+  have reported one.
+
+  `--on-violation` reaches a positional verdict, and **the remedies run**. Each
+  of them searches or re-weights the codon lattice under the region-class table
+  and carries no positional statement, so what one calls modular is a verdict
+  over the table rather than over the statement the caller made. The design it
+  returns is therefore **re-diagnosed** — this run's own verdict, re-taken on
+  that sequence — and what ships follows the re-diagnosis and not the remedy's
+  own report. A remedy that happens to clear the positional violation ships; one
+  that does not is recorded with the violation that remains and `shipped: false`.
+  Each `on_violation.applied` entry carries all three facts, so none of them has
+  to be inferred from another:
+
+  | field | what it carries |
+  |-------|-----------------|
+  | `verdict` | what the remedy's own instrument reported, in its own terms |
+  | `returned` | the design it handed back: `mfe_kcal_mol`, `cai`, and `re_diagnosed`, a full `free_fold` record measured on that sequence under everything the run stated |
+  | `returned.unsatisfiable` | `null`, except where no structure of the returned sequence carries every required pair — then `re_diagnosed` is `null` and this says why. The strongest form of violation, and only a sequence designed without the statement can reach it |
+  | `shipped` | whether that design became the row. Follows `returned.re_diagnosed.modular` |
+
+  The one case where no remedy runs is a positional statement with no composite
+  flag beside it: there is no region table for any of them to partition, and
+  each is recorded unavailable with that reason. Extending the repair search to
+  search *for* a positional statement is separate work; this reports what the
+  region remedies did about one.
 
 The `derna-lib` library keeps every constraint this command withholds, for
 callers who drive it directly.

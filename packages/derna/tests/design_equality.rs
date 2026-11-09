@@ -74,6 +74,19 @@ fn assert_same_design(case: &str, expected: &Value, got: &Value) {
     }
 }
 
+/// The modularity verdict of a `free_fold` sub-object, under either name the
+/// binary has written it under. The fixtures here are frozen output from
+/// before the field was renamed, so they carry `honest`; a record emitted by
+/// the binary today carries `modular`. A reader that asked for one name alone
+/// would either stop reading every result file on disk or stop reading every
+/// new one, so it asks for both and prefers the current name.
+fn modular(free_fold: &Value) -> &Value {
+    match free_fold.get("modular") {
+        Some(v) => v,
+        None => &free_fold["honest"],
+    }
+}
+
 fn assert_same_check(case: &str, expected: &Value, got: &Value) {
     let f = &expected["free_fold"];
     assert_eq!(f["free_mfe_kcal_mol"], got["free_mfe"], "{case}: free_mfe");
@@ -82,7 +95,7 @@ fn assert_same_check(case: &str, expected: &Value, got: &Value) {
         f["free_structure"], got["free_structure"],
         "{case}: free_structure"
     );
-    assert_eq!(f["honest"], got["modular"], "{case}: modular");
+    assert_eq!(*modular(f), got["modular"], "{case}: modular");
     let shifted: Vec<Vec<u64>> = f["reinstated_pairs"]
         .as_array()
         .unwrap()
@@ -100,6 +113,35 @@ fn assert_same_check(case: &str, expected: &Value, got: &Value) {
         got["violations"],
         "{case}: violations"
     );
+}
+
+/// The verdict reader accepts a record written under either field name, so
+/// renaming the binary's output did not make every result file already on disk
+/// unreadable.
+///
+/// The old half is read off a **committed** fixture rather than a literal, so
+/// dropping the compatibility breaks this test against the files it exists
+/// for. The fixture is asserted to carry the old name and not the new one
+/// first: without that, a fixture regenerated under the new writer would make
+/// the old-name half of this test pass while reading nothing.
+#[test]
+fn the_verdict_reader_accepts_either_field_name() {
+    let frozen = read_jsonl(&data("design-p0dtc2-flanks-5-cds.jsonl"));
+    let old = &frozen.first().expect("a recorded design")["free_fold"];
+    assert!(
+        old.get("honest").is_some() && old.get("modular").is_none(),
+        "the fixture no longer carries only the old name, so this test is \
+         not reading an old record: {old}"
+    );
+    assert_eq!(modular(old), &old["honest"]);
+
+    let new = serde_json::json!({"gap_kcal_mol": 0.0, "modular": true});
+    assert_eq!(modular(&new), &Value::Bool(true));
+
+    // A record carrying both keeps the current name, so a file half-rewritten
+    // by two writers reads as the newer one rather than by field order.
+    let both = serde_json::json!({"honest": false, "modular": true});
+    assert_eq!(modular(&both), &Value::Bool(true));
 }
 
 #[test]
@@ -153,7 +195,7 @@ fn every_cell_has_a_design_that_violates_the_constraint() {
                     case["name"].as_str().unwrap()
                 )))
             })
-            .filter(|record| record["free_fold"]["honest"] == Value::Bool(false))
+            .filter(|record| *modular(&record["free_fold"]) == Value::Bool(false))
             .count();
         assert!(
             failing > 0,
