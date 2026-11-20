@@ -13,6 +13,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only unless a job below says otherwise.
+permissions:
+  contents: read
+
+# Releases arrive on the `candidate` branch, one commit on top of `main`. The
+# `linux` job is the gate; on green, `promote` fast-forwards `main` to the
+# candidate and makes the release its `Release-Tag:` trailer names. On red,
+# `main` is untouched and `report` records the failure on one open issue.
 jobs:
   linux:
     runs-on: ubuntu-latest
@@ -58,3 +66,67 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
       - run: cargo test --profile ci --workspace
+
+  promote:
+    needs: linux
+    if: github.event_name == 'push' && github.ref == 'refs/heads/candidate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # A commit that changes a file under `.github/workflows` can only be
+          # moved onto `main` by a token with the workflows permission, which
+          # the built-in token never has. Without the secret, such a release
+          # fails here and is reported below, and every other one goes through.
+          token: ${{ secrets.PROMOTE_TOKEN || github.token }}
+      # A plain push refuses anything but a fast-forward, so a `main` that
+      # moved since the candidate was made is reported, never overwritten.
+      - name: Fast-forward main to the candidate
+        run: git push origin "${GITHUB_SHA}:refs/heads/main"
+      - name: Make the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(git log -1 --format='%(trailers:key=Release-Tag,valueonly)' "$GITHUB_SHA" | head -n 1 | tr -d '[:space:]')
+          if [ -z "$tag" ]; then
+            echo "no Release-Tag trailer: main moved, no release made"
+            exit 0
+          fi
+          if ! [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release-Tag '$tag' is not of the form vX.Y.Z" >&2
+            exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag already exists"
+            exit 0
+          fi
+          git log -1 --format=%B "$GITHUB_SHA" >"$RUNNER_TEMP/notes.md"
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file "$RUNNER_TEMP/notes.md"
+
+  report:
+    needs: [linux, promote]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/candidate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Record the failure on the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title="Release candidate did not pass"
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body="Candidate \`$GITHUB_SHA\` did not reach \`main\`; \`main\` is unchanged. Gate: ${{ needs.linux.result }}, promotion: ${{ needs.promote.result }}. Run: $run"
+          n=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

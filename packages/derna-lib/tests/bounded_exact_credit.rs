@@ -2,8 +2,9 @@
 //!
 //! [`bounded_front`] proves the window rule exact. This file proves the same
 //! things of the fold with each cell's true cost to go credited beside the
-//! window ([`Bounds::with_exact_credit`]), and one thing the window rule cannot
-//! have: cells emptied outright.
+//! window — the default for a box with a ceiling, which
+//! [`Bounds::without_exact_credit`] turns off — and one thing the window rule
+//! cannot have: cells emptied outright.
 //!
 //! Both credits are admissible, so the answer may not move. What the exact
 //! credit changes is *what is discarded*, and the tests read that directly — a
@@ -72,12 +73,59 @@ fn reachable_ceilings(params: &Params, protein: &str, usage: &CodonUsage) -> Vec
         .collect()
 }
 
+/// A ceiling with the exact credit, which is what a ceiling gets by default.
 fn exact(sigma: i32) -> Bounds {
-    Bounds::with_ceiling(Ceiling::Absolute(Energy(sigma))).with_exact_credit()
+    Bounds::with_ceiling(Ceiling::Absolute(Energy(sigma)))
 }
 
+/// A ceiling with the window rule alone.
 fn window(sigma: i32) -> Bounds {
-    Bounds::with_ceiling(Ceiling::Absolute(Energy(sigma)))
+    Bounds::with_ceiling(Ceiling::Absolute(Energy(sigma))).without_exact_credit()
+}
+
+/// A ceiling credits the exact cost to go unless told not to, and the two
+/// settings are really different folds: at the corner the default empties
+/// cells and the window alone empties none, while both recover the same
+/// points.
+#[test]
+fn a_ceiling_takes_the_exact_credit_by_default_and_the_window_alone_on_request() {
+    let ceiling = Ceiling::Absolute(Energy(0));
+    assert!(Bounds::with_ceiling(ceiling).exact_credit());
+    assert!(Bounds::UNBOUNDED.exact_credit());
+    assert!(!Bounds::with_ceiling(ceiling)
+        .without_exact_credit()
+        .exact_credit());
+    assert!(Bounds::with_ceiling(ceiling)
+        .without_exact_credit()
+        .with_exact_credit()
+        .exact_credit());
+
+    let (params, usage) = fixtures();
+    let protein = CASES[0];
+    let corner = reachable_ceilings(&params, protein, &usage)[0];
+    let by_default = solve(
+        &params,
+        protein,
+        &usage,
+        Bounds::with_ceiling(Ceiling::Absolute(Energy(corner))),
+    );
+    let by_window = solve(&params, protein, &usage, window(corner));
+    assert_eq!(
+        front_objectives(&by_default.front),
+        front_objectives(&by_window.front),
+        "{protein}: the default and the window alone recovered different points",
+    );
+    assert!(
+        by_default.dropped.emptied_total() > 0,
+        "{protein}: the default box emptied no cell at the corner, so it is not \
+         applying the exact credit",
+    );
+    assert_eq!(
+        by_window.dropped.emptied_total(),
+        0,
+        "{protein}: the window-only box emptied a cell, so it is still applying \
+         the exact credit",
+    );
 }
 
 #[test]
@@ -249,18 +297,15 @@ fn an_exact_credit_inflated_beyond_the_exterior_changes_the_answer() {
 }
 
 #[test]
-fn an_unbounded_box_with_the_exact_credit_is_the_unconstrained_fold() {
+fn an_unbounded_box_is_the_unconstrained_fold_whatever_the_credit() {
     let (params, usage) = fixtures();
     for protein in CASES.iter().chain(WIDE_CASES.iter()) {
         let plain = design_front(&params, protein, &usage).unwrap();
-        let bounded = solve(
-            &params,
-            protein,
-            &usage,
-            Bounds::UNBOUNDED.with_exact_credit(),
-        );
-        assert_eq!(bounded.dropped, DropTally::default());
-        assert_eq!(plain, bounded.front, "{protein}: the unbounded box moved");
+        for bounds in [Bounds::UNBOUNDED, Bounds::UNBOUNDED.without_exact_credit()] {
+            let bounded = solve(&params, protein, &usage, bounds);
+            assert_eq!(bounded.dropped, DropTally::default());
+            assert_eq!(plain, bounded.front, "{protein}: the unbounded box moved");
+        }
     }
 }
 

@@ -243,10 +243,124 @@ fn stairs(found: &[(i32, f64)]) -> Vec<(f64, i32)> {
 
 /// Outside values at the slopes of the energy bound: per slope, its weight
 /// `λ_ν`, the adaptation's weight `100·(1 − λ_ν)`, and the pass.
-pub(super) type Slopes = Vec<(f64, f64, Outside)>;
+pub(super) type Slopes = Vec<(f64, f64, Arc<Outside>)>;
 
 /// One slope's pass, and the tables its scan filled when the walk keeps them.
 type SlopePass = (f64, f64, Outside, Option<Tables>);
+
+/// The energy bound's outside passes, kept for the walks of one molecule.
+///
+/// A pass is a function of the weight and of the molecule alone (its
+/// lattice, constraints and scan, which every walk of a search shares), not
+/// of the window, the stairs or the known points. Walks of one region repeat
+/// weights bit for bit, because the bound's weights are fixed multiples of the
+/// region's slope, so a later walk reads the pass an earlier one took rather
+/// than scanning and sweeping again. The values are the ones it would have
+/// computed, so the bound, and with it every cut and closure, is unchanged.
+///
+/// The cache holds at most [`PassCache::CAPACITY`] passes, the least recently
+/// used out first, which bounds the memory a search keeps between its walks,
+/// and lets go of every pass when walks are shed for memory, so the cache is
+/// the first thing a budget takes back.
+#[derive(Default)]
+pub struct PassCache {
+    kept: Mutex<Vec<(u64, Arc<Outside>)>>,
+    /// The shed count the kept passes were taken under.
+    shed: AtomicU64,
+    /// Passes computed rather than read, over the cache's life.
+    computed: AtomicU64,
+    /// The production scan of the one weight most recently walked: the whole
+    /// lattice's tables, which every walk at that weight would otherwise
+    /// fill again. One weight only, because the tables are the largest thing
+    /// a walk holds.
+    ///
+    /// The key is the weight alone, which identifies the tables only because
+    /// the cache lives for one search and the lattice is a pure function of
+    /// the search's fields, all fixed for its life. The tables are indexed by
+    /// the lattice's nodes: a cache shared across searches whose lattices
+    /// differ (other `allowed` sets, other flanks) must extend the key. The
+    /// lattice's length is kept beside the weight and checked on every read,
+    /// in debug builds, so such a change fails a test rather than returning
+    /// a wrong front.
+    scan: Mutex<Option<(u64, u32, Arc<Tables>)>>,
+    /// Production scans run rather than read, over the cache's life.
+    scans: AtomicU64,
+}
+
+impl PassCache {
+    /// The most passes kept: two walks' worth of the energy bound's weights.
+    pub const CAPACITY: usize = 12;
+
+    /// A pass at weight `l`, marked most recently used.
+    fn take(&self, l: f64) -> Option<Arc<Outside>> {
+        self.forget_all_if_shed();
+        let mut kept = self.kept.lock().expect("the pass cache");
+        let at = kept.iter().position(|&(k, _)| k == l.to_bits())?;
+        let hit = kept.remove(at);
+        let out = Arc::clone(&hit.1);
+        kept.push(hit);
+        Some(out)
+    }
+
+    /// Keep `out`, the pass at weight `l`.
+    fn put(&self, l: f64, out: &Arc<Outside>) {
+        self.forget_all_if_shed();
+        let mut kept = self.kept.lock().expect("the pass cache");
+        kept.retain(|&(k, _)| k != l.to_bits());
+        kept.push((l.to_bits(), Arc::clone(out)));
+        let over = kept.len().saturating_sub(Self::CAPACITY);
+        kept.drain(..over);
+    }
+
+    /// Drop every pass and the scan if walks were shed since the cache last
+    /// looked. One swap decides for both, so no getter's order matters; every
+    /// getter and putter calls it before taking a lock.
+    fn forget_all_if_shed(&self) {
+        let now = super::walks_shed();
+        if self.shed.swap(now, Relaxed) != now {
+            self.kept.lock().expect("the pass cache").clear();
+            *self.scan.lock().expect("the scan cache") = None;
+        }
+    }
+
+    /// How many passes were computed, not read, over the cache's life.
+    pub fn computed(&self) -> u64 {
+        self.computed.load(Relaxed)
+    }
+
+    /// How many production scans were run, not read, over the cache's life.
+    pub fn scans(&self) -> u64 {
+        self.scans.load(Relaxed)
+    }
+
+    /// The tables of the production scan at weight `l` over a lattice of
+    /// `seq_len` positions, when the last one kept was taken at exactly that
+    /// weight.
+    fn take_scan(&self, l: f64, seq_len: u32) -> Option<Arc<Tables>> {
+        self.forget_all_if_shed();
+        let kept = self.scan.lock().expect("the scan cache");
+        let (_, kept_len, tables) = kept.as_ref().filter(|(k, _, _)| *k == l.to_bits())?;
+        debug_assert_eq!(
+            *kept_len, seq_len,
+            "the kept scan was taken over another lattice"
+        );
+        Some(Arc::clone(tables))
+    }
+
+    /// Keep `tables`, the production scan at weight `l` over a lattice of
+    /// `seq_len` positions, in place of any other.
+    fn put_scan(&self, l: f64, seq_len: u32, tables: &Arc<Tables>) {
+        self.forget_all_if_shed();
+        *self.scan.lock().expect("the scan cache") =
+            Some((l.to_bits(), seq_len, Arc::clone(tables)));
+    }
+
+    /// Let go of every kept pass.
+    pub fn clear(&self) {
+        self.kept.lock().expect("the pass cache").clear();
+        *self.scan.lock().expect("the scan cache") = None;
+    }
+}
 
 /// An adaptation window `[lo, hi]` and the designs a walk inside it finds.
 #[derive(Clone)]
@@ -734,6 +848,19 @@ pub struct WindowReport {
     pub witness_rejects: u64,
     pub folds: u64,
     pub skipped: u64,
+    /// Worker-seconds in windowed folds, which `verify_s` leaves out; the
+    /// designs they rejected; and the cells they copied under
+    /// [`super::Verify::window_reuse`].
+    pub window_s: f64,
+    pub window_rejects: u64,
+    pub window_cells_copied: u64,
+    /// Full folds that copied cells from a recent fold, and the cells copied.
+    pub reuse_hits: u64,
+    pub cells_copied: u64,
+    /// Designs that waited for a windowed slot ([`super::Verify::window_slots`]),
+    /// and of them those rejected before their own windowed fold.
+    pub window_deferred: u64,
+    pub window_deferred_rejected: u64,
     pub wall_s: f64,
     /// Whether a stop ended the window before its walk began: in its fold
     /// cut or its outside passes. `stats.stopped` then says which stop
@@ -842,6 +969,7 @@ pub fn window_front(
         verify,
         walk,
         (None, 0),
+        None,
         admit,
     )
 }
@@ -877,6 +1005,7 @@ pub fn window_front_sharing(
     verify: Verify,
     walk: Walk,
     (cut, slack): (Option<&OnceLock<crate::fold_cut::FoldCut>>, i32),
+    passes: Option<&PassCache>,
     admit: Option<&(dyn Fn(&str) -> bool + Sync)>,
 ) -> Result<Option<WindowReport>, LazyError> {
     let started = Instant::now();
@@ -914,6 +1043,13 @@ pub fn window_front_sharing(
         energy_cut: 0,
         energy_binding: Vec::new(),
         verify_s: 0.0,
+        window_s: 0.0,
+        window_rejects: 0,
+        window_cells_copied: 0,
+        reuse_hits: 0,
+        cells_copied: 0,
+        window_deferred: 0,
+        window_deferred_rejected: 0,
         witness_rejects: 0,
         folds: 0,
         skipped: 0,
@@ -966,6 +1102,28 @@ pub fn window_front_sharing(
     if !weights.is_empty() && !weights.contains(&lambda) {
         weights.push(lambda);
     }
+    // The pass at the walk's own weight fills the tables the walk's
+    // production build would scan again; it keeps them for the walk, so it is
+    // taken afresh. Every other weight's pass is the molecule's alone, and an
+    // earlier walk's is read from the cache when it holds one.
+    let reuse = matches!(walk.build, Build::Production);
+    // The scan at the walk's own weight is a function of the lattice and the
+    // weight alone, so a walk at a weight an earlier one scanned reads that
+    // scan's tables.
+    let shared: Option<Arc<Tables>> = passes
+        .filter(|_| reuse)
+        .and_then(|c| c.take_scan(lambda, graph.seq_len));
+    let cacheable = |l: f64| passes.is_some() && !(reuse && l == lambda);
+    let cached: Vec<Option<Arc<Outside>>> = weights
+        .iter()
+        .map(|&l| passes.filter(|_| cacheable(l)).and_then(|c| c.take(l)))
+        .collect();
+    let missing: Vec<f64> = weights
+        .iter()
+        .zip(&cached)
+        .filter(|(_, c)| c.is_none())
+        .map(|(&l, _)| l)
+        .collect();
     // One exact scan and outside pass per slope: they share nothing, and
     // together they can cost more than the walk. They run side by side and
     // split the scan's threads between them rather than each taking all of
@@ -973,14 +1131,20 @@ pub fn window_front_sharing(
     // ([`run_passes`]).
     let exact = ScanConfig {
         beam: crate::Beam::exact(),
-        threads: (config.threads / weights.len().max(1)).max(1),
+        threads: (config.threads / missing.len().max(1)).max(1),
         ..config
     };
     let seq_len = graph.seq_len;
-    // The pass at the walk's own weight fills the tables the walk's
-    // production build would scan again; it keeps them for the walk.
-    let reuse = matches!(walk.build, Build::Production);
     let pass = |l: f64| -> Result<Option<SlopePass>, BeamError> {
+        if let Some(tables) = shared.as_ref().filter(|_| l == lambda) {
+            let out = Outside::compute_at_any_lambda(params, &graph, tables, exact);
+            return Ok(Some((l, (1.0 - l) * 100.0, out, None)));
+        }
+        if reuse && l == lambda {
+            if let Some(c) = passes {
+                c.scans.fetch_add(1, Relaxed);
+            }
+        }
         let Some((dfa, tables, _)) = crate::scan_restricted_with_region(
             params,
             protein,
@@ -1003,11 +1167,23 @@ pub fn window_front_sharing(
         let keep = (reuse && l == lambda).then_some(tables);
         Ok(Some((l, (1.0 - l) * 100.0, out, keep)))
     };
-    let passes = run_passes(&weights, config.threads, &pass, &|| stop().is_some());
-    let ran = passes.len();
+    let fresh = run_passes(&missing, config.threads, &pass, &|| stop().is_some());
+    let ran: Vec<f64> = weights
+        .iter()
+        .zip(&cached)
+        .filter(|(_, c)| c.is_some())
+        .map(|(&l, _)| l)
+        .chain(missing.iter().take(fresh.len()).copied())
+        .collect();
+    let mut fresh = fresh.into_iter();
     let mut slopes: Slopes = Vec::new();
     let mut scanned = None;
-    for p in passes {
+    for (&l, hit) in weights.iter().zip(cached) {
+        if let Some(out) = hit {
+            slopes.push((l, (1.0 - l) * 100.0, out));
+            continue;
+        }
+        let Some(p) = fresh.next() else { break };
         match p? {
             Some((l, kk, mut out, keep)) => {
                 // Every pass over the one lattice holds the same keys, and the
@@ -1017,6 +1193,13 @@ pub fn window_front_sharing(
                     out.share_keys(first);
                 }
                 scanned = scanned.or(keep);
+                let out = Arc::new(out);
+                if let Some(c) = passes {
+                    c.computed.fetch_add(1, Relaxed);
+                    if cacheable(l) {
+                        c.put(l, &out);
+                    }
+                }
                 slopes.push((l, kk, out));
             }
             None => return Ok(None),
@@ -1031,8 +1214,42 @@ pub fn window_front_sharing(
     // A stop that skipped passes is still on, as is one that fired during
     // the last of them: each stop, once it fires, stays fired.
     if let Some(why) = stop() {
-        return Ok(Some(stopped(why, cut_s, &weights[..ran], energy_s)));
+        return Ok(Some(stopped(why, cut_s, &ran, energy_s)));
     }
+    // The tables the walk builds from. A window walk requires no pair, which
+    // is what lets its scan be shared.
+    let tables: Option<Arc<Tables>> = match (shared, scanned.map(Arc::new), passes) {
+        (Some(t), _, _) => Some(t),
+        (None, Some(t), Some(c)) => {
+            c.put_scan(lambda, graph.seq_len, &t);
+            Some(t)
+        }
+        (None, Some(t), None) => Some(t),
+        (None, None, Some(c)) if reuse => {
+            c.scans.fetch_add(1, Relaxed);
+            let Some((_, t)) = crate::scan_restricted_with_region_must(
+                params,
+                protein,
+                usage,
+                lambda,
+                allowed,
+                (utr5, utr3),
+                constraints,
+                &[],
+                ScanConfig {
+                    threads: config.threads,
+                    ..exact
+                },
+            )?
+            else {
+                return Ok(None);
+            };
+            let t = Arc::new(t);
+            c.put_scan(lambda, graph.seq_len, &t);
+            Some(t)
+        }
+        (None, None, _) => None,
+    };
     let ctx = check::Context {
         params,
         cds: CdsWindow {
@@ -1093,7 +1310,7 @@ pub fn window_front_sharing(
             walk,
             Some(&window),
             &[],
-            scanned,
+            tables,
             |objective, sequence, energy, own, cai, cut_before| {
                 reached += 1;
                 let e = energy.expect("a window walk reads every design's energy");
@@ -1184,6 +1401,13 @@ pub fn window_front_sharing(
         witness_rejects: out.witness_rejects,
         folds: out.folds,
         skipped: out.skipped,
+        window_s: out.window_s,
+        window_rejects: out.window_rejects,
+        window_cells_copied: out.window_cells_copied,
+        reuse_hits: out.reuse_hits,
+        cells_copied: out.cells_copied,
+        window_deferred: out.window_deferred,
+        window_deferred_rejected: out.window_deferred_rejected,
         wall_s: started.elapsed().as_secs_f64(),
         stats,
         stopped_in_setup: false,

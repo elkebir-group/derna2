@@ -51,7 +51,10 @@
 //! below as the plain one bounds all of them, so the seeds and the stretches
 //! read the same way. The walks run over every codon the pins leave each
 //! residue: each bound they prune by holds over all those designs and so over
-//! the motif-free ones, and only motif-free finds cover or cap anything.
+//! the motif-free ones, and only motif-free finds cover or cap anything. The
+//! band is narrower than that: it is handed the forbidden-motif automaton
+//! itself, not only the test over finished molecules, so it spells no design
+//! that spells a motif rather than spelling one and dropping it.
 //!
 //! **Within ε.** Given `epsilon > 0`, the search returns the front of a
 //! different set: the designs whose gap is at most `epsilon`. Every step
@@ -77,7 +80,7 @@ use crate::free_fold::{
     epsilon_dekacal, sequence_gap_given_structure_reusing, CdsWindow, FreeFoldError, FreeFoldGap,
     FreeFoldTables,
 };
-use crate::outside::lazy::window::{adaptation, window_front_sharing, WindowReport};
+use crate::outside::lazy::window::{adaptation, window_front_sharing, PassCache, WindowReport};
 use crate::outside::lazy::{Build, CutSchedule, ExactFold, LazyError, Verify, Walk};
 use crate::outside::lazy::{MemoryBreakdown, WalkPhases};
 use crate::pins::Pins;
@@ -312,6 +315,18 @@ pub struct Stretch {
     /// the check.
     pub verify_s: f64,
     pub folds: u64,
+    /// Worker-seconds in windowed folds (not in `verify_s`), the designs
+    /// they rejected and the cells they copied; full folds that copied
+    /// cells, and the cells copied.
+    pub window_s: f64,
+    pub window_rejects: u64,
+    pub window_cells_copied: u64,
+    pub reuse_hits: u64,
+    pub cells_copied: u64,
+    /// Designs that waited for a windowed slot, and of them those rejected
+    /// before their own windowed fold.
+    pub window_deferred: u64,
+    pub window_deferred_rejected: u64,
     pub reached: u64,
     pub offered: u64,
     /// The walk's own split: wall-clock seconds building its grammar (the
@@ -389,8 +404,21 @@ pub struct ModularFront {
     /// How many constrained-front points the budget left unchecked: not seeds,
     /// and the stretches around them left open.
     pub unchecked: usize,
+    /// How many designs the prior progress carried that this search admits,
+    /// and how many it does not: a design a different run found may spell a
+    /// motif this one forbids, and is then left out rather than emitted.
+    pub prior_found: (usize, usize),
     /// Whether every stretch completed, so the front is the whole front.
     pub complete: bool,
+    /// Seconds the search ran past the deadline its time budget set: `None`
+    /// where it was given none, `0.0` where it returned at or before one.
+    ///
+    /// A budget is read between units of work, so one already running when
+    /// the deadline passes runs on to its end and the search returns late by
+    /// what that unit had left. It is not a wall clock less the cap, which
+    /// also counts what ran before the search was entered and after it
+    /// returned.
+    pub overshoot_s: Option<f64>,
     /// Seconds spent checking the constrained front's points, before any
     /// stretch was walked.
     ///
@@ -556,8 +584,16 @@ struct Molecule<'a> {
     /// The check's fold cut: a fact about the lattice alone, built once and
     /// shared by every window the search walks, side by side or not.
     cut: Arc<OnceLock<crate::fold_cut::FoldCut>>,
+    /// The energy bound's outside passes, which a region's later walks read
+    /// at the weights an earlier one took.
+    passes: Arc<PassCache>,
     /// Keeps a whole molecule as a design; `None` keeps every one.
     admit: Option<&'a Admit<'a>>,
+    /// The forbidden-motif automaton `admit` tests with, where the test is a
+    /// motif set. An enumeration that is handed the automaton rather than only
+    /// the test over finished molecules spells no refused design at all, so
+    /// nothing is spent below one; see [`top::Band`].
+    motifs: Option<ScopedAc<'a>>,
     /// When the search stops or holds back a region early.
     policy: SearchPolicy,
 }
@@ -674,7 +710,9 @@ pub fn modular_front_resuming(
         top,
         epsilon,
         cut: Arc::new(OnceLock::new()),
+        passes: Arc::new(PassCache::default()),
         admit: None,
+        motifs: None,
         policy,
     };
     search(
@@ -762,7 +800,9 @@ pub fn modular_motif_front_resuming<S: AsRef<str>>(
         top,
         epsilon: 0.0,
         cut: Arc::new(OnceLock::new()),
+        passes: Arc::new(PassCache::default()),
         admit: Some(&admit),
+        motifs: Some(scoped),
         policy,
     };
     search(
@@ -840,14 +880,23 @@ fn search(
         .iter()
         .map(|&i| (floor[i], constrained[i].sequence.clone()))
         .collect();
+    // A design the earlier search found was admitted by that search's
+    // constraints, which need not be this one's: it enters `found` only if
+    // this molecule admits it, since `found` floors the search and is emitted.
+    let mut prior_found = (0, 0);
     if let Some(prior) = prior {
-        found.extend(prior.found.iter().map(|(mfe, cai_log, sequence)| {
+        for (mfe, cai_log, sequence) in &prior.found {
+            if m.admit.is_some_and(|admit| !admit(sequence)) {
+                prior_found.1 += 1;
+                continue;
+            }
+            prior_found.0 += 1;
             let axes = Axes {
                 energy: (mfe * 100.0).round(),
                 adaptation: cai_log - offset,
             };
-            (axes, sequence.clone())
-        }));
+            found.push((axes, sequence.clone()));
+        }
     }
     let plan = plan_stretches(&seeds, &floor, &boxes);
     let mut stretches: Vec<Stretch> = plan
@@ -1018,7 +1067,11 @@ fn search(
         stretches,
         seeds: seeds.len(),
         unchecked,
+        prior_found,
         certify_s,
+        overshoot_s: max_seconds
+            .is_finite()
+            .then(|| (started.elapsed().as_secs_f64() - max_seconds).max(0.0)),
         epsilon: m.epsilon,
         schedule: (lane_count(m.threads), first_round_s()),
         cut_build_s,
@@ -1181,7 +1234,7 @@ impl Molecule<'_> {
             self.usage,
             (self.utr5, self.utr3),
             (self.constraints, &self.allowed),
-            (self.threads, self.admit),
+            (self.threads, self.admit, self.motifs),
         )
         .within(self.epsilon);
         let deadline = started + Duration::from_secs_f64(seconds.min(1e9));
@@ -1258,7 +1311,12 @@ impl Molecule<'_> {
             .iter()
             .map(|(a, _)| (a.energy as i32, a.adaptation))
             .collect();
-        let slope = window_slope(region.lo, region.hi, cap_above(found, region.hi), floor);
+        let slope = settled(window_slope(
+            region.lo,
+            region.hi,
+            cap_above(found, region.hi),
+            floor,
+        ));
         let energy: Vec<f64> = if round % 2 == 1 {
             ENERGY_SLOPES.iter().map(|x| x * slope).collect()
         } else {
@@ -1362,6 +1420,7 @@ impl Molecule<'_> {
                         verify(self.threads),
                         walk(),
                         (Some(self.cut.as_ref()), epsilon_dekacal(self.epsilon)),
+                        Some(self.passes.as_ref()),
                         self.admit,
                     )
                 })
@@ -1400,6 +1459,27 @@ fn cap_above(found: &[(Axes, String)], hi: f64) -> Option<Axes> {
         .map(|(a, _)| *a)
         .filter(|a| a.adaptation >= hi - CAI_TOL)
         .min_by(|a, b| a.adaptation.total_cmp(&b.adaptation))
+}
+
+/// `slope` to nine significant digits. The slope is a minimum found by a
+/// golden-section search whose last digits depend on the window it was
+/// searched for, so visits to windows over one floor land on values some
+/// `1e-11` apart. Any slope is a valid weight, and the weight is a pure
+/// function of it, so walks that are to share a scan of the lattice (see
+/// `PassCache`) need the one double, not the one value to within noise.
+fn settled(slope: f64) -> f64 {
+    if !slope.is_finite() || slope <= 0.0 {
+        return slope;
+    }
+    // Outside this range the scale factor overflows (a subnormal slope makes
+    // it infinite and the quotient NaN); a slope left as it is costs a cache
+    // miss, never a wrong weight.
+    let exponent = slope.log10().floor();
+    if !(-200.0..=200.0).contains(&exponent) {
+        return slope;
+    }
+    let scale = 10f64.powi(8 - exponent as i32);
+    (slope * scale).round() / scale
 }
 
 /// The slope a window is walked at. Capped, the one minimizing the band of
@@ -1485,35 +1565,81 @@ fn band_slope(floor: &[Axes], lo: f64, cap: f64) -> f64 {
     ((a + b) / 2.0).exp()
 }
 
+/// The folds the check keeps to copy from, unless
+/// [`Setting::ModularFoldReuse`] names another count.
+const FOLD_REUSE: usize = 512;
+
+/// The folds the check runs at once, unless [`Setting::ModularFoldSlots`]
+/// names another count.
+const FOLD_SLOTS: usize = 8;
+
+/// The designs the walk hands the check per lock, unless
+/// [`Setting::ModularHandoffBatch`] names another count.
+///
+/// A design's windowed folds are the designs that arrive before a rejecting
+/// witness reaches the shared pool, so handing over in larger batches puts a
+/// witness in the pool sooner relative to the designs it serves and cuts the
+/// fold count per design. The count, not the cost: a batch leaves the time per
+/// fold where it was. Most of what the batch offers is reached by this count,
+/// and the designs in flight are the threads times this, so a larger one holds
+/// proportionally more of them against the walk's memory ceiling.
+const HANDOFF_BATCH: usize = 64;
+
+/// The windowed folds the check keeps to copy from, unless
+/// [`Setting::ModularWindowSize`] names another count.
+///
+/// Sized on its own rather than following [`FOLD_REUSE`]: the two caches hold
+/// folds of different shapes, and a windowed fold is cheap enough that the
+/// cache's own scan is a material share of it, so the count that pays here is
+/// far below the one that pays for full folds.
+const WINDOW_REUSE: usize = 64;
+
+/// A count named by `setting`, or `default` when it is unset or unparsable.
+fn count_setting(setting: Setting, default: usize) -> usize {
+    crate::dev_env::var(setting)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
+}
+
 /// The check's settings: every lever exact, the lazy probe's defaults.
+/// Each count changes which designs are folded or what a fold copies, never
+/// a verdict.
 fn verify(threads: usize) -> Verify {
+    let fold_reuse = count_setting(Setting::ModularFoldReuse, FOLD_REUSE);
     Verify {
         threads,
         witnesses: 64,
         witness_stop: 1,
         witness_promote: true,
-        fold_reuse: 512,
+        fold_reuse,
         fold_reuse_rows: true,
-        fold_slots: 8,
-        handoff_batch: 16,
+        fold_slots: count_setting(Setting::ModularFoldSlots, FOLD_SLOTS),
+        window_slots: count_setting(Setting::ModularWindowSlots, 0),
+        handoff_batch: count_setting(Setting::ModularHandoffBatch, HANDOFF_BATCH),
         fold: ExactFold::SparseCut,
         cut: CutSchedule::Before,
         window: Some((150, 150)),
         window_utr: false,
-        window_reuse: false,
+        // On, since a windowed fold of a design the walk has just offered
+        // usually shares most of its span with one the check folded moments
+        // ago; a development build can turn it off.
+        window_reuse: crate::dev_env::var(Setting::ModularWindowReuse).as_deref() != Ok("0"),
         window_auto: false,
+        window_reuse_size: Some(count_setting(Setting::ModularWindowSize, WINDOW_REUSE)),
         incumbent: None,
     }
 }
 
 /// The walk's settings. [`Walk::dedup_index`] is on: it answers the same
-/// membership question as a set of fingerprints, since a probe reads a
-/// derivation back wherever a slot's tag agrees and compares the whole
-/// fingerprint, so the walk visits the same designs in the same order while
-/// each slot holds five bytes against a fingerprint's sixteen — and the
-/// saving is resident, as the index vector's empty marker is not all-zero
-/// and is written through at allocation, while the tag vector's zero free
-/// marker becomes resident as its slots are written. [`Walk::tight_lists`]
+/// membership question as a map from fingerprints, since a probe reads a
+/// derivation back wherever a slot's tag agrees and compares the
+/// fingerprint, spelling both derivations wherever fingerprints agree, so the
+/// walk visits the same designs in the same order while each slot holds five
+/// bytes against a map entry's thirteen — and the saving is resident, as the
+/// index vector's empty marker is not all-zero and is written through at
+/// allocation, while the tag vector's zero free marker becomes resident as
+/// its slots are written. [`Walk::tight_lists`]
 /// stays off: the growth slack it removes is capacity that was never written,
 /// so it shrinks the lists' reserved bytes without shrinking resident memory.
 fn walk() -> Walk {
@@ -1723,6 +1849,13 @@ impl Stretch {
             energy_s: r.energy_s,
             verify_s: r.verify_s,
             folds: r.folds,
+            window_s: r.window_s,
+            window_rejects: r.window_rejects,
+            window_cells_copied: r.window_cells_copied,
+            reuse_hits: r.reuse_hits,
+            cells_copied: r.cells_copied,
+            window_deferred: r.window_deferred,
+            window_deferred_rejected: r.window_deferred_rejected,
             reached: r.reached,
             offered: r.offered,
             build_s: r.stats.build_s,
@@ -1902,6 +2035,30 @@ mod tests {
 
     fn at(energy: f64, adaptation: f64) -> Axes {
         Axes { energy, adaptation }
+    }
+
+    #[test]
+    fn slopes_a_golden_section_search_leaves_apart_by_noise_settle_to_one_double() {
+        // The five slopes 18 walks of one search landed on, and a different one.
+        let noisy = [
+            481.299656831623,
+            481.299656831632,
+            481.299656831640,
+            481.299656831642,
+            481.299656831645,
+        ];
+        let first = settled(noisy[0]);
+        assert!(noisy
+            .iter()
+            .all(|&m| settled(m).to_bits() == first.to_bits()));
+        assert!((first - noisy[0]).abs() < 1e-8 * noisy[0], "{first}");
+        assert_ne!(settled(886.667333196359).to_bits(), first.to_bits());
+        for edge in [f64::MIN_POSITIVE, 5e-324, f64::MAX, 1e-200, 1e200] {
+            assert!(settled(edge).is_finite(), "settled({edge:e}) is not finite");
+            assert!(settled(edge) > 0.0, "settled({edge:e}) is not positive");
+        }
+        assert_eq!(settled(0.0), 0.0);
+        assert!(settled(f64::INFINITY).is_infinite());
     }
 
     #[test]

@@ -598,11 +598,18 @@ and a reader built before the fields reads a file that has them. `show` and
 derna front --protein hbb.fasta --utr5 u5.fa --utr3 u3.fa --out front.jsonl --report walk.json
 ```
 
-`front` has **no range flag**. The walk returns the Pareto designs between the
-designs optimal at two weights, so the range decides how much of the front
-comes back; the command fixes the symmetric range [2⁻²³, 1 − 2⁻²³], which is
-below the weight at which a corner stops reaching the front's end at every
-length a real protein has, and is exact in binary floating point. It picks its
+`front` has **no range flag**, because it returns the whole front, both ends
+included: from the **stable end**, the least MFE and the greatest CAI among
+the designs reaching it, to the **adapted end**, the greatest CAI and the least
+MFE among the designs reaching it. The hull sweep starts from the designs
+optimal at the symmetric weights [2⁻²³, 1 − 2⁻²³], exact in binary floating
+point, and the walk then carries the front past either one to the end it
+stopped short of. No weight is enough on its own: one inside (0, 1) misses the
+adapted end whenever two synonymous codons' weights are closer than the weight
+times the energy they trade, and the weights 0 and 1 score one objective alone
+and leave ties in the other to chance (at 0 the fold reports the unfolded
+chain's energy). Checking that an end was reached costs one read of the codon
+table. It picks its
 pass grid from the molecule's length, starts the hull sweep from the grid's own
 optima, and cuts each sweep fold under the grid's chords. Those two return the
 same front as an unseeded, uncut sweep in a fraction of the time: on P0DTC2's
@@ -642,6 +649,27 @@ that are front points themselves, so nothing an unsolved box holds can
 dominate one of them. The header says `complete`, `stopped_by` (`time`,
 `memory`, `folds` or `null`) and lists each box left `open` as its two hull
 points.
+
+**A budget bounds when work starts, not when the walk returns, and the header
+says how far the two differ.** Both budgets are read *between* units of work,
+so a unit already running when the deadline passes runs to its end: the walk
+returns late by as much as that unit had left. The header's `overshoot_s` is
+exactly that — the seconds between the deadline and the walk's return, `0.0`
+for a walk that returned inside its deadline and `null` for one given none.
+It is not the wall clock less the cap, which also counts the setup before the
+walk started and the writing after it returned, and it is the only field that
+tells a run stopped *at* its deadline from one stopped long past it: both say
+`stopped_by: time`. The two end folds and the credit are the units no budget
+skips, since the walk cannot name an open box without them, so a molecule
+whose end fold alone outlasts the cap overruns it by the rest of that fold
+however small the cap is — a floor on what any cap can promise, and the
+reason the field is reported rather than the overrun being removed. A grid
+pass the budget would not have time for is skipped, and the range its
+optimum would have split is reported open. Under `--modular` the field is the search's, since that is what
+`--max-secs` budgets there — the walk is budgeted by `--walk-secs`, and its
+own overrun is in the file `--front-out` and the checkpoints carry. One name
+for one quantity in both: the seconds the work `--max-secs` budgeted ran past
+the deadline it was given.
 A front read back with `--front-from` is not walked, so a budget is refused
 there, and a front whose own header says it is incomplete is refused as
 something to read: the search built on it would certify against a front still
@@ -694,7 +722,9 @@ only the first absence is reported. Bound such a run with `--max-secs` and
 `--threads`, and size it with the memory figures under
 [What a front costs](#what-a-front-costs) — `35 MB + 0.04 × residues²` for the
 plain front — rather than relying on the run to stop itself. `--max-secs` has
-no such dependency and binds on every platform.
+no such dependency and is read on every platform — but it bounds when the
+next unit of work *starts*, not when the walk returns, and the header's
+`overshoot_s` reports the difference (see [The front](#the-front)).
 
 **`--checkpoint` survives a kill** here as it does for the motif front (see
 [The motif-excluded front](#the-motif-excluded-front)): `--out` is replaced
@@ -843,7 +873,10 @@ ends alone. On a complete 349-residue motif front the passes at every weight
 took 4.1 % fewer instructions than those up to 0.07, and the seeds 1.4 % fewer.
 The front depends on neither; `DERNA_MOTIF_AWARE_UPTO` sets the highest weight
 with such a pass (`0` takes none) and `DERNA_MOTIF_AWARE_SEEDS=0` starts from
-the ends alone. The header records `motifs`, `motif_window` and `motifs_in_fixed_flanks`
+the ends alone. Each such pass searches for the ceiling it certifies under,
+and starts that search at the slack between its floor and its optimum seen at the
+nearest weight already taken, plus the headroom; the front is the same either
+way, only the folds differ. The header records `motifs`, `motif_window` and `motifs_in_fixed_flanks`
 as `design`'s does, and `pass_grid` is `null`. `--report` writes the hull's
 vertices; per gap, its weight, its points and its fold seconds; per pass, its
 seconds and memory, with the seconds, folds and size of its motif-lattice
@@ -1451,8 +1484,15 @@ starts where it stopped. The rounds of window walks start again, capped by
 what was found. A walked constrained front is kept in `OUT.walk.jsonl` as it
 settles, so the rerun continues that walk too rather than walking it again.
 `--resume-search PATH` continues from another run's log instead. A log names
-the molecule it was written for on its first line, and one of another
-molecule or constraint is refused.
+the run it was written for on its first line — the molecule and constraint,
+the motif set with each pattern's window, and the pins — and one of another
+run is refused. The motif set is part of that name because a design the log
+records as found is taken into the resuming search's working set without being
+put through the motif test again. A log written before the first line carried
+a motif set is refused too: it reads alike whether its search ran under no
+motif or under motifs it never recorded, so it cannot show it is this run's.
+Search again without `--resume-search`, or `--force` to start over from a
+checkpoint beside `--out`.
 
 ```bash
 derna front --protein hbb.fasta --utr5 u5.fa --utr3 u3.fa --modular \

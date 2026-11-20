@@ -163,9 +163,11 @@ Output
                             whole-molecule fold tables per worker
 
 Budget
-  --max-secs S              stop the walk after S seconds and return the
-                            partial front, naming the boxes left open
-                            [default: no limit]
+  --max-secs S              start no further work after S seconds and return
+                            the partial front, naming the boxes left open. A
+                            unit of work already running runs to its end, so
+                            the walk can return past S; the header's
+                            overshoot_s says by how much [default: no limit]
   --max-rss-gb G            stop the walk at G GiB resident and return the
                             partial front (Linux only, resident memory being
                             read from /proc) [default: no limit]
@@ -198,7 +200,9 @@ Save and resume
   --resume-search PATH      (with --modular) continue the search this log
                             records rather than OUT.search.jsonl: checked
                             points are not checked again and the band starts
-                            where it stopped
+                            where it stopped. A log of another run — another
+                            molecule, motif set or pins — is refused, and so
+                            is one whose first line names no motif set
 
 Modular front
   --modular                 return the front of the modular designs, those
@@ -938,6 +942,7 @@ pub fn motif_walk(
         gap_folds: budget.max_gap_folds.or_else(gap_folds),
         probe_skip: None,
         probe_learn: None,
+        aware_learn: None,
         fold_threads: 1,
         aware_upto: None,
         aware_seeds: motif_aware_seeds(),
@@ -1085,6 +1090,10 @@ pub fn read_front(m: &Molecule, path: &Path) -> Result<WalkedFront> {
         timeline: Vec::new(),
         refinements: Vec::new(),
         stopped_by,
+        // A front read back from a file is not a walk this run timed, so it
+        // overran nothing here. What the walk that wrote the file did is in
+        // that file's own header.
+        overshoot_s: None,
         open,
         rests: Vec::new(),
     })
@@ -1667,6 +1676,7 @@ fn run_motifs(args: &FrontArgs, m: &Molecule, threads: usize, started: Instant) 
         gap_folds: args.budget.max_gap_folds.or_else(gap_folds),
         probe_skip: None,
         probe_learn: None,
+        aware_learn: None,
         fold_threads: args.fold_threads.unwrap_or(1),
         aware_upto: None,
         aware_seeds: motif_aware_seeds(),
@@ -1823,10 +1833,21 @@ fn write_motif_modular(
     let mut w = result::open_output(args.shared.out.as_deref(), args.overwrite())?;
     result::write_lines(w.as_mut(), std::slice::from_ref(&header))?;
     let params = m.params.clone();
+    let emitting = Instant::now();
+    // The gaps are known only once each point is folded, after the header is
+    // out, so their histogram goes to stderr; the points' own `gap` fields
+    // give it again from the file.
+    let mut gaps = modular_front::GapHistogram::default();
     for batch in front.points.chunks(EMIT_BATCH.max(threads)) {
         let lines = modular_front::points(m, &params, batch, (threads, 0.0))?;
+        gaps.count(&lines);
         result::write_lines(w.as_mut(), &result::with_metrics(&header, lines))?;
     }
+    eprintln!(
+        "wrote {} point(s), by gap {gaps} ({:.2}s)",
+        front.points.len(),
+        emitting.elapsed().as_secs_f64()
+    );
     landed(args, &front);
     Ok(())
 }
@@ -1945,6 +1966,7 @@ impl MotifLines<'_> {
         extra.insert("checkpoint".into(), checkpoint.into());
         extra.insert("stopped_by".into(), json!(walked.stopped_by));
         extra.insert("max_secs".into(), json!(args.budget.max_secs));
+        extra.insert("overshoot_s".into(), json!(walked.overshoot_s));
         extra.insert("max_rss_gb".into(), json!(args.budget.max_rss_gb));
         extra.insert(
             "resumed".into(),
@@ -2055,26 +2077,14 @@ fn read_motif_front_under(
     }
     let mut ours = result::molecule_fields(m);
     ours.extend(sequence.header_fields(m)?);
-    // A motif set is a set: the order the motifs were given in is not part of
-    // the molecule.
-    let as_set = |v: &Value| {
-        let mut items: Vec<String> = v
-            .as_array()
-            .into_iter()
-            .flatten()
-            .map(Value::to_string)
-            .collect();
-        items.sort_unstable();
-        items
-    };
     for (key, value) in &ours {
         let same = match h.get(key) {
             // A motif set is a set, and so is the set of its patterns paired
             // with the windows they are forbidden inside: the order the
             // motifs were given in is not part of the molecule, while which
-            // pattern carried which window is.
+            // pattern carried which window is ([`as_motif_set`]).
             Some(theirs) if key == "motifs" || key == "motif_scopes" => {
-                motifs(&as_set(theirs), &as_set(value))
+                motifs(&as_motif_set(theirs), &as_motif_set(value))
             }
             theirs => theirs == Some(value),
         };
@@ -2503,7 +2513,7 @@ fn prior_search(
         return Ok(None);
     };
     let p = modular_front::read_progress(path)?;
-    refuse_another_runs_search(m, path)?;
+    refuse_another_runs_search(m, &args.sequence, path)?;
     if p.epsilon != epsilon {
         return Err(format!(
             "derna front: {} was searched within {} kcal/mol and this run is within \
@@ -2542,7 +2552,7 @@ fn search_log(
     };
     let path = modular_front::progress_path(out);
     let log = modular_front::ProgressLog::open(&path, epsilon)?;
-    log.identify(Value::Object(result::molecule_fields(m)));
+    log.identify(Value::Object(progress_run_fields(m, &args.sequence)?));
     if let (Some(p), Some(from)) = (prior, &args.resume_search) {
         if !same_file(from, &path) {
             log.carry(p);
@@ -2648,9 +2658,20 @@ fn write_modular(
     if let Some(note) = modular_front::top_band_note(&front) {
         eprintln!("{note}");
     }
+    let (kept, rejected) = front.prior_found;
+    if rejected > 0 {
+        eprintln!(
+            "{kept} of {} design(s) carried from the earlier search admitted; {rejected} spell a forbidden motif and were left out",
+            kept + rejected
+        );
+    }
     let mut extra =
         modular_front::header_fields(&front, walked.front.len(), args.budget, args.policy);
     extra.insert("constrained_open".into(), boxes.len().into());
+    extra.insert(
+        "prior_found".into(),
+        json!({"admitted": kept, "rejected": rejected}),
+    );
     extra.insert(
         "anchors".into(),
         match (&args.anchors_from, &anchors) {
@@ -2689,15 +2710,116 @@ fn write_modular(
     Ok(())
 }
 
-/// A search progress file names the molecule it was written for; one of
-/// another molecule or constraint would cap this search with verdicts that are
-/// not this molecule's, so it is refused. A file that names no run predates
-/// the field and is read as before.
-fn refuse_another_runs_search(m: &Molecule, path: &Path) -> Result<()> {
-    let Some(run) = modular_front::progress_run(path)? else {
-        return Ok(());
+/// What a search's progress file records of the run it is of: the molecule,
+/// then the sequence constraints its designs were admitted under.
+///
+/// The motif set and the pins belong here as much as the molecule does. A
+/// design the file records as found was admitted against them, and the search
+/// that reads the file takes such a design into its working set without
+/// putting it through the motif test again — so a file carrying only the
+/// molecule cannot say whether its designs are ones this run may emit.
+///
+/// Both are written even where the run asked for neither, as empty, so a file
+/// searched under no motif is told apart from one written before the fields
+/// existed. The rest of the set's shape — the window each pattern is forbidden
+/// inside, the occurrences no codon assignment can remove — comes from the
+/// same fields a result header carries, so the two records say the same thing
+/// about one run.
+fn progress_run_fields(m: &Molecule, sequence: &SequenceConstraints) -> Result<Map<String, Value>> {
+    let mut fields = result::molecule_fields(m);
+    fields.insert("motifs".into(), Value::Array(Vec::new()));
+    fields.insert("pins".into(), Value::Array(Vec::new()));
+    fields.extend(sequence.header_fields(m)?);
+    Ok(fields)
+}
+
+/// A motif set as a sorted list of its members, so two runs given the same
+/// motifs in different orders compare equal.
+///
+/// A motif set is a set: the order the patterns were written in is not part of
+/// the constraint. So is the set of patterns paired with the windows they are
+/// forbidden inside — sorting the pairs keeps which pattern carried which
+/// window, which is part of it.
+fn as_motif_set(v: &Value) -> Vec<String> {
+    let mut items: Vec<String> = v
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(Value::to_string)
+        .collect();
+    items.sort_unstable();
+    items
+}
+
+/// The first field on which a progress file's run line differs from this
+/// run's, names of sequences aside (a file's protein may be named
+/// differently) and motif sets compared as sets.
+///
+/// Unlike [`molecule_mismatch`], which reads a result header holding fields of
+/// its own, this compares the two records field for field: a run line carries
+/// what this function's caller wrote and nothing else, and a constraint is
+/// recorded only where it constrains something, so a field one run has and the
+/// other does not is a difference rather than a field to skip.
+fn run_mismatch(ours: &Map<String, Value>, run: &Value) -> Option<String> {
+    let strip = |v: &Value| match v {
+        Value::Object(o) if o.contains_key("sequence") => o["sequence"].clone(),
+        other => other.clone(),
     };
-    match molecule_mismatch(&result::molecule_fields(m), &run) {
+    let same = |key: &str| match (ours.get(key), run.get(key)) {
+        (Some(mine), Some(theirs)) if key == "motifs" || key == "motif_scopes" => {
+            as_motif_set(mine) == as_motif_set(theirs)
+        }
+        (Some(mine), Some(theirs)) => strip(mine) == strip(theirs),
+        (mine, theirs) => mine.is_none() && theirs.is_none(),
+    };
+    // The sets first, then everything else. `motif_window`,
+    // `motif_scopes` and `motifs_in_fixed_flanks` are all written from the
+    // motif set, so two runs under different sets differ in several fields at
+    // once and the one worth naming is the set.
+    let sets = ["motifs", "pins"].into_iter();
+    let theirs = run
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(k, _)| k.as_str());
+    sets.chain(ours.keys().map(String::as_str))
+        .chain(theirs)
+        .find(|k| !same(k))
+        .map(str::to_string)
+}
+
+/// A search progress file names the run it was written for; one of another
+/// molecule, or under another motif set or other pins, would cap this search
+/// with verdicts that are not this run's and seed it with designs this run may
+/// not emit, so it is refused.
+///
+/// So is a file that does not name its motif set — one written before the
+/// field existed, or one naming no run at all. Such a file reads exactly alike
+/// whether it came from a run under no motif or from a run under motifs it
+/// never recorded, and merging the second into a motif run emits designs that
+/// spell a forbidden pattern while merging it the other way clamps the band
+/// and drops points the run admits. A file that cannot show it is this run's
+/// is not a file that has shown it.
+fn refuse_another_runs_search(
+    m: &Molecule,
+    sequence: &SequenceConstraints,
+    path: &Path,
+) -> Result<()> {
+    let unidentified = || {
+        format!(
+            "derna front: {} does not record the motifs its search was under, so whether \
+             its designs are ones this run may emit cannot be told; search again without \
+             --resume-search, or pass --force to start over from a checkpoint beside --out",
+            path.display()
+        )
+    };
+    let Some(run) = modular_front::progress_run(path)? else {
+        return Err(unidentified().into());
+    };
+    if run.get("motifs").is_none() {
+        return Err(unidentified().into());
+    }
+    match run_mismatch(&progress_run_fields(m, sequence)?, &run) {
         Some(field) => Err(format!(
             "derna front: {} is another run's search progress: its {field} differs from \
              this run's; pass --force to start over",
@@ -2750,6 +2872,7 @@ fn front_header(
     extra.insert("complete".into(), walked.open.is_empty().into());
     extra.insert("stopped_by".into(), json!(walked.stopped_by));
     extra.insert("max_secs".into(), json!(args.budget.max_secs));
+    extra.insert("overshoot_s".into(), json!(walked.overshoot_s));
     extra.insert("max_rss_gb".into(), json!(args.budget.max_rss_gb));
     extra.insert(
         "resumed".into(),

@@ -285,6 +285,16 @@ pub struct SearchInputs<'a> {
     /// Wall-clock budget. Exhausting it returns the incumbent with an explicit
     /// unproven verdict rather than no answer.
     pub budget: Duration,
+    /// A work cap: stop once this many regions have been popped, whatever the
+    /// clock says. `None` leaves the walk bounded by [`Self::budget`] alone.
+    ///
+    /// The walk is budget-independent — the cap is consulted at the same one
+    /// place as the clock and only to stop — so a run capped at `N` regions
+    /// ends in exactly the state any longer run passed through after its
+    /// `N`-th pop. Unlike the wall-clock budget, that state does not depend on
+    /// how fast the host is, which is what a caller needing the same answer on
+    /// every machine asks for.
+    pub max_regions: Option<usize>,
     /// Which order a partition branches in. Both are exact; the choice is what
     /// the search reaches first, not what it can reach.
     pub branch_order: BranchOrder,
@@ -1675,7 +1685,10 @@ impl<'a> Walk<'a> {
     }
 
     fn over_budget(&self) -> bool {
-        self.started.elapsed() >= self.inputs.budget
+        self.inputs
+            .max_regions
+            .is_some_and(|cap| self.stats.regions_popped >= cap)
+            || self.started.elapsed() >= self.inputs.budget
     }
 
     /// The CDS codons a design spells.

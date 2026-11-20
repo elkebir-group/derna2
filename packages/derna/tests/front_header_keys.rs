@@ -44,7 +44,7 @@ const UTR5: &str = "ACAUUUGCUU";
 const UTR3: &str = "GGCCAAUUGG";
 
 /// Every key a plain constrained front writes, for the argv in `plain()`.
-const PLAIN_KEYS: [&str; 28] = [
+const PLAIN_KEYS: [&str; 29] = [
     "access",
     "checkpoint",
     "codon_usage",
@@ -59,6 +59,7 @@ const PLAIN_KEYS: [&str; 28] = [
     "max_rss_gb",
     "max_secs",
     "open",
+    "overshoot_s",
     "pass_grid",
     "peak_rss_kb",
     "points",
@@ -77,7 +78,7 @@ const PLAIN_KEYS: [&str; 28] = [
 
 /// Every key a modular front writes, for the argv in `so()`. It is
 /// `PLAIN_KEYS` less `checkpoint`, plus the search's own.
-const MODULAR_KEYS: [&str; 49] = [
+const MODULAR_KEYS: [&str; 51] = [
     "access",
     "anchors",
     "certify_s",
@@ -105,9 +106,11 @@ const MODULAR_KEYS: [&str; 49] = [
     "modular_front",
     "open",
     "outcome",
+    "overshoot_s",
     "pass_grid",
     "peak_rss_kb",
     "points",
+    "prior_found",
     "protein",
     "range",
     "record",

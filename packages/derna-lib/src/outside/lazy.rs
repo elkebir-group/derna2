@@ -28,7 +28,7 @@
 
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use super::{Cell, Grammar, Inst, Outer, Parts, Seg, Sink, MIN_HAIRPIN_LOOP};
@@ -710,7 +710,7 @@ struct Cand {
 
 // The walk's heap is nearly all derivations and candidates; keep them small.
 #[cfg(not(debug_assertions))]
-const _: () = assert!(std::mem::size_of::<Deriv>() == 40 && std::mem::size_of::<Cand>() == 32);
+const _: () = assert!(std::mem::size_of::<Deriv>() == 32 && std::mem::size_of::<Cand>() == 32);
 
 impl PartialEq for Cand {
     fn eq(&self, other: &Self) -> bool {
@@ -886,6 +886,9 @@ struct Forest<'g, 'a> {
     tight_lists: bool,
     /// Derivations dropped as repeats, by the kind of node that dropped them.
     dropped: DedupDrops,
+    /// Scratch for [`Self::same_spelling`], one entry per position, and the
+    /// positions it wrote.
+    spelling: Spelling,
     /// The root, and when a request to it should give up: under node dedup
     /// one request can drop a long run of repeats before it finds a new
     /// design, so the walk's time cap and [`stop_walks`] are honored there
@@ -970,6 +973,7 @@ impl<'g, 'a> Forest<'g, 'a> {
             dedup_index: false,
             tight_lists: false,
             dropped: DedupDrops::default(),
+            spelling: Spelling::default(),
             root: u32::MAX,
             deadline: None,
             shed: 0,
@@ -1409,7 +1413,7 @@ impl<'g, 'a> Forest<'g, 'a> {
                 self.interrupted = true;
                 return false;
             };
-            if self.is_repeat(v, fp) {
+            if self.is_repeat(v, fp, &c) {
                 // Its successors are reachable through it alone: push them
                 // now, as `get` would have had it been kept.
                 if c.edge != LEAF {
@@ -1610,14 +1614,18 @@ impl<'g, 'a> Forest<'g, 'a> {
     }
 
     /// Whether `v` is a cell that already holds a derivation spelling what
-    /// `fp` spells, under [`Walk::node_dedup`]; records `fp` otherwise.
+    /// candidate `c` spells, its fingerprint being `fp`, under
+    /// [`Walk::node_dedup`]; records `c` otherwise. A kept derivation whose
+    /// fingerprint agrees is spelled beside `c` and compared position by
+    /// position ([`Self::same_spelling`]), so a fingerprint collision costs
+    /// the two spellings and never drops a distinct subsequence.
     ///
     /// Two derivations of one cell that spell the same subsequence are
     /// interchangeable inside any parent: the parent's loop energies read
     /// only the nucleotides the cell's key fixes, so swapping the later one
     /// for the earlier spells the same molecule at a value no larger. The
     /// later one is therefore never the first derivation of a new design.
-    fn is_repeat(&mut self, v: u32, fp: Fingerprint) -> bool {
+    fn is_repeat(&mut self, v: u32, fp: Fingerprint, c: &Cand) -> bool {
         if !self.node_dedup {
             return false;
         }
@@ -1626,11 +1634,23 @@ impl<'g, 'a> Forest<'g, 'a> {
             return false;
         };
         let di = self.dedup_index;
-        let kb = &mut self.kb[v as usize];
-        kb.x_mut(di);
-        let Kbest { x, d, .. } = kb;
-        let seen = &mut x.as_deref_mut().expect("made above").seen;
-        if seen.insert(fp.design(), d.len() as u32, |i| d[i as usize].fp.design()) {
+        // The set comes out of the node for the probe, so that the probe can
+        // spell through the rest of the forest.
+        let mut seen = std::mem::take(&mut self.kb[v as usize].x_mut(di).seen);
+        let mut spelling = std::mem::take(&mut self.spelling);
+        let d = &self.kb[v as usize].d;
+        let fresh = seen.insert(
+            fp.design(),
+            d.len() as u32,
+            |i| d[i as usize].fp.design(),
+            |i| {
+                let kept = &d[i as usize];
+                self.same_spelling((kept.edge, kept.idx), (c.edge, c.idx), &mut spelling)
+            },
+        );
+        self.spelling = spelling;
+        self.kb[v as usize].x_mut(di).seen = seen;
+        if fresh {
             return false;
         }
         let root = Key::Cell(Cell::C(self.grammar.dfa.end()));
@@ -1672,6 +1692,8 @@ impl<'g, 'a> Forest<'g, 'a> {
                 fp = fp.with(self.kb[t as usize].d[c.idx[i] as usize].fp);
             }
         }
+        #[cfg(test)]
+        let fp = tests::FP_BITS.with(|bits| fp.truncated(bits.get()));
         Some(fp)
     }
 
@@ -1745,6 +1767,240 @@ impl<'g, 'a> Forest<'g, 'a> {
         }
         for (i, &t) in h.tails.iter().enumerate() {
             self.spell(t, d.idx[i] as usize, seq, pairs);
+        }
+    }
+
+    /// Hand `f` each `(position, nucleotide)` the derivation built on `edge`
+    /// with tail derivations `idx` spells, until it returns `false`; whether
+    /// it never did.
+    fn spell_each(&self, edge: u32, idx: &Idx, f: &mut impl FnMut(u32, u8) -> bool) -> bool {
+        if edge == LEAF {
+            return true;
+        }
+        let h = &self.edges[edge as usize];
+        if !self
+            .spell_pool
+            .get(h.spelled)
+            .iter()
+            .all(|&(pos, nuc)| f(pos, nuc))
+        {
+            return false;
+        }
+        h.tails.iter().enumerate().all(|(i, &t)| {
+            let d = &self.kb[t as usize].d[idx[i] as usize];
+            self.spell_each(d.edge, &d.idx, f)
+        })
+    }
+
+    /// Whether the derivations `a` and `b`, each a hyperedge and its tail
+    /// derivations, spell the same nucleotides at the same positions — the
+    /// exact question a fingerprint answers up to collision.
+    ///
+    /// Two derivations of one cell that spell the same subsequence usually
+    /// differ in one region and share whole sub-derivations elsewhere. Each
+    /// side is therefore first unfolded from the top, largest span first, and
+    /// any sub-derivation `(node, rank)` both sides reach is set aside: it
+    /// spells the same positions the same way on both. What is left is
+    /// spelled and compared position by position.
+    fn same_spelling(&self, a: (u32, Idx), b: (u32, Idx), s: &mut Spelling) -> bool {
+        let len = self.grammar.dfa.seq_len as usize;
+        if s.seq.len() != len {
+            s.seq = vec![Spelling::NONE; len];
+        }
+        s.clear();
+        self.unfold(a, &mut s.own[0], &mut s.parts[0]);
+        self.unfold(b, &mut s.own[1], &mut s.parts[1]);
+        let same = self.cancel_shared(s) && self.compare_rest(s);
+        #[cfg(test)]
+        if !same {
+            tests::COLLISIONS.with(|n| n.set(n.get() + 1));
+        }
+        same
+    }
+
+    /// Record `tree`'s own hyperedge in `own` and its tail derivations in
+    /// `parts`.
+    fn unfold(&self, tree: (u32, Idx), own: &mut Vec<u32>, parts: &mut Vec<(u32, u32)>) {
+        if tree.0 == LEAF {
+            return;
+        }
+        own.push(tree.0);
+        let tails = self.tails(tree.0);
+        parts.extend(tails.iter().zip(tree.1.iter()).map(|(&t, &k)| (t, k)));
+    }
+
+    /// The positions node `v`'s derivations spell.
+    fn span_len(&self, v: u32) -> u32 {
+        let (a, b) = self.span(v);
+        b.pos - a.pos
+    }
+
+    /// Drop the sub-derivations both sides of `s` reach, unfolding the
+    /// largest one left until none is shared or the budget is spent.
+    /// `false` when the two sides must differ: a node both reach at
+    /// different ranks, where the node's ranks are known to spell distinct
+    /// subsequences.
+    fn cancel_shared(&self, s: &mut Spelling) -> bool {
+        for _ in 0..Spelling::UNFOLDS {
+            let [pa, pb] = &mut s.parts;
+            let mut i = 0;
+            while i < pa.len() {
+                match pb.iter().position(|&q| q.0 == pa[i].0) {
+                    Some(j) if pb[j].1 == pa[i].1 => {
+                        pa.swap_remove(i);
+                        pb.swap_remove(j);
+                    }
+                    Some(_) if self.ranks_spell_distinct(pa[i].0) => return false,
+                    _ => i += 1,
+                }
+            }
+            let widest = (0..2)
+                .flat_map(|side| {
+                    s.parts[side]
+                        .iter()
+                        .enumerate()
+                        .map(move |(i, p)| (side, i, p.0))
+                })
+                .max_by_key(|&(_, _, v)| self.span_len(v));
+            let Some((side, i, v)) = widest else {
+                break;
+            };
+            if self.span_len(v) < Spelling::SMALL {
+                break;
+            }
+            let (_, k) = s.parts[side].swap_remove(i);
+            let d = &self.kb[v as usize].d[k as usize];
+            let [own_a, own_b] = &mut s.own;
+            let own = if side == 0 { own_a } else { own_b };
+            self.unfold((d.edge, d.idx), own, &mut s.parts[side]);
+        }
+        true
+    }
+
+    /// Whether node `v`'s kept derivations spell pairwise distinct
+    /// subsequences: a cell under node dedup, whose set admitted each only
+    /// after comparing its spelling.
+    fn ranks_spell_distinct(&self, v: u32) -> bool {
+        self.node_dedup && matches!(self.keys[v as usize], Key::Cell(_))
+    }
+
+    /// Spell what is left of side 0 into the scratch, then match side 1's
+    /// positions against it one for one.
+    fn compare_rest(&self, s: &mut Spelling) -> bool {
+        let Spelling {
+            seq,
+            wrote,
+            own,
+            parts,
+        } = s;
+        let mut write = |pos: u32, nuc: u8| {
+            seq[pos as usize] = nuc;
+            wrote.push(pos);
+            true
+        };
+        self.spell_side(&own[0], &parts[0], &mut write);
+        // Each of side 1's positions must find side 0's nucleotide there, and
+        // use it up; side 1 then spells every position side 0 does when the
+        // counts agree.
+        let mut matched = 0;
+        let same = self.spell_side(&own[1], &parts[1], &mut |pos, nuc| {
+            let at = &mut seq[pos as usize];
+            if *at != nuc {
+                return false;
+            }
+            *at = Spelling::USED;
+            matched += 1;
+            true
+        }) && matched == wrote.len();
+        for &pos in wrote.iter() {
+            seq[pos as usize] = Spelling::NONE;
+        }
+        same
+    }
+
+    /// Hand `f` what one side spells: its unfolded hyperedges' own positions
+    /// and its remaining sub-derivations in full.
+    fn spell_side(
+        &self,
+        own: &[u32],
+        parts: &[(u32, u32)],
+        f: &mut impl FnMut(u32, u8) -> bool,
+    ) -> bool {
+        own.iter().all(|&e| {
+            let h = &self.edges[e as usize];
+            self.spell_pool
+                .get(h.spelled)
+                .iter()
+                .all(|&(pos, nuc)| f(pos, nuc))
+        }) && parts.iter().all(|&(t, k)| {
+            let d = &self.kb[t as usize].d[k as usize];
+            self.spell_each(d.edge, &d.idx, f)
+        })
+    }
+}
+
+/// How many root derivations spell each design seen, keyed by fingerprint
+/// and confirmed by spelling: per fingerprint, its first design's first
+/// derivation and count, and apart, each later design whose fingerprint
+/// collided with an earlier one's.
+#[derive(Default)]
+struct DesignCounts {
+    first: FxHashMap<u64, (usize, u64)>,
+    more: Vec<(u64, usize, u64)>,
+}
+
+impl DesignCounts {
+    /// Count root derivation `k`, its fingerprint `key`, and return how many
+    /// derivations of its design have been counted. `same(j)` says whether
+    /// root derivation `j` spells what `k` does; it is asked only where the
+    /// fingerprints agree.
+    fn count(&mut self, key: u64, k: usize, mut same: impl FnMut(usize) -> bool) -> u64 {
+        let e = self.first.entry(key).or_insert((k, 0));
+        if e.0 == k || same(e.0) {
+            e.1 += 1;
+            return e.1;
+        }
+        if let Some(m) = self.more.iter_mut().find(|m| m.0 == key && same(m.1)) {
+            m.2 += 1;
+            return m.2;
+        }
+        self.more.push((key, k, 1));
+        1
+    }
+
+    fn len(&self) -> usize {
+        self.first.len() + self.more.len()
+    }
+}
+
+/// Scratch for comparing two derivations' spellings: one entry per position,
+/// [`Self::NONE`] outside a comparison, and the positions written; and per
+/// side, the hyperedges unfolded and the sub-derivations still whole.
+#[derive(Default)]
+struct Spelling {
+    seq: Vec<u8>,
+    wrote: Vec<u32>,
+    own: [Vec<u32>; 2],
+    parts: [Vec<(u32, u32)>; 2],
+}
+
+impl Spelling {
+    /// No nucleotide spelled here.
+    const NONE: u8 = u8::MAX;
+    /// A nucleotide the second derivation has matched.
+    const USED: u8 = u8::MAX - 1;
+    /// The most sub-derivations a comparison unfolds looking for shared ones.
+    const UNFOLDS: usize = 256;
+    /// A span short enough to spell rather than unfold.
+    const SMALL: u32 = 8;
+
+    fn clear(&mut self) {
+        self.wrote.clear();
+        for v in &mut self.own {
+            v.clear();
+        }
+        for v in &mut self.parts {
+            v.clear();
         }
     }
 }
@@ -2220,10 +2476,10 @@ pub struct Walk {
     /// says. The visitor sees the same designs in the same order.
     pub spellers: usize,
     /// Keep each node's dedup set as bare indices into its own derivations
-    /// ([`seen::IndexSet`]) rather than 16-byte fingerprints: a slot is a
-    /// 4-byte index and a 1-byte tag of the key's hash, and a probe reads a
-    /// key back out of the derivation list only where a tag agrees. The same
-    /// designs in the same order, in less memory.
+    /// ([`seen::IndexSet`]) rather than a map from fingerprint to index: a
+    /// slot is a 4-byte index and a 1-byte tag of the key's hash, and a probe
+    /// reads a key back out of the derivation list only where a tag agrees.
+    /// The same designs in the same order, in less memory.
     pub dedup_index: bool,
     /// Grow each node's per-derivation lists by a quarter rather than
     /// doubling: the walk keeps hundreds of millions of derivations across
@@ -2775,7 +3031,7 @@ impl MemoryBreakdown {
     fn measure(
         forest: &Forest<'_, '_>,
         molecules: &FxHashSet<Molecule>,
-        per_design: &FxHashMap<u128, u64>,
+        per_design: &DesignCounts,
     ) -> Self {
         let mut m = MemoryBreakdown::default();
         for (kb, key) in forest.kb.iter().zip(&forest.keys) {
@@ -2825,7 +3081,7 @@ impl MemoryBreakdown {
         m.molecules = table_bytes(molecules.len(), std::mem::size_of::<Molecule>());
         m.designs = table_bytes(
             per_design.len(),
-            std::mem::size_of::<u128>() + std::mem::size_of::<u64>(),
+            std::mem::size_of::<u64>() + std::mem::size_of::<(usize, u64)>(),
         );
         (m.held, m.held_used, m.held_queued) = held_use(forest);
         m
@@ -2991,7 +3247,7 @@ pub(crate) fn walk_designs_bounded<F>(
     walk: Walk,
     window: Option<&window::Window>,
     must_pair: &[u32],
-    scanned: Option<Tables>,
+    scanned: Option<Arc<Tables>>,
     visit: F,
 ) -> Result<Option<WalkStats>, LazyError>
 where
@@ -3054,7 +3310,7 @@ where
                     else {
                         return Ok(None);
                     };
-                    tables
+                    Arc::new(tables)
                 }
             };
             Forest::build_production(&grammar, &tables, started.elapsed().as_secs_f64())
@@ -3081,7 +3337,8 @@ where
     };
     let offset = -grammar.kk * graph.codon_offset();
     let len = graph.seq_len as usize;
-    let mut per_design: FxHashMap<u128, u64> = FxHashMap::default();
+    let mut per_design = DesignCounts::default();
+    let mut root_spelling = Spelling::default();
     let mut previous = Spelled::default();
     let deliver = Deliver {
         grammar: &grammar,
@@ -3091,7 +3348,7 @@ where
         visit,
     };
     #[cfg(debug_assertions)]
-    let mut spelled_by: FxHashMap<u128, Vec<u8>> = FxHashMap::default();
+    let mut spelled_designs: FxHashSet<Vec<u8>> = FxHashSet::default();
     #[cfg(debug_assertions)]
     let mut molecules: FxHashSet<Molecule> = FxHashSet::default();
     let mut stats = WalkStats::unwalked(build_s, "exhausted");
@@ -3127,10 +3384,16 @@ where
                 stats.max_per_design = 1;
                 true
             } else {
-                let count = per_design.entry(fp.design()).or_insert(0);
-                *count += 1;
-                stats.max_per_design = stats.max_per_design.max(*count);
-                *count == 1
+                let d = &forest.kb[root as usize].d;
+                let count = per_design.count(fp.design(), k, |j| {
+                    forest.same_spelling(
+                        (d[j].edge, d[j].idx),
+                        (d[k].edge, d[k].idx),
+                        &mut root_spelling,
+                    )
+                });
+                stats.max_per_design = stats.max_per_design.max(count);
+                count == 1
             };
             debug_assert!(
                 first || !node_dedup,
@@ -3140,8 +3403,11 @@ where
             #[cfg(debug_assertions)]
             {
                 let (seq, _) = spell_root(&forest, root, k, len);
-                let seen = spelled_by.entry(fp.design()).or_insert_with(|| seq.clone());
-                assert_eq!(*seen, seq, "two sequences share a fingerprint");
+                assert_eq!(
+                    first,
+                    spelled_designs.insert(seq),
+                    "the root's dedup and the spelled sequences disagree on a new design"
+                );
             }
             if let (true, Outlet::Spell { to, stop }) = (first, &*outlet) {
                 #[cfg(debug_assertions)]
@@ -3405,6 +3671,11 @@ pub struct LazyReport {
     /// them those a finished fold's structure rejected.
     pub deferred: u64,
     pub deferred_rejected: u64,
+    /// Under [`Verify::window_slots`], designs that waited for a windowed
+    /// slot, and of them those a finished windowed fold's structure or the
+    /// pool rejected before their own windowed fold.
+    pub window_deferred: u64,
+    pub window_deferred_rejected: u64,
 }
 
 /// The exact free fold behind the check. All four decide the same verdicts.
@@ -3475,6 +3746,16 @@ pub struct Verify {
     /// structure often rejects several of them. Changes which designs are
     /// folded, never a verdict.
     pub fold_slots: usize,
+    /// At most this many windowed folds ([`Self::window`]) at once; `0` lets
+    /// every worker run one. A design no witness rejects while every slot is
+    /// folding waits, ordered by rank; each finished windowed fold's
+    /// structure is offered to the waiting designs, and its slot then takes
+    /// the lowest-ranked one still unrejected, testing it against the pool
+    /// once more first. Workers checking neighbouring designs at once
+    /// otherwise each fold a design one structure would have rejected,
+    /// before that structure reaches the pool. Changes which designs are
+    /// folded, never a verdict.
+    pub window_slots: usize,
     /// Designs the walk hands to the check per lock, and a quarter of it per
     /// worker's take; `0` or `1` hands them over one at a time. Changes only
     /// when a design reaches a worker, never a verdict; on a loaded host each
@@ -3505,9 +3786,18 @@ pub struct Verify {
     /// With [`Self::window`], switch both of the above on when they pay:
     /// the UTR pairs once a design the window let through is rejected by a
     /// full fold's structure that uses one, and reuse (with
-    /// [`Self::fold_reuse`]) once more than 0.5% of the first 100,000 or more
-    /// checked designs have reached a windowed fold. Exact, as both are.
+    /// [`Self::window_reuse_size`]) once more than 0.5% of the first 100,000
+    /// or more checked designs have reached a windowed fold. Exact, as both
+    /// are.
     pub window_auto: bool,
+    /// The windowed folds kept to copy from under [`Self::window_reuse`] or
+    /// [`Self::window_auto`], one cache per window predicate. `None` keeps as
+    /// many as [`Self::fold_reuse`] does full folds; `0` keeps none, which
+    /// leaves every windowed fold to run afresh however many full folds are
+    /// kept. The two caches hold folds of different shapes and are sized
+    /// apart; what a fold copies its rows from ([`Self::fold_reuse_rows`]) is
+    /// shared. Changes which designs reach a full fold, never a verdict.
+    pub window_reuse_size: Option<usize>,
     /// The objective of a modular design found some other way.
     /// The walk stops at the first design ranked past it, since no design
     /// beyond can beat it. The incumbent's own sequence is among the designs
@@ -3528,6 +3818,7 @@ impl Verify {
             fold_reuse: 0,
             fold_reuse_rows: false,
             fold_slots: 0,
+            window_slots: 0,
             handoff_batch: 1,
             fold: ExactFold::Zuker,
             cut: CutSchedule::Before,
@@ -3535,6 +3826,7 @@ impl Verify {
             window_utr: false,
             window_reuse: false,
             window_auto: false,
+            window_reuse_size: None,
             incumbent: None,
         }
     }
@@ -3735,6 +4027,8 @@ pub fn first_modular_must(
         cells_copied: out.cells_copied,
         deferred: out.deferred,
         deferred_rejected: out.deferred_rejected,
+        window_deferred: out.window_deferred,
+        window_deferred_rejected: out.window_deferred_rejected,
     }))
 }
 
@@ -3827,6 +4121,96 @@ mod tests {
                     .collect()
             })
             .collect()
+    }
+
+    thread_local! {
+        /// The bits of every fingerprint the walk composes on this thread
+        /// that are kept ([`Fingerprint::truncated`]); 64 keeps them all.
+        pub(super) static FP_BITS: std::cell::Cell<u32> = const { std::cell::Cell::new(64) };
+        /// Comparisons on this thread whose fingerprints agreed and whose
+        /// spellings did not: collisions the walk caught.
+        pub(super) static COLLISIONS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    }
+
+    /// The first `max` derivations' designs of a small instance as
+    /// `(objective bits, sequence)`, in walk order, with every fingerprint
+    /// cut to `bits` bits, and the collisions caught on the way.
+    fn walk_cut(walk: Walk, bits: u32, max: u64) -> (Vec<(u64, String)>, u64) {
+        let params = Params::load_default().expect("params");
+        let usage = CodonUsage::load_default().expect("usage");
+        let protein = "MLRS";
+        FP_BITS.with(|b| b.set(bits));
+        COLLISIONS.with(|n| n.set(0));
+        let mut got = Vec::new();
+        let stats = walk_designs(
+            &params,
+            protein,
+            &usage,
+            0.5,
+            &full_sets(protein),
+            "GGGAUC",
+            "GAUCCC",
+            RegionConstraints::symmetric_isolation(Enforcement::Forbid),
+            ScanConfig::default(),
+            max,
+            f64::INFINITY,
+            walk,
+            |obj, seq, _, _| {
+                got.push((obj.to_bits(), seq.to_string()));
+                Ok(false)
+            },
+        );
+        FP_BITS.with(|b| b.set(64));
+        stats.expect("the walk runs").expect("a design");
+        (got, COLLISIONS.with(std::cell::Cell::get))
+    }
+
+    /// Fingerprints cut to two bits make distinct subsequences collide at
+    /// every cell and at the root, three in four times. The walk must
+    /// still visit exactly the designs, in exactly the order, that it visits
+    /// on full fingerprints, under each dedup form and without node dedup;
+    /// and it must have caught collisions, or the cut changed nothing.
+    #[test]
+    fn a_fingerprint_collision_drops_no_design() {
+        let dedup = Walk {
+            build: Build::Production,
+            node_dedup: true,
+            incremental_spell: true,
+            pipelined_visit: false,
+            spellers: 0,
+            dedup_index: true,
+            tight_lists: false,
+        };
+        let walks = [
+            ("index set", dedup),
+            (
+                "key set",
+                Walk {
+                    dedup_index: false,
+                    ..dedup
+                },
+            ),
+            (
+                "no node dedup",
+                Walk {
+                    node_dedup: false,
+                    ..dedup
+                },
+            ),
+        ];
+        for (name, walk) in walks {
+            let (want, none) = walk_cut(walk, 64, 4_000);
+            assert!(want.len() > 100, "{name}: {} designs", want.len());
+            assert_eq!(none, 0, "{name}: a collision on full fingerprints");
+            let (got, caught) = walk_cut(walk, 2, 4_000);
+            assert_eq!(
+                got.len(),
+                want.len(),
+                "{name}: a collision dropped a design"
+            );
+            assert_eq!(got, want, "{name}: another walk");
+            assert!(caught > 0, "{name}: no collision caught");
+        }
     }
 
     fn describe(inst: &Inst) -> String {
@@ -3932,7 +4316,7 @@ mod tests {
         let (protein, utr5, utr3) = ("MLRSGK", "GGGAUCCG", "CGGAUCCC");
         let allowed = full_sets(protein);
         for lambda in [0.05, 0.5, 0.95] {
-            let walk = |scanned: Option<Tables>| -> Vec<(String, Option<i32>)> {
+            let walk = |scanned: Option<Arc<Tables>>| -> Vec<(String, Option<i32>)> {
                 let mut seen = Vec::new();
                 walk_designs_bounded(
                     &params,
@@ -3974,7 +4358,7 @@ mod tests {
                 "the walk reaches designs at {lambda}: {}",
                 own.len()
             );
-            assert_eq!(own, walk(Some(tables)), "at {lambda}");
+            assert_eq!(own, walk(Some(Arc::new(tables))), "at {lambda}");
         }
     }
 

@@ -15,7 +15,10 @@ use derna_codon_dp::codon_table::{aa_to_index, get_codon_index, AMINO_ACIDS};
 use derna_lib::ac::{expand_iupac_motif, MotifWindow};
 use derna_lib::coords::Layout;
 use derna_lib::free_fold::{sequence_constrained_mfe, sequence_gap, CdsWindow};
-use derna_lib::modular_front::{modular_motif_front, ModularFront, OpenBox};
+use derna_lib::modular_front::{
+    modular_motif_front, modular_motif_front_resuming, ModularFront, ModularProgress, OpenBox,
+    SearchPolicy, TopSearch,
+};
 use derna_lib::motif_front::{motif_front_walk_run, MotifFrontSpec, MotifRun};
 use derna_lib::pins::Pins;
 use derna_lib::{CodonUsage, Enforcement, Params, RegionConstraints};
@@ -424,4 +427,154 @@ fn a_pinned_run_is_the_exhaustive_pinned_motif_free_front() {
         let at = ((p.mfe_kcal_mol * 100.0).round() as i64, p.cai_log);
         assert!(truth.iter().any(|t| same(&[*t], &[at])), "{at:?}");
     }
+}
+
+/// A prior search's found designs enter this run only if this run admits them.
+///
+/// The progress comes from a run with no motif, so some of its designs spell
+/// the motif this run forbids; a design that does must not be emitted, however
+/// good its energy and adaptation.
+#[test]
+fn a_prior_design_spelling_a_forbidden_motif_is_not_emitted() {
+    let (params, usage) = (
+        Params::load_default().unwrap(),
+        CodonUsage::load_default().unwrap(),
+    );
+    let mut injected_in_total = 0;
+    for cell in cells() {
+        // The plain modular front: the designs a run with no motif finds.
+        let none: &[(&str, MotifWindow)] = &[];
+        let pins = cell.pins();
+        let plain_spec = MotifFrontSpec {
+            utr5: cell.utr5,
+            utr3: cell.utr3,
+            constraints: cell.constraints,
+            motifs: none,
+            pins: pins.as_ref(),
+        };
+        let plain_walk = motif_front_walk_run(
+            &params,
+            cell.protein,
+            &usage,
+            &plain_spec,
+            1,
+            MotifRun::default(),
+        )
+        .unwrap();
+        let plain = modular_motif_front(
+            &params,
+            cell.protein,
+            &usage,
+            cell.utr5,
+            cell.utr3,
+            cell.constraints,
+            (none, pins.as_ref()),
+            (&plain_walk.front, &[]),
+            600.0,
+            2,
+        )
+        .unwrap();
+        let mut prior = ModularProgress::default();
+        for p in plain
+            .points
+            .iter()
+            .filter(|p| spells_motif(&cell, &p.sequence))
+        {
+            prior
+                .found
+                .push((p.mfe_kcal_mol, p.cai_log, p.sequence.clone()));
+        }
+        injected_in_total += prior.found.len();
+
+        let spec = MotifFrontSpec {
+            utr5: cell.utr5,
+            utr3: cell.utr3,
+            constraints: cell.constraints,
+            motifs: &cell.placed(),
+            pins: pins.as_ref(),
+        };
+        let walked =
+            motif_front_walk_run(&params, cell.protein, &usage, &spec, 1, MotifRun::default())
+                .unwrap();
+        let got = modular_motif_front_resuming(
+            &params,
+            cell.protein,
+            &usage,
+            (cell.utr5, cell.utr3),
+            cell.constraints,
+            (&cell.placed(), pins.as_ref()),
+            (&walked.front, &[]),
+            (600.0, 2),
+            (Some(&prior), None),
+            (TopSearch::default(), SearchPolicy::default()),
+        )
+        .unwrap();
+        for p in &got.points {
+            assert!(
+                !spells_motif(&cell, &p.sequence),
+                "{}: emitted {} spelling a forbidden motif",
+                cell.protein,
+                p.sequence
+            );
+        }
+        assert_eq!(got.prior_found, (0, prior.found.len()), "{}", cell.protein);
+        let truth = exhaustive(&cell, &params, &usage, true);
+        assert!(same(&points(&got), &truth), "{}", cell.protein);
+    }
+    // The injection happened somewhere, or the assertions above are vacuous.
+    assert!(injected_in_total > 0);
+}
+
+/// The other direction: a motif run resuming its own earlier progress carries
+/// every design through.
+///
+/// The designs planted are ones a run of this very configuration emitted, so
+/// the run admits all of them; a filter that rejected them would discard the
+/// earlier search's work and leave only the speed of the resumed run to show it.
+#[test]
+fn a_motif_run_resuming_its_own_designs_carries_them_all() {
+    let (params, usage) = (
+        Params::load_default().unwrap(),
+        CodonUsage::load_default().unwrap(),
+    );
+    let mut planted_in_total = 0;
+    for cell in cells() {
+        let pins = cell.pins();
+        let spec = MotifFrontSpec {
+            utr5: cell.utr5,
+            utr3: cell.utr3,
+            constraints: cell.constraints,
+            motifs: &cell.placed(),
+            pins: pins.as_ref(),
+        };
+        let walked =
+            motif_front_walk_run(&params, cell.protein, &usage, &spec, 1, MotifRun::default())
+                .unwrap();
+        let first = computed(&cell, &params, &usage, 600.0);
+        let mut prior = ModularProgress::default();
+        for p in &first.points {
+            prior
+                .found
+                .push((p.mfe_kcal_mol, p.cai_log, p.sequence.clone()));
+        }
+        planted_in_total += prior.found.len();
+
+        let got = modular_motif_front_resuming(
+            &params,
+            cell.protein,
+            &usage,
+            (cell.utr5, cell.utr3),
+            cell.constraints,
+            (&cell.placed(), pins.as_ref()),
+            (&walked.front, &[]),
+            (600.0, 2),
+            (Some(&prior), None),
+            (TopSearch::default(), SearchPolicy::default()),
+        )
+        .unwrap();
+        assert_eq!(got.prior_found, (prior.found.len(), 0), "{}", cell.protein);
+        let truth = exhaustive(&cell, &params, &usage, true);
+        assert!(same(&points(&got), &truth), "{}", cell.protein);
+    }
+    assert!(planted_in_total >= 1);
 }

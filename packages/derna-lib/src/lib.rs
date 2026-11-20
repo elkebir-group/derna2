@@ -563,6 +563,11 @@ pub struct BoundedFront {
 /// derivations that cannot complete within it are discarded as they are formed
 /// (see [`crate::bounds`] for why that is exact). The answer is the same either
 /// way; what differs is how much of the front has to be built to reach it.
+/// Each cell is credited with its exact cost to go as well as the window by
+/// default, which empties every cell whose best molecule misses the ceiling;
+/// [`Bounds::without_exact_credit`] keeps the window alone. Both recover the
+/// same (MFE, CAI) points, and where derivations of one point tie they can
+/// emit different sequences for it.
 ///
 /// [`Bounds::UNBOUNDED`] recovers the complete front and is byte-identical to
 /// [`design_front_pruned_threaded`] — the drop is a no-op under it, not a filter
@@ -684,7 +689,8 @@ pub fn design_front_bounded_with_utr(
 /// under it, and hold the emitted front to the contract.
 ///
 /// `corner` is how the achievable minimum is found when nothing else supplies
-/// it. Under [`Bounds::with_exact_credit`] with a ceiling, the exact `λ = 1`
+/// it. Under the exact credit with a ceiling — the default, unless
+/// [`Bounds::without_exact_credit`] was asked for — the exact `λ = 1`
 /// fold the credit is built from supplies it instead — its optimum is the same
 /// quantity over the same lattice object — so the minimum is not folded twice.
 /// That fold is the credit's whole reason to exist, so it is run whether or not
@@ -1478,7 +1484,7 @@ pub fn design_front_box(
         UtrProfile::inert(),
         || achievable_minimum(params, protein, usage),
         Prune::None,
-        Bounds::with_ceiling(ceiling).with_exact_credit(),
+        Bounds::with_ceiling(ceiling),
         threads,
         Some(band),
     )
@@ -1512,7 +1518,7 @@ pub fn design_front_box_with_utr(
             achievable_minimum_with_utr(params, protein, usage, utr5, utr3, profile, none)
         },
         Prune::None,
-        Bounds::with_ceiling(ceiling).with_exact_credit(),
+        Bounds::with_ceiling(ceiling),
         threads,
         Some(band),
     )
@@ -1618,7 +1624,7 @@ fn solve_band(
             &mut side,
             chains,
             Prune::None,
-            Bounds::with_ceiling(ceiling).with_exact_credit(),
+            Bounds::with_ceiling(ceiling),
             threads,
             band,
         )
@@ -1758,7 +1764,7 @@ pub fn design_gap_with_cut(
         &side,
         chains,
         Prune::None,
-        Bounds::with_ceiling(ceiling).with_exact_credit(),
+        Bounds::with_ceiling(ceiling),
         threads,
         Some(&band),
     )
@@ -1855,6 +1861,14 @@ pub struct WalkedFront {
     /// What stopped the walk before its whole front, `"time"` or `"memory"`,
     /// or `None` for a front this walk finished.
     pub stopped_by: Option<&'static str>,
+    /// Seconds the walk ran past the deadline a time budget set it: `None`
+    /// where it was given none, `0.0` where it returned at or before one.
+    ///
+    /// A budget is read between units of work, so one already running when
+    /// the deadline passes runs on to its end; this is what that cost. It is
+    /// not the wall clock less the cap, which also counts the setup before
+    /// the walk started and the writing after it returned.
+    pub overshoot_s: Option<f64>,
     /// The boxes a budget left unsolved, each between two hull points of
     /// `vertices`, the more stable first. Every point of `front` is on the
     /// front whatever is open; the open boxes are what it may still be
@@ -2693,7 +2707,7 @@ fn solve_gap<L>(
         })
         .collect();
     let solve_slice = |top: i32, floor: f64, threads: usize, own: Option<CutChain>| {
-        let bounds = Bounds::with_ceiling(Ceiling::Absolute(Energy(top))).with_exact_credit();
+        let bounds = Bounds::with_ceiling(Ceiling::Absolute(Energy(top)));
         let bounds = if floor_cut {
             bounds.with_floor_cut()
         } else {
@@ -3724,8 +3738,12 @@ fn chord_looseness(vertices: &[HullPoint], lambda: f64, lo: f64, hi: f64) -> f64
     (g(lambda) - (t * g(lo) + (1.0 - t) * g(hi))) / lambda
 }
 
-/// Every Pareto design between the λ-sweep designs at `lo` and `hi`, found one
-/// hull gap at a time, on the coding-only lattice.
+/// Every Pareto design of the coding-only lattice, found one hull gap at a
+/// time from the λ-sweep designs at `lo` and `hi`, and carried past each to
+/// the front's exact end on that side: the least MFE and then the greatest
+/// adaptation among designs reaching it, and the greatest adaptation and then
+/// the least MFE among designs reaching it (see `beyond_ends`). A walk stopped
+/// by its budget returns what it settled and is not carried to its ends.
 ///
 /// The hull is found by the chord method: fold at both weights, then at the
 /// tie weight of each pair of consecutive vertices found so far. A design
@@ -3790,8 +3808,8 @@ pub fn design_front_walk(
 }
 
 /// [`design_front_walk`] over a molecule carrying 5′ and 3′ flanks: every
-/// Pareto design of (whole-molecule MFE, coding CAI) between the λ-sweep
-/// designs at `lo` and `hi`.
+/// Pareto design of (whole-molecule MFE, coding CAI), both exact ends
+/// included.
 ///
 /// The walk's hull folds, cuts, credit and gap solves all run over whatever
 /// lattice they are given, so only the lattice and its corner change here.
@@ -5142,6 +5160,7 @@ impl walk::Kernel for PlainWalk<'_> {
             timeline: Vec::new(),
             refinements: Vec::new(),
             stopped_by: None,
+            overshoot_s: None,
             open,
             rests,
         }
@@ -5157,6 +5176,7 @@ impl walk::Kernel for PlainWalk<'_> {
         let walk::End {
             timeline,
             stopped_by,
+            overshoot_s,
             wall_s: wall,
         } = end;
         let refinements = self
@@ -5191,7 +5211,6 @@ impl walk::Kernel for PlainWalk<'_> {
         gaps.sort_by_key(|g| g.a.energy());
         let mut vertices = walk.vertices;
         vertices.sort_by_key(|v| v.energy());
-        let hull = with_gap_vertices(vertices.clone(), &gaps);
         let mut front: Vec<FrontPoint> = Vec::new();
         if gaps.is_empty() && stopped_by.is_none() {
             // One vertex and no gap: the front between the weights is that
@@ -5203,7 +5222,7 @@ impl walk::Kernel for PlainWalk<'_> {
                 &mut side,
                 Vec::new(),
                 Prune::None,
-                Bounds::with_ceiling(Ceiling::Absolute(vertices[0].energy())).with_exact_credit(),
+                Bounds::with_ceiling(Ceiling::Absolute(vertices[0].energy())),
                 threads,
                 None,
             )?;
@@ -5213,11 +5232,28 @@ impl walk::Kernel for PlainWalk<'_> {
         }
         join_points(&mut front, &gaps, &walk.rest_points, self.resume);
         if stopped_by.is_none() {
+            // A whole walk is carried out to the front's two exact ends.
+            let beyond = beyond_ends(self.params, self.graph, &mut side, &front, threads)?;
+            if !beyond.is_empty() {
+                for gap in beyond {
+                    for end in [gap.a, gap.b] {
+                        if !vertices.iter().any(|v| v.energy() == end.energy()) {
+                            vertices.push(end);
+                        }
+                    }
+                    front.extend(gap.front.iter().cloned());
+                    gaps.push(gap);
+                }
+                vertices.sort_by_key(|v| v.energy());
+                gaps.sort_by_key(|g| g.a.energy());
+                front = non_dominated(front);
+            }
             // A whole front holds a design at the energy optimum. One that does
             // not was pruned by a credit that is not a bound, and would
             // otherwise be reported as a smaller front, or an empty one.
             verify_corner(&front, side.optimum)?;
         }
+        let hull = with_gap_vertices(vertices.clone(), &gaps);
         Ok(WalkedFront {
             vertices,
             hull,
@@ -5235,10 +5271,163 @@ impl walk::Kernel for PlainWalk<'_> {
             timeline,
             refinements,
             stopped_by,
+            overshoot_s,
             open,
             rests,
         })
     }
+}
+
+/// How far below the lattice's best adaptation a front's most adapted point
+/// may sit and still be its end: the front's own dominance slop, within which
+/// two log-CAI values are one trade-off.
+const ADAPTED_END_EPS: f64 = 1e-9;
+
+/// The front beyond a whole walk's outermost points, out to the front's two
+/// exact ends: the **stable end**, the least MFE and then the greatest
+/// adaptation among designs reaching it, and the **adapted end**, the greatest
+/// adaptation and then the least MFE among designs reaching it.
+///
+/// A weight strictly inside `(0, 1)` reaches an end only while the other
+/// objective's whole range is worth less to it than one step of the first, and
+/// no fixed weight guarantees that: the adapted end is missed whenever two
+/// synonymous codons' weights are closer than the weight times the energy they
+/// trade. Neither end can be folded at `λ = 0` or `λ = 1` instead, since each
+/// scores one objective alone and leaves ties in it to chance (at `λ = 0` the
+/// fold scores the open chain, energy zero). So each end is settled from the
+/// walk's `front` by a bound that is exact:
+///
+/// - Stable: the energy optimum is the credit's own. A front starting above it
+///   is missing the designs below its first point, which are the front under a
+///   ceiling at that point.
+/// - Adapted: the greatest adaptation is the lattice's best path, read off its
+///   per-codon weights without a fold. A front ending short of it is missing
+///   the designs at least as adapted as its last point; each has an MFE at or
+///   below zero, the open chain's, so they are the box under that ceiling with
+///   the last point's adaptation as its floor, cut on the floor at every cell.
+///
+/// Ties need nothing here: a design dominating a point at that point's own
+/// energy or adaptation lies inside the box the point was solved in, which
+/// keeps it. Each end the walk had not reached comes back as one gap, from the
+/// end to the front's point beside it; an end already reached costs one read
+/// of the lattice and nothing else.
+fn beyond_ends(
+    params: &Params,
+    graph: &dfa::Dfa,
+    side: &mut EnergySide,
+    front: &[FrontPoint],
+    threads: usize,
+) -> Result<Vec<WalkGap>, BeamError> {
+    let (Some(first), Some(last)) = (front.first(), front.last()) else {
+        return Ok(Vec::new());
+    };
+    let (first, last) = (HullPoint::from(first), HullPoint::from(last));
+    let mut beyond = Vec::new();
+    if first.energy() > side.optimum {
+        let bounds = Bounds::with_ceiling(Ceiling::Absolute(first.energy())).with_exact_credit();
+        let below = end_front(params, graph, side, bounds, None, threads)?;
+        beyond.extend(end_gap(below, first, true));
+    }
+    let best = graph
+        .broken_codon_cai(graph.start(), graph.end())
+        .map(|cai| cai + graph.codon_offset());
+    if best.is_some_and(|best| last.adaptation_log < best - ADAPTED_END_EPS) {
+        let band = BoxSpec {
+            cai_floor_log: last.adaptation_log,
+            lambdas: Vec::new(),
+        };
+        let bounds = Bounds::with_ceiling(Ceiling::Absolute(Energy(0)))
+            .with_exact_credit()
+            .with_floor_cut();
+        let above = end_front(params, graph, side, bounds, Some(&band), threads)?;
+        beyond.extend(end_gap(above, last, false));
+    }
+    Ok(beyond)
+}
+
+/// One end's solve for [`beyond_ends`]: the front under `bounds` and `band`,
+/// with what it cost.
+fn end_front(
+    params: &Params,
+    graph: &dfa::Dfa,
+    side: &mut EnergySide,
+    bounds: Bounds,
+    band: Option<&BoxSpec>,
+    threads: usize,
+) -> Result<(Vec<FrontPoint>, SolveClock), BeamError> {
+    let (solved, clock) = solve_on(
+        params,
+        graph,
+        UtrProfile::inert(),
+        side,
+        Vec::new(),
+        Prune::None,
+        bounds,
+        threads,
+        band,
+    )?;
+    let front = match solved {
+        Bounded::Feasible(f) => f.front,
+        _ => Vec::new(),
+    };
+    Ok((front, clock))
+}
+
+/// An end's solve as a walk gap between the walk's point `from` and the end
+/// the solve reached: its first point on the stable side, its last on the
+/// adapted side. Only the solve's points on the end's side of `from` are kept;
+/// `None` for a solve that found none.
+fn end_gap(
+    (mut front, clock): (Vec<FrontPoint>, SolveClock),
+    from: HullPoint,
+    stable_side: bool,
+) -> Option<WalkGap> {
+    if stable_side {
+        front.retain(|p| energy_of(p) <= from.energy());
+    } else {
+        front.retain(|p| energy_of(p) >= from.energy());
+    }
+    let end = HullPoint::from(if stable_side {
+        front.first()?
+    } else {
+        front.last()?
+    });
+    let (a, b) = if stable_side {
+        (end, from)
+    } else {
+        (from, end)
+    };
+    Some(WalkGap {
+        a,
+        b,
+        lambda: tie_weight(a, b).unwrap_or(0.0),
+        front,
+        clock,
+        slices: 1,
+        cut: GapCut::Uncut,
+    })
+}
+
+/// `points` reduced to its non-dominated ones, energy ascending: at each
+/// energy the most adapted, and only a point more adapted than every more
+/// stable one, within the front's dominance slop.
+fn non_dominated(mut points: Vec<FrontPoint>) -> Vec<FrontPoint> {
+    let adaptation = |p: &FrontPoint| p.cai_log + p.utr_profile_log;
+    points.sort_by(|p, q| {
+        energy_of(p)
+            .cmp(&energy_of(q))
+            .then_with(|| adaptation(q).total_cmp(&adaptation(p)))
+    });
+    let mut kept: Vec<FrontPoint> = Vec::with_capacity(points.len());
+    for p in points {
+        let dominated = kept
+            .last()
+            .is_some_and(|k| adaptation(&p) <= adaptation(k) + ADAPTED_END_EPS);
+        if !dominated {
+            kept.push(p);
+        }
+    }
+    kept
 }
 
 /// Add to `front` the points of `gaps`, of gaps solved part way

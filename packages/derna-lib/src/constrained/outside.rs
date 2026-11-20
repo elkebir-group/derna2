@@ -132,9 +132,34 @@ pub(crate) struct AwarePass {
     /// nucleotides, over the automaton states on either side of it, by outer
     /// node.
     through: Vec<FxHashMap<crate::state::PairKey, f64>>,
+    /// The motif-free outside of each multi-loop list `M` and `M2`, by node,
+    /// keyed as the fold's tables and capped as [`Self::outside`] is; `None`
+    /// where the pass was not asked to keep them.
+    lists: Option<Lists>,
+}
+
+/// An [`AwarePass`]'s `M` and `M2` outsides, each in single precision
+/// rounded down, so it stays a floor: the lists outnumber the closed pairs,
+/// and these tables are most of what a kept pass adds.
+struct Lists {
+    m: Vec<FxHashMap<MKey, f32>>,
+    m2: Vec<FxHashMap<MKey, f32>>,
 }
 
 impl AwarePass {
+    /// [`Self::cell_term`] for the multi-loop list `M` (or `M2`) at `on`
+    /// keyed `mk`; `None` where the pass keeps no lists.
+    pub(super) fn span_term(&self, on: Node, mk: &MKey, m2: bool) -> Option<SideTerm> {
+        let lists = self.lists.as_ref()?;
+        let table = if m2 { &lists.m2 } else { &lists.m };
+        Some(
+            match table.get(self.layout.ix(on)).and_then(|col| col.get(mk)) {
+                Some(&v) => SideTerm::Fixed(f64::from(v)),
+                None => SideTerm::Above(self.ceiling),
+            },
+        )
+    }
+
     /// A floor on every motif-free completion of `P[on][key]`, whose inside
     /// `cell` holds at some other weight.
     ///
@@ -283,7 +308,13 @@ pub(crate) fn aware_pass<'a>(
                 inside_s: 0.0,
                 skip: sweep_skip(),
             };
-            let o = reverse(f, end_q, lambda, how);
+            let mut o = reverse(f, end_q, lambda, how);
+            let lists = if keep_lists() {
+                Some(capped_lists(&mut o, ceiling, lambda))
+            } else {
+                (o.m, o.m2) = (Vec::new(), Vec::new());
+                None
+            };
             let through = through_of(&o, lambda);
             return Some(AwarePass {
                 layout: o.fold.dfa.layout(),
@@ -295,6 +326,7 @@ pub(crate) fn aware_pass<'a>(
                 design,
                 outside: o.p,
                 through,
+                lists,
             });
         }
         if ceiling >= cap || !ceiling.is_finite() {
@@ -334,6 +366,43 @@ fn through_of(o: &Outside<'_>, lambda: f64) -> Vec<FxHashMap<crate::state::PairK
         .collect()
 }
 
+/// The `M` and `M2` outsides of `o`, each list its fold built capped at
+/// `ceiling` less its inside, as the reverse pass caps closed pairs: a list
+/// on no design within the ceiling may have lost the instances that carry its
+/// outside, and the cap is still a floor on it.
+fn capped_lists(o: &mut Outside<'_>, ceiling: f64, lambda: f64) -> Lists {
+    let cap = |cells: &[FxHashMap<MKey, Cell>], outs: Vec<FxHashMap<MKey, f64>>| {
+        cells
+            .iter()
+            .zip(outs)
+            .map(|(column, mut kept)| {
+                for (key, cell) in column {
+                    let v = ceiling - brd(cell.mfe, cell.cai, lambda);
+                    let slot = kept.entry(*key).or_insert(v);
+                    *slot = slot.min(v);
+                }
+                kept.into_iter()
+                    .map(|(key, v)| (key, floor_f32(v)))
+                    .collect()
+            })
+            .collect()
+    };
+    Lists {
+        m: cap(&o.fold.m, std::mem::take(&mut o.m)),
+        m2: cap(&o.fold.m2, std::mem::take(&mut o.m2)),
+    }
+}
+
+/// Whether an [`AwarePass`] keeps its multi-loop lists' outsides, which
+/// hold the fold's `M` and `M2` points to the constrained-lattice chords:
+/// yes, unless a development build turns it off.
+pub(crate) fn keep_lists() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| {
+        crate::dev_env::var(crate::dev_env::Setting::MfloorPrune).map_or(true, |v| v != "0")
+    })
+}
+
 /// How the outside pass takes the multi-loop wraps: one sweep per frontier
 /// state ([`wrap_outsides`]), or every opening of every core, the reference
 /// the sweep is tested against.
@@ -354,6 +423,8 @@ enum Wraps {
 struct Outside<'a> {
     fold: Folder<'a>,
     p: Vec<FxHashMap<PKey, f64>>,
+    m: Vec<FxHashMap<MKey, f64>>,
+    m2: Vec<FxHashMap<MKey, f64>>,
     #[cfg_attr(not(test), allow(dead_code))]
     m2r: Vec<FxHashMap<MKey, f64>>,
     optimum: f64,
@@ -648,6 +719,8 @@ fn reverse<'a>(mut f: Folder<'a>, end_q: u32, lambda: f64, how: Reverse) -> Outs
     Outside {
         fold: f,
         p: out_p,
+        m: out_m,
+        m2: out_m2,
         m2r: out_m2r,
         optimum,
         through_multiloops,
@@ -849,6 +922,7 @@ mod tests {
         let mut tighter = [0, 0];
         let mut refolded = 0;
         let mut skipped = 0;
+        let (mut lists, mut lists_below, mut lists_unbuilt) = (0, 0, 0);
         for _ in 0..6 {
             const ALPHABET: &[u8] = b"ACDEGHIKLMNPQRSTVWY";
             let protein: String = (0..9)
@@ -945,7 +1019,7 @@ mod tests {
                             how,
                         )
                     };
-                    let (whole, swept) = (fold_at(false), fold_at(true));
+                    let (mut whole, mut swept) = (fold_at(false), fold_at(true));
                     assert_eq!(whole.skipped, 0);
                     assert!(
                         whole.p == swept.p,
@@ -975,6 +1049,38 @@ mod tests {
                             && ((aware.ceiling - truth.optimum - headroom).abs() < 1e-6
                                 || aware.folds > 1),
                     );
+                    // Each multi-loop list's capped outside, with the sweep
+                    // passing over dead positions or not, floors its exact
+                    // one; a list the fold never built reads as the ceiling
+                    // less its inside.
+                    for o in [&mut whole, &mut swept] {
+                        let kept = capped_lists(o, aware.ceiling, lambda);
+                        for (m2, truth_m, cells_m, kept_m) in [
+                            (false, &truth.m, &truth.fold.m, &kept.m),
+                            (true, &truth.m2, &truth.fold.m2, &kept.m2),
+                        ] {
+                            for (ix, (outs, cells_at)) in truth_m.iter().zip(cells_m).enumerate() {
+                                for (key, &t) in outs {
+                                    let v = match kept_m[ix].get(key).copied().map(f64::from) {
+                                        Some(v) => {
+                                            lists += 1;
+                                            lists_below += usize::from(v < t - 1e-6);
+                                            v
+                                        }
+                                        None => {
+                                            lists_unbuilt += 1;
+                                            let c = cells_at[key];
+                                            aware.ceiling - brd(c.mfe, c.cai, lambda)
+                                        }
+                                    };
+                                    assert!(
+                                        v <= t + 1e-6,
+                                        "{protein} at λ={lambda}: list (M2 {m2}) {v} above {t}"
+                                    );
+                                }
+                            }
+                        }
+                    }
                     let mut truth_through: Vec<FxHashMap<crate::state::PairKey, f64>> =
                         vec![FxHashMap::default(); truth.p.len()];
                     for (o, (column, outs)) in truth.fold.p.iter().zip(&truth.p).enumerate() {
@@ -1037,11 +1143,16 @@ mod tests {
         eprintln!(
             "cells {cells} ({exact} exact, {below} capped below), pairs {pairs}; \
              unbuilt cells {unbuilt_cells}, pairs {unbuilt_pairs}; \
-             above the plain outside: {} binding, {} control",
+             above the plain outside: {} binding, {} control; \
+             multi-loop lists {lists} ({lists_below} capped below), unbuilt {lists_unbuilt}",
             tighter[0], tighter[1]
         );
         assert!(cells > 0 && pairs > 0, "no feasible case");
         assert!(skipped > 0, "the sweep passed over no position");
+        assert!(
+            lists > 0 && lists_below > 0 && lists_unbuilt > 0,
+            "multi-loop lists {lists}, capped below {lists_below}, unbuilt {lists_unbuilt}"
+        );
         assert!(
             refolded > 0,
             "no pass reached its headroom past its first fold"

@@ -123,6 +123,7 @@ impl Fixture {
             constraints,
             config: ScanConfig::default(),
             budget,
+            max_regions: None,
             branch_order: self.branch_order,
             trajectory: self.trajectory,
             seed: self.seed.as_deref(),

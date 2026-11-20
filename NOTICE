@@ -1,6 +1,10 @@
 DERNA2
 Copyright (c) 2026, El-Kebir Group
-All rights reserved.
+
+DERNA2's own source code and documentation are distributed under the BSD
+3-Clause License, whose full text is in LICENSE. The third-party data listed
+below are not the project's own work: they keep their sources' terms, and the
+citations requested for them are given with each.
 
 The algorithms DERNA2 implements are described in the published literature,
 and the implementation here is the authors' own. The references are in

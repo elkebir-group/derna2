@@ -703,6 +703,7 @@ pub fn header_fields(
     extra.insert("seeds".into(), front.seeds.into());
     extra.insert("unchecked".into(), front.unchecked.into());
     extra.insert("certify_s".into(), front.certify_s.into());
+    extra.insert("overshoot_s".into(), json!(front.overshoot_s));
     extra.insert("points".into(), front.points.len().into());
     extra.insert("complete".into(), front.complete.into());
     extra.insert("stopped_by".into(), json!(stopped_by(front)));
@@ -788,6 +789,15 @@ pub fn header_fields(
                 "energy_s": s.energy_s,
                 "verify_s": s.verify_s,
                 "folds": s.folds,
+                "check": {
+                    "window_s": s.window_s,
+                    "window_rejects": s.window_rejects,
+                    "window_cells_copied": s.window_cells_copied,
+                    "reuse_hits": s.reuse_hits,
+                    "cells_copied": s.cells_copied,
+                    "window_deferred": s.window_deferred,
+                    "window_deferred_rejected": s.window_deferred_rejected,
+                },
                 "reached": s.reached,
                 "offered": s.offered,
                 "build_s": s.build_s,

@@ -105,6 +105,10 @@ pub(super) struct Outcome {
     /// them those a finished fold's structure rejected.
     pub deferred: u64,
     pub deferred_rejected: u64,
+    /// Under [`Verify::window_slots`], designs that waited for a windowed
+    /// slot, and of them those rejected before their own windowed fold.
+    pub window_deferred: u64,
+    pub window_deferred_rejected: u64,
     /// Folds under [`ExactFold::SparseCut`] made before its lattice landed,
     /// by the uncut Zuker fold.
     pub uncut_folds: u64,
@@ -211,9 +215,9 @@ struct Shared<'a> {
     /// Recent folds to copy from, under [`Verify::fold_reuse`].
     recent: Option<Recent>,
     /// Recent windowed folds to copy from, under [`Verify::window_reuse`]
-    /// or [`Verify::window_auto`]: one cache per window predicate (without
-    /// and with the UTR pairs), since a fold copies only from folds that
-    /// admitted the same pairs.
+    /// or [`Verify::window_auto`] and [`Verify::window_reuse_size`]: one
+    /// cache per window predicate (without and with the UTR pairs), since a
+    /// fold copies only from folds that admitted the same pairs.
     recent_window: Option<[Recent; 2]>,
     /// Whether windowed folds copy from `recent_window` now.
     window_reuse_on: AtomicBool,
@@ -231,6 +235,10 @@ struct Shared<'a> {
     slots: Option<Mutex<Slots>>,
     deferred: AtomicU64,
     deferred_rejected: AtomicU64,
+    /// Under [`Verify::window_slots`].
+    window_slots: Option<Mutex<Slots>>,
+    window_deferred: AtomicU64,
+    window_deferred_rejected: AtomicU64,
     /// Signalled when a design is queued or the queue closes.
     ready: Condvar,
     /// Signalled when a design leaves the queue or the check settles.
@@ -356,8 +364,8 @@ impl Shared<'_> {
             while let Some(d) = mine.pop_front() {
                 if self.skip(&d) {
                     self.skipped.fetch_add(1, Relaxed);
-                } else if !self.witness_rejects(&d) && !self.window_rejects(&d) {
-                    self.settle(d);
+                } else if !self.witness_rejects(&d) {
+                    self.past_witnesses(d);
                 }
             }
         }
@@ -382,7 +390,7 @@ impl Shared<'_> {
         let mut next = d;
         loop {
             if let Some(structure) = self.fold(next) {
-                self.offer_waiting(slots, &structure);
+                self.offer_waiting(slots, &structure, &self.deferred_rejected);
             }
             let mut s = slots.lock().expect("the fold slots");
             loop {
@@ -402,7 +410,7 @@ impl Shared<'_> {
 
     /// Offer a finished fold's structure to every waiting design, outside the
     /// lock; those it rejects are settled, the rest wait again.
-    fn offer_waiting(&self, slots: &Mutex<Slots>, structure: &Pairs) {
+    fn offer_waiting(&self, slots: &Mutex<Slots>, structure: &Pairs, rejected_count: &AtomicU64) {
         let waiting = std::mem::take(&mut slots.lock().expect("the fold slots").waiting);
         if waiting.is_empty() {
             return;
@@ -423,7 +431,7 @@ impl Shared<'_> {
                 Some((w, pairs, _)) => {
                     self.add(pairs);
                     self.witness_rejects.fetch_add(1, Relaxed);
-                    self.deferred_rejected.fetch_add(1, Relaxed);
+                    rejected_count.fetch_add(1, Relaxed);
                 }
                 None => {
                     kept.insert(rank, d);
@@ -437,16 +445,74 @@ impl Shared<'_> {
             .append(&mut kept);
     }
 
-    /// Under [`Verify::window`], whether a fold restricted to the window's
-    /// pairs and `d`'s own pairs finds a free structure below `d`'s
-    /// constrained MFE less the slack; it joins the pool.
-    fn window_rejects(&self, d: &Design) -> bool {
-        let Some(window) = self.window else {
-            return false;
+    /// A design no witness rejected: its windowed fold, then (unless that
+    /// rejects it) its full fold. Under [`Verify::window_slots`] with every
+    /// slot folding it waits instead; a slot runs the waiting designs' folds
+    /// until none is left, offering each windowed structure to the rest.
+    /// The waiting designs are held to the queue's own cap, as the queue
+    /// is: past it a worker folds its design without a slot, so the walk
+    /// cannot run ahead of the check and leave a backlog behind a stop.
+    fn past_witnesses(&self, d: Design) {
+        let unslotted = |d: Design| {
+            if let Some(pairs) = self.window_structure(&d) {
+                self.add(pairs);
+            } else {
+                self.settle(d);
+            }
         };
-        let Some(e) = d.energy.filter(|_| self.ctx.walk_energy_usable) else {
-            return false;
+        let Some(slots) = &self.window_slots else {
+            unslotted(d);
+            return;
         };
+        {
+            let mut s = slots.lock().expect("the window slots");
+            if s.folding >= s.slots {
+                if s.waiting.len() < self.cap {
+                    s.waiting.insert(d.rank, d);
+                    self.window_deferred.fetch_add(1, Relaxed);
+                } else {
+                    drop(s);
+                    unslotted(d);
+                }
+                return;
+            }
+            s.folding += 1;
+        }
+        let mut next = Some(d);
+        loop {
+            if let Some(d) = next.take() {
+                match self.window_structure(&d) {
+                    Some(pairs) => {
+                        self.offer_waiting(slots, &pairs, &self.window_deferred_rejected);
+                        self.add(pairs);
+                    }
+                    None => self.settle(d),
+                }
+            }
+            let d = {
+                let mut s = slots.lock().expect("the window slots");
+                let Some((_, d)) = s.waiting.pop_first() else {
+                    s.folding -= 1;
+                    return;
+                };
+                d
+            };
+            if self.skip(&d) {
+                self.skipped.fetch_add(1, Relaxed);
+            } else if self.witness_rejects(&d) {
+                self.window_deferred_rejected.fetch_add(1, Relaxed);
+            } else {
+                next = Some(d);
+            }
+        }
+    }
+
+    /// Under [`Verify::window`], a structure a fold restricted to the
+    /// window's pairs and `d`'s own pairs finds below `d`'s constrained MFE
+    /// less the slack; the caller adds it to the pool.
+    fn window_structure(&self, d: &Design) -> Option<Pairs> {
+        let window = self.window?;
+        let e = d.energy.filter(|_| self.ctx.walk_energy_usable)?;
         let t = Instant::now();
         self.maybe_start_window_reuse();
         let utr = self.window_utr_on.load(Relaxed);
@@ -475,14 +541,10 @@ impl Shared<'_> {
         });
         self.window_ns.fetch_add(nanos(t), Relaxed);
         #[allow(unused_variables)]
-        let Some((w, pairs)) = found
-        else {
-            return false;
-        };
-        self.add(pairs);
+        let (w, pairs) = found?;
         self.witness_rejects.fetch_add(1, Relaxed);
         self.window_rejects.fetch_add(1, Relaxed);
-        true
+        Some(pairs)
     }
 
     /// Whether a witness in the pool rejects `d`: one scores below its
@@ -978,6 +1040,9 @@ fn run<R>(
     walk: impl FnOnce(&mut OfferCai<'_>) -> Result<R, LazyError>,
 ) -> Result<(R, Outcome), LazyError> {
     let threads = verify.threads.max(1);
+    // The windowed-fold cache is sized on its own, falling back to the
+    // full-fold count; one cache's size says nothing about the other's.
+    let window_reuse_size = verify.window_reuse_size.unwrap_or(verify.fold_reuse);
     let shared = Shared {
         ctx,
         pool: Mutex::new(Arc::new(WitnessPool::new(verify.witnesses))),
@@ -985,9 +1050,9 @@ fn run<R>(
         witness_promote: verify.witness_promote,
         recent: (verify.fold_reuse > 0)
             .then(|| Recent::new(verify.fold_reuse, verify.fold_reuse_rows)),
-        recent_window: ((verify.window_reuse || verify.window_auto) && verify.fold_reuse > 0)
-            .then(|| [0, 1].map(|_| Recent::new(verify.fold_reuse, verify.fold_reuse_rows))),
-        window_reuse_on: AtomicBool::new(verify.window_reuse && verify.fold_reuse > 0),
+        recent_window: ((verify.window_reuse || verify.window_auto) && window_reuse_size > 0)
+            .then(|| [0, 1].map(|_| Recent::new(window_reuse_size, verify.fold_reuse_rows))),
+        window_reuse_on: AtomicBool::new(verify.window_reuse && window_reuse_size > 0),
         window_reuse_from: AtomicU64::new(u64::MAX),
         window_unconfirmed: AtomicU64::new(0),
         queue: Mutex::new(Queue::default()),
@@ -1003,6 +1068,15 @@ fn run<R>(
         }),
         deferred: AtomicU64::new(0),
         deferred_rejected: AtomicU64::new(0),
+        window_slots: (verify.window_slots > 0 && verify.window.is_some()).then(|| {
+            Mutex::new(Slots {
+                slots: verify.window_slots,
+                folding: 0,
+                waiting: BTreeMap::new(),
+            })
+        }),
+        window_deferred: AtomicU64::new(0),
+        window_deferred_rejected: AtomicU64::new(0),
         ready: Condvar::new(),
         room: Condvar::new(),
         cap: 4 * threads,
@@ -1083,6 +1157,8 @@ fn run<R>(
             cells_copied: shared.recent.as_ref().map_or(0, |r| r.copied.load(Relaxed)),
             deferred: shared.deferred.into_inner(),
             deferred_rejected: shared.deferred_rejected.into_inner(),
+            window_deferred: shared.window_deferred.into_inner(),
+            window_deferred_rejected: shared.window_deferred_rejected.into_inner(),
             uncut_folds: shared.uncut_folds.into_inner(),
             window_rejects: shared.window_rejects.into_inner(),
             window_s: secs(shared.window_ns),

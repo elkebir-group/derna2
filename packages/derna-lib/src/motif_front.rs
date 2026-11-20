@@ -2839,6 +2839,51 @@ impl<'a> Fold<'a> {
                 Table::Lead => retain_floor(cut, front, &floors.lead, (u, v, self.n())),
             }
         }
+        match table {
+            Table::M2 => self.hold_list(front, (u, v), true),
+            Table::M => self.hold_list(front, (u, v), false),
+            Table::T | Table::Lead => {}
+        }
+    }
+
+    /// Hold the multi-loop list `M` (`M2`) over `u..v` to the cuts'
+    /// constrained-lattice chords, as [`Self::aware_lines`] holds a closed
+    /// pair. Nothing is held where a node holds more than one automaton
+    /// state or no cut's chord keeps lists.
+    fn hold_list(&self, front: &mut Front<Prov>, (u, v): (u32, u32), m2: bool) {
+        if !crate::constrained::outside::keep_lists() {
+            return;
+        }
+        let ([q_u], [q_v]) = (
+            &self.l.states[u as usize][..],
+            &self.l.states[v as usize][..],
+        ) else {
+            return;
+        };
+        let (inner, outer) = (self.l.base[u as usize], self.l.base[v as usize]);
+        let mut lines: SmallVec<[(f64, f64); 4]> = SmallVec::new();
+        for (cut, _) in self.cuts() {
+            let Some(chord) = &cut.aware else { continue };
+            match chord.span_lines(
+                (inner, *q_u, outer, *q_v, m2),
+                cut.lambda,
+                cut.ceiling + CUT_SLACK,
+            ) {
+                None => {}
+                Some(PairLines::Out) => {
+                    front.retain(|_| false);
+                    return;
+                }
+                Some(PairLines::Hold(more)) => lines.extend(more),
+            }
+        }
+        if !lines.is_empty() {
+            front.retain(|p| {
+                lines
+                    .iter()
+                    .all(|&(l, at)| brd(p.mfe, p.cai, l) <= at + ADMIT_SLACK)
+            });
+        }
     }
 
     /// Drop the points of a cell spanning `u..v` that the box's adaptation
@@ -4044,6 +4089,14 @@ fn cell_fold_tie() -> f64 {
         .unwrap_or(CELL_FOLD_TIE)
 }
 
+/// Whether each aware pass's search starts at the slack seen at the nearest
+/// weight already taken, unless [`MotifRun::aware_learn`] says: yes, unless a
+/// development build turns it off. The passes are the same either way; only
+/// the folds they take differ.
+fn default_aware_learn() -> bool {
+    env_switch(crate::dev_env::Setting::MotifAwareLearn, true)
+}
+
 fn aware_headroom() -> f64 {
     crate::dev_env::var(crate::dev_env::Setting::MotifAwareHeadroom)
         .ok()
@@ -4063,6 +4116,9 @@ struct AwareSource<'g> {
     margin: f64,
     /// How far above its optimum each pass's ceiling reaches at least.
     headroom: f64,
+    /// Whether each pass's search starts at the slack seen at the nearest
+    /// weight already taken.
+    learn: bool,
     /// Whether each pass keeps a design at its optimum, to seed the walk.
     seed: bool,
 }
@@ -4075,15 +4131,31 @@ impl AwareSource<'_> {
 
     /// The aware pass beside the plain `pass`: pruned as a probe at its own
     /// weight would be, on the plain pass and the chords to weight 0 against
-    /// `top`, the pass at weight 1.
+    /// `top`, the pass at weight 1. With learning on, its search starts at
+    /// the slack between floor and optimum that `slacks` holds at the nearest
+    /// weight, plus the headroom, where that is wider than the margin; the
+    /// pass's own slack is then added to `slacks`.
     fn pass(
         &self,
         params: &Params,
         region: &PairConstraint,
         (pass, top): (&Pass, &Pass),
         threads: usize,
+        slacks: &std::sync::Mutex<Vec<(f64, f64)>>,
     ) -> Option<AwarePass> {
         let (zero, floor) = zero_chords(self.chain, &[Some(top)], pass.lambda, pass.optimum);
+        let mut margin = self.margin.max(first_margin(floor));
+        if self.learn {
+            let seen = slacks.lock().expect("the slacks' lock");
+            let nearest = seen.iter().min_by(|a, b| {
+                (a.0 - pass.lambda)
+                    .abs()
+                    .total_cmp(&(b.0 - pass.lambda).abs())
+            });
+            if let Some(&(_, slack)) = nearest {
+                margin = margin.max(slack + self.headroom);
+            }
+        }
         let on = crate::constrained::outside::AwareLattice {
             product: self.product,
             params,
@@ -4101,10 +4173,18 @@ impl AwareSource<'_> {
                 aware: None,
                 ceiling,
             },
-            (floor, self.margin.max(first_margin(floor)), self.headroom),
+            (floor, margin, self.headroom),
             threads,
             self.seed,
         )
+        .inspect(|a| {
+            if self.learn && floor.is_finite() {
+                slacks
+                    .lock()
+                    .expect("the slacks' lock")
+                    .push((pass.lambda, a.optimum - floor));
+            }
+        })
     }
 
     /// What an aware pass depends on beyond the plain lattice's
@@ -4120,7 +4200,11 @@ impl AwareSource<'_> {
         let product = self.product;
         let graph = product.dfa();
         let (lattice, ac) = (product.lattice_ac(), product.ac());
-        h.eat(&[u8::from(product.is_merged()), u8::from(self.seed)]);
+        h.eat(&[
+            u8::from(product.is_merged()),
+            u8::from(self.seed),
+            u8::from(self.learn),
+        ]);
         h.eat(&(lattice.num_states() as u64).to_le_bytes());
         h.eat(&lattice.start().to_le_bytes());
         h.eat(format!("{:?}", product.window()).as_bytes());
@@ -4368,6 +4452,9 @@ struct Grid<'g> {
     /// Where the low weights' passes also run over the constrained lattice;
     /// `None` takes plain passes alone.
     aware: Option<AwareSource<'g>>,
+    /// Each aware pass's weight and the slack between its floor and its
+    /// optimum, where its search starts the next one's.
+    slacks: std::sync::Mutex<Vec<(f64, f64)>>,
     /// The most plain passes taken in one traversal ([`Pass::lanes`]).
     lanes: usize,
 }
@@ -4414,6 +4501,7 @@ impl<'g> Grid<'g> {
             cache,
             aware_print,
             aware,
+            slacks: std::sync::Mutex::default(),
             lanes: pass_lanes(),
         }
     }
@@ -4580,10 +4668,22 @@ impl<'g> Grid<'g> {
         // The pass at weight 1 is its own top, and its slot is the one held
         // while it is taken, so it is never taken again.
         let aware = if k == self.weights.len() - 1 {
-            src.pass(self.params, self.region, (pass, pass), self.fold_threads)
+            src.pass(
+                self.params,
+                self.region,
+                (pass, pass),
+                self.fold_threads,
+                &self.slacks,
+            )
         } else {
             let top = self.energy();
-            src.pass(self.params, self.region, (pass, &top), self.fold_threads)
+            src.pass(
+                self.params,
+                self.region,
+                (pass, &top),
+                self.fold_threads,
+                &self.slacks,
+            )
         };
         if let (Some(aware), Some((f, key))) = (&aware, &file) {
             // A pass that cannot be kept is taken again next time.
@@ -5002,6 +5102,9 @@ pub struct MotifWalk {
     /// codons alone; `false` when the whole lattice folded it, or the walk
     /// was resumed.
     pub adapted_narrow: bool,
+    /// Whether the walk ran a gap from its most adapted vertex out to the
+    /// front's adapted end, which it does when that vertex falls short of it.
+    pub adapted_gap: bool,
     /// Whether `vertices` are the lower hull of `front` rather than the
     /// vertices the walk's probes found: a narrowed walk's boxes are solved
     /// without probes, so a walk resumed from this one takes its vertices
@@ -5014,6 +5117,10 @@ pub struct MotifWalk {
     /// What stopped the walk short — `"time"` or `"memory"` — or `None` for a
     /// complete front.
     pub stopped_by: Option<&'static str>,
+    /// Seconds the walk ran past the deadline a time budget set it: `None`
+    /// where it was given none, `0.0` where it returned at or before one
+    /// ([`crate::WalkedFront::overshoot_s`]).
+    pub overshoot_s: Option<f64>,
     /// The boxes between neighbouring hull points that the budget left
     /// unsolved, most stable first. Every point of `front` is on the exact
     /// front regardless: a gap's points lie between its two vertices in both
@@ -5231,6 +5338,43 @@ pub fn narrowed_resume<S: AsRef<str>>(
 /// The weights the walk's two ends are folded at, as `derna front` fixes them.
 const END_EPSILON: f64 = 1.0 / (1u32 << 23) as f64;
 
+/// How far below the best motif-free adaptation a walk's most adapted vertex
+/// may sit and still be the front's adapted end: the front's own dominance
+/// slop, within which two log-CAI values are one trade-off.
+const ADAPTED_END_EPS: f64 = 1e-9;
+
+/// The weight the walk's stable end is folded at: `1 − 2⁻²³`, or nearer 1
+/// for a protein whose encodings' adaptations could span so much that a
+/// dekacalorie of energy is worth less than that span at `1 − 2⁻²³`.
+///
+/// The optimum at weight `λ` scores no worse than any design, so a design one
+/// dekacalorie more stable would have to be less adapted than it by more than
+/// `λ / (100 (1 − λ))`. No two encodings differ in adaptation by more than
+/// `span`, so at a weight where half a dekacalorie outweighs all of `span` the
+/// optimum's energy is the least, and among designs at that energy the
+/// optimum is the most adapted. Two designs there whose adaptations differ by
+/// less than the fold resolves are kept by the stable vertex's own gap, which
+/// takes in designs at its energy.
+fn stable_weight(span: f64) -> f64 {
+    (1.0 - END_EPSILON).max(100.0 * span / (100.0 * span + 0.5))
+}
+
+/// The widest difference in coding log-adaptation two encodings of the
+/// residues `aa` can have under `usage`: each residue's least adapted codon
+/// against its most adapted one, whose log-adaptation is zero.
+fn adaptation_span(aa: &[usize], usage: &CodonUsage) -> f64 {
+    let tables = derna_codon_dp::cai::compute_cai_tables(usage);
+    aa.iter()
+        .map(|&residue| {
+            -tables.log_cai[residue]
+                .iter()
+                .copied()
+                .filter(|w| w.is_finite())
+                .fold(0.0, f64::min)
+        })
+        .sum()
+}
+
 /// The exact front of (constrained MFE, coding CAI) over motif-free designs by
 /// a walk: the hull's vertices from scalar folds of the product lattice, then
 /// each gap between adjacent vertices from the front fold under that gap's
@@ -5336,6 +5480,10 @@ pub struct MotifRun<'a> {
     /// design; `None` takes [`default_probe_learn`]. The front is the same
     /// either way.
     pub probe_learn: Option<bool>,
+    /// Whether each aware pass's search starts at the slack between floor and
+    /// optimum found at the nearest weight already taken, plus the headroom;
+    /// `None` takes [`default_aware_learn`]. The front is the same either way.
+    pub aware_learn: Option<bool>,
     /// Threads inside each end, pass, probe and gap fold, beside the walk's
     /// own workers; `0` and `1` fold each on one thread. Every such fold reaches
     /// the same answer at any count, so the front does not depend on it. It
@@ -5402,6 +5550,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
         probe_skip,
         probe_learn,
         fold_threads,
+        aware_learn,
         aware_upto: upto,
         aware_seeds,
         slice_width,
@@ -5430,6 +5579,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
         bracket: bracket_cuts.unwrap_or_else(default_bracket_cuts),
         width: slice_width,
         reuse: gap_reuse(),
+        adapted: None,
     };
     if !spec.constraints.is_hard() {
         return Err(BeamError::SoftRegionUnsupported);
@@ -5492,6 +5642,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
             upto,
             margin: aware_margin(),
             headroom: aware_headroom(),
+            learn: aware_learn.unwrap_or_else(default_aware_learn),
             seed: aware_seeds,
         }),
     );
@@ -5529,6 +5680,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
     };
     let resumed = !prior_vertices.is_empty();
     let kcal = |e: f64| (e * 100.0).round() as i32;
+    let stable = stable_weight(adaptation_span(&aa, usage));
     let kernel = ProductWalk {
         params,
         graph: &graph,
@@ -5538,6 +5690,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
         grid,
         chain: open_chain.map(|c| (&chain, c)),
         most_adapted: (most_adapted.as_ref(), (&aa, usage, &five, &three)),
+        stable_weight: stable,
         motifs: (&spec.constraints, &ac, scope),
         designs: Designs::default(),
         spans: std::sync::Mutex::new(Vec::new()),
@@ -5550,6 +5703,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
         offset,
         started,
         narrowed: std::sync::atomic::AtomicBool::new(false),
+        adapted_gap: std::sync::atomic::AtomicBool::new(false),
         seeded: AtomicUsize::new(0),
         ends: std::sync::Mutex::new((0, 0.0, None)),
         // A probe, once started, runs to its end, so one is not started when
@@ -5605,13 +5759,15 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
             tasks: [true, false]
                 .into_iter()
                 .filter(|&stable| stable || !kernel.ends_in_turn())
-                .map(|stable| {
-                    let lambda = if stable {
-                        1.0 - END_EPSILON
-                    } else {
-                        END_EPSILON
-                    };
-                    (walk::SETUP, walk::Task::End { lambda, stable })
+                .map(|is_stable| {
+                    let lambda = if is_stable { stable } else { END_EPSILON };
+                    (
+                        walk::SETUP,
+                        walk::Task::End {
+                            lambda,
+                            stable: is_stable,
+                        },
+                    )
                 })
                 .chain(
                     seed_weights
@@ -5623,7 +5779,7 @@ pub fn motif_front_walk_run<S: AsRef<str>>(
             // each pair's two are known, in place of the pair of ends.
             seeds: (!seed_weights.is_empty()).then(|| {
                 walk::Seeds::new(
-                    (1.0 - END_EPSILON, None),
+                    (stable, None),
                     (END_EPSILON, None),
                     &seed_weights,
                     false,
@@ -5739,6 +5895,7 @@ fn motif_walk_of(walked: &crate::WalkedFront) -> MotifWalk {
         seeded: 0,
         ends_peak_kb: None,
         adapted_narrow: false,
+        adapted_gap: false,
         rehull: false,
         passes: span(crate::TaskKind::Grid)
             .map(|(lambda, secs, rss_kb)| PassCost {
@@ -5773,6 +5930,7 @@ fn motif_walk_of(walked: &crate::WalkedFront) -> MotifWalk {
             })
             .collect(),
         stopped_by: walked.stopped_by,
+        overshoot_s: walked.overshoot_s,
         open: walked
             .open
             .iter()
@@ -5811,6 +5969,8 @@ struct ProductWalk<'a> {
         Option<&'a (f64, Vec<Vec<bool>>)>,
         (&'a [usize], &'a CodonUsage, &'a Flank, &'a Flank),
     ),
+    /// The weight the stable end is folded at ([`stable_weight`]).
+    stable_weight: f64,
     motifs: (&'a RegionConstraints, &'a Ac, MotifWindow),
     designs: Designs,
     /// The probes' span memos, one per worker that has probed: a memo is
@@ -5825,6 +5985,8 @@ struct ProductWalk<'a> {
     offset: f64,
     started: std::time::Instant,
     narrowed: std::sync::atomic::AtomicBool,
+    /// Whether a gap ran out to the adapted end.
+    adapted_gap: std::sync::atomic::AtomicBool,
     /// Hull vertices the aware passes seeded.
     seeded: AtomicUsize,
     /// Ends folded, the seconds from the walk's start until the second, and
@@ -5901,7 +6063,7 @@ impl ProductWalk<'_> {
             let fold =
                 most_adapted_fold(self.params, inputs, self.motifs, codons, self.fold_threads)?;
             let cai = fold.cai - self.graph.codon_offset();
-            ((cai - best).abs() <= 1e-6)
+            (cai >= best - ADAPTED_END_EPS)
                 .then_some(crate::constrained::ConstrainedFold { cai, ..fold })
         });
         match narrow {
@@ -5912,6 +6074,78 @@ impl ProductWalk<'_> {
             }
             None => self.end_fold(END_EPSILON),
         }
+    }
+
+    /// The front beyond a whole walk's most adapted vertex, out to the
+    /// front's **adapted end**, the greatest adaptation among motif-free
+    /// designs and the least MFE among those reaching it: that vertex, the
+    /// end, and the gap between them. `None` when the vertex is the end.
+    ///
+    /// The vertex is an optimum at weight `2⁻²³`, and no weight inside
+    /// `(0, 1)` reaches the end on its own: one is missed whenever two
+    /// encodings' adaptations are closer than the weight times the energy
+    /// they trade, over the whole lattice and over the lattice of the most
+    /// adapted codons alone, which also spells less adapted designs when
+    /// different most adapted encodings spell different codons. The best
+    /// motif-free adaptation is read off the product lattice without a fold
+    /// ([`ProductDfa::most_adapted_codons`]), so an end already reached costs
+    /// one comparison. A vertex short of it is carried on by the gap from it
+    /// to the corner at that adaptation and energy zero, which bounds every
+    /// design's MFE as the unpaired chain's: that gap holds every motif-free
+    /// design more adapted than the vertex, and its last point is the end.
+    fn beyond_adapted(
+        &self,
+        walked: &walk::Walk<Self>,
+    ) -> Option<(MotifVertexPoint, MotifVertexPoint, GapFront)> {
+        let &(best, _) = self.most_adapted.0?;
+        let last = *walked.vertices.iter().max_by_key(|v| v.mfe.0)?;
+        if last.cai >= best - ADAPTED_END_EPS || last.mfe.0 >= 0 {
+            return None;
+        }
+        self.adapted_gap
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let corner = MotifVertexPoint {
+            mfe: Energy(0),
+            cai: best,
+        };
+        let stop = Stop {
+            deadline: None,
+            memory: None,
+            folds: None,
+            gap_secs: None,
+            gap_deadline: None,
+        };
+        let mut spans = self.spans.lock().expect("the span memos' lock").pop();
+        let exact = |lambda: f64| self.exact(lambda);
+        // The gap ends as soon as its points reach the best adaptation, which
+        // is the end, rather than being solved on to the corner's energy.
+        let slices = SliceBudget {
+            adapted: Some(best),
+            ..self.slice_budget
+        };
+        // As a rest from the vertex, the gap is solved from just above the
+        // vertex's energy, floored at its adaptation, with no probe first.
+        let settled = settle(
+            (Task::Pair(last, corner), Some((last.mfe, last.cai))),
+            self.params,
+            (self.product, self.lattice, self.region),
+            (&self.grid, self.chain),
+            &mut spans,
+            &exact,
+            (&self.designs, stop, slices, &self.probe_rule),
+        );
+        if let Some(spans) = spans {
+            self.spans.lock().expect("the span memos' lock").push(spans);
+        }
+        let Settled::Gap(gap, _) = settled else {
+            unreachable!("a gap under no budget is solved whole")
+        };
+        let end = gap.points.iter().max_by_key(|p| p.0 .0)?;
+        let end = MotifVertexPoint {
+            mfe: end.0,
+            cai: end.1,
+        };
+        Some((last, end, gap))
     }
 
     fn exact(&self, lambda: f64) -> Result<MotifVertexPoint, BeamError> {
@@ -5966,6 +6200,7 @@ impl ProductWalk<'_> {
         walked: &walk::Walk<Self>,
         mut open: Vec<(MotifVertexPoint, MotifVertexPoint)>,
         stopped_by: Option<&'static str>,
+        overshoot_s: Option<f64>,
     ) -> MotifWalk {
         let kept = self.designs.0.lock().expect("the designs' lock");
         let mut vertices = walked.vertices.clone();
@@ -6069,10 +6304,12 @@ impl ProductWalk<'_> {
             seeded: self.seeded.load(Ordering::Relaxed),
             ends_peak_kb,
             adapted_narrow: self.narrowed.load(std::sync::atomic::Ordering::Relaxed),
+            adapted_gap: self.adapted_gap.load(std::sync::atomic::Ordering::Relaxed),
             rehull: self.resume.is_some_and(|r| r.rehull),
             passes: self.grid.costs(),
             gaps,
             stopped_by,
+            overshoot_s,
             rests: open
                 .iter()
                 .filter_map(|&(a, b)| {
@@ -6202,7 +6439,7 @@ impl walk::Kernel for ProductWalk<'_> {
     ) -> Result<MotifVertexPoint, BeamError> {
         let v = if stable {
             let started = std::time::Instant::now();
-            let v = self.end_fold(1.0 - END_EPSILON);
+            let v = self.end_fold(self.stable_weight);
             let secs = started.elapsed().as_secs_f64();
             *self.longest_probe.lock().expect("the probes' lock") = secs;
             v
@@ -6332,17 +6569,31 @@ impl walk::Kernel for ProductWalk<'_> {
         walk: &walk::Walk<Self>,
         open: Vec<(MotifVertexPoint, MotifVertexPoint)>,
     ) -> MotifWalk {
-        self.assemble(walk, open, None)
+        self.assemble(walk, open, None, None)
     }
 
+    /// A whole walk is carried out to the front's adapted end
+    /// ([`ProductWalk::beyond_adapted`]); one stopped by its budget returns
+    /// what it settled.
     fn finish(
         self,
-        walk: walk::Walk<Self>,
+        mut walk: walk::Walk<Self>,
         end: walk::End,
         _threads: usize,
     ) -> Result<MotifWalk, BeamError> {
+        if end.stopped_by.is_none() {
+            if let Some((from, adapted, mut gap)) = self.beyond_adapted(&walk) {
+                Self::settled_gap(
+                    &mut walk.stats,
+                    &mut gap,
+                    self.started.elapsed().as_secs_f64(),
+                );
+                walk.vertices.push(adapted);
+                walk.gaps.push((from.mfe.0, gap));
+            }
+        }
         let open = walk.outstanding.clone();
-        Ok(self.assemble(&walk, open, end.stopped_by))
+        Ok(self.assemble(&walk, open, end.stopped_by, end.overshoot_s))
     }
 }
 
@@ -6627,6 +6878,10 @@ struct SliceBudget {
     /// How many folds that gave up a gap keeps for its later ranges to
     /// start from ([`gap_reuse`]); zero keeps none.
     reuse: usize,
+    /// The greatest adaptation any motif-free design reaches, when a gap is
+    /// solved only up to it: the gap ends once its points do, since no design
+    /// passes the dominance filter above them.
+    adapted: Option<f64>,
 }
 
 impl SliceBudget {
@@ -6696,6 +6951,20 @@ fn gap_carry() -> Option<f64> {
 /// solved is then the most the gap's later ranges are given.
 fn gap_carry_adapt() -> bool {
     crate::dev_env::var(crate::dev_env::Setting::MotifGapCarryAdapt).is_ok_and(|v| v == "1")
+}
+
+/// Whether the carry ([`gap_carry`]) is a multiple of the widest range that
+/// solved in the gap so far, rather than of the most recent one: yes, unless a
+/// development build sets `last`. Ranges are first cut to the slice width,
+/// so the range below a cut can be a short remainder; taken as the carry's
+/// base, it narrows every later range of the gap. On Q06187[:150] the gap at
+/// weight 0.1246 went 38, 57, 85 and 127 wide after a 38-wide remainder, and
+/// 70 of the walk's 110 gap folds stored under 1% of their budget. Slicing
+/// changes what a walk costs, never what it returns. Across five cells the
+/// widest base removed 0-34% of the gap folds and never added one.
+fn gap_carry_widest() -> bool {
+    crate::dev_env::var(crate::dev_env::Setting::MotifGapCarryBase)
+        .map_or(true, |v| v.trim() != "last")
 }
 
 /// Whether a gap's folds are sized from the last that fitted: yes, unless
@@ -7155,8 +7424,11 @@ fn solve_gap(
         }
         // A range wider than `carry` times the last that solved is taken in
         // two, the lower part that wide, so a gap does not climb back to its
-        // whole rest after each slice and halve down again.
-        if let Some(most) = gap_k.map(|k| ((k * f64::from(last_solved)) as i32).max(1)) {
+        // whole rest after each slice and halve down again. A fractional
+        // carry truncates to the last width at 1 (1.5 times 1 is 1), so the
+        // width is at least two and a gap that starts on a one-wide range
+        // widens instead of taking one fold per dekacalorie.
+        if let Some(most) = gap_k.map(|k| ((k * f64::from(last_solved)) as i32).max(2)) {
             if last_solved > 0 && top - below > most {
                 let cut_at = below + most;
                 pending.push((cut_at, top, budget, parent.clone()));
@@ -7403,13 +7675,25 @@ fn solve_gap(
             points.push(p);
         }
         solved = top;
+        // Past the greatest adaptation a design can have, nothing passes the
+        // dominance filter, which takes only a point more adapted than the
+        // best kept by a trade-off's width.
+        if slices.adapted.is_some_and(|g| best + 1e-9 >= g + 1e-12) {
+            pending.clear();
+            solved = b.mfe.0;
+            break;
+        }
         if top - below > MIN_SLICE {
             last = Some((top - below, first_budget));
         }
         if carry {
             seen = Some((top - below, stored));
         }
-        last_solved = top - below;
+        last_solved = if gap_carry_widest() {
+            last_solved.max(top - below)
+        } else {
+            top - below
+        };
         // Never past the room the memory budget leaves: a merged fold that
         // passes it would stop and drop the whole gap. The room is read once
         // this fold's tables are freed and handed back, or it would count
@@ -7854,6 +8138,32 @@ impl Designs {
 
 #[cfg(test)]
 mod tests {
+    /// Two aware sources that differ only in how a pass's search starts
+    /// key the pass cache differently: a cached pass keeps the ceiling it
+    /// was taken under, which the start decides.
+    #[test]
+    fn aware_sources_differing_in_the_learned_start_hash_differently() {
+        use super::AwareSource;
+        let usage = crate::CodonUsage::load_default().expect("default codon usage");
+        let aa: Vec<usize> = "MKF"
+            .chars()
+            .map(|c| derna_codon_dp::codon_table::aa_to_index(c).expect("amino acid"))
+            .collect();
+        let graph = crate::dfa::build(&aa, &usage);
+        let ac = crate::ac::Ac::build(&["GAAUUC"]).expect("motif set");
+        let product = crate::product::ProductDfa::build(&graph, &ac);
+        let source = |learn| AwareSource {
+            product: &product,
+            chain: None,
+            upto: 0.5,
+            margin: 30.0,
+            headroom: 30.0,
+            learn,
+            seed: false,
+        };
+        assert_ne!(source(false).fingerprint(), source(true).fingerprint());
+    }
+
     /// A probe's design splits its pair only between the pair's ends: one
     /// beyond an end would leave a box with its ends reversed.
     #[test]
@@ -8327,6 +8637,7 @@ mod tests {
             bracket: true,
             width: None,
             reuse: 0,
+            adapted: None,
         };
         let gap = |stop: Stop<'_>, rest| {
             solve_gap(
@@ -8395,6 +8706,101 @@ mod tests {
                 "rests in too few slices: {solved_in:?}, memory {memory}"
             );
         }
+    }
+
+    /// A gap whose span leaves a one-dekacalorie range at its bottom, which
+    /// is folded first, still widens its later ranges: the carry's width is
+    /// never below two, so the range after the sliver is not also one wide
+    /// (one fold per dekacalorie otherwise), and the points are the walk's
+    /// front either way.
+    #[test]
+    fn a_gap_that_starts_on_a_one_wide_range_widens_its_ranges() {
+        let params = Params::load_default().unwrap();
+        let usage = CodonUsage::load_default().unwrap();
+        let spec = MotifFrontSpec {
+            utr5: "GGGAAACCC",
+            utr3: "",
+            constraints: RegionConstraints::default(),
+            motifs: &[("GCC", MotifWindow::overlapping(9, 24))],
+            pins: None,
+        };
+        let protein = "MKVLAW";
+        let aa = crate::residues(protein).unwrap();
+        let five = Flank::parse(spec.utr5).unwrap();
+        let three = Flank::parse(spec.utr3).unwrap();
+        let graph = spec_graph(&aa, &usage, &spec, &five, &three).unwrap();
+        let region = PairConstraint::new(&spec.constraints, &graph);
+        let (ac, scope) = Ac::for_windows(spec.motifs).unwrap();
+        let product = ProductDfa::build_scoped(&graph, &ac, scope).merge_equivalent();
+        let lattice = Lattice::new(&product);
+        let walk = motif_front_walk(&params, protein, &usage, &spec, 1).unwrap();
+        let offset = graph.codon_offset();
+        let unit = |v: &MotifVertexPoint| MotifVertexPoint {
+            mfe: v.mfe,
+            cai: v.cai - offset,
+        };
+        let a = unit(walk.vertices.first().unwrap());
+        let b = unit(walk.vertices.last().unwrap());
+        let lambda = tie(a, b);
+        let grid = Grid::new(
+            motif_pass_grid(derna_codon_dp::cai::sense_codons(&aa)).weights(),
+            None,
+            (&params, &graph, &region),
+            1,
+            None,
+        );
+        let top = grid.energy();
+        let (lo, hi) = grid.bracket(lambda);
+        let corner = brd(b.mfe, a.cai, lambda).max(brd(a.mfe, a.cai, lambda));
+        let cut = Cut::between(&lo, hi.as_deref(), lambda, corner);
+        // The gap runs from one below `a` to `b`: a first range as wide as
+        // their difference leaves the one-wide range at the bottom.
+        let span = b.mfe.0 - a.mfe.0;
+        assert!(span >= 40, "a gap too narrow to tell widths apart: {span}");
+        let slices = SliceBudget {
+            points: 2_000_000,
+            grow: 0,
+            max_rss_kb: Some(1.0e9),
+            workers: 1,
+            open_in_room: true,
+            fit: None,
+            bracket: true,
+            width: Some(span),
+            reuse: 0,
+            adapted: None,
+        };
+        let Ok(solved) = solve_gap(
+            &params,
+            &region,
+            &lattice,
+            (a, b, None),
+            (&cut, (&*top, grid.energy_floors(&lattice)), &[]),
+            0.0,
+            (Stop::default(), slices, 1),
+        ) else {
+            panic!("a gap nothing stops is solved");
+        };
+        assert!(
+            solved.record.folds * 4 <= span as usize,
+            "{} folds over a gap of {span} dekacalories",
+            solved.record.folds
+        );
+        let front: Vec<_> = walk
+            .front
+            .iter()
+            .map(|p| {
+                (
+                    Energy((p.mfe_kcal_mol * 100.0).round() as i32),
+                    p.cai_log - offset,
+                )
+            })
+            .collect();
+        assert_eq!(solved.points.len(), front.len());
+        assert!(solved
+            .points
+            .iter()
+            .zip(&front)
+            .all(|(p, q)| p.0 == q.0 && (p.1 - q.1).abs() < 1e-9));
     }
 
     /// A fold over one range of a gap under its tie-weight cut, its energy
@@ -8518,6 +8924,7 @@ mod tests {
                 bracket: true,
                 width: None,
                 reuse,
+                adapted: None,
             };
             let Ok(gap) = solve_gap(
                 &params,
@@ -8670,6 +9077,7 @@ mod tests {
                 bracket: true,
                 width: None,
                 reuse,
+                adapted: None,
             };
             SPLIT_PRUNE_TEST.with(|r| r.set(rule));
             let solved = solve_gap(
@@ -8887,5 +9295,28 @@ mod tests {
         }
         assert!(fewer > 50, "the score orders bound too few cases: {fewer}");
         assert!(admitted > 50, "too few cases admit anything: {admitted}");
+    }
+
+    /// The stable end's weight keeps `1 − 2⁻²³` wherever that weight already
+    /// prices a dekacalorie above every adaptation difference, and moves
+    /// nearer 1 only past that span, where a dekacalorie still outweighs the
+    /// whole span.
+    #[test]
+    fn the_stable_weight_prices_a_dekacalorie_above_the_whole_span() {
+        for span in [0.0, 3.0, 2_000.0, 40_000.0] {
+            assert_eq!(stable_weight(span), 1.0 - END_EPSILON, "span {span}");
+        }
+        for span in [0.0, 3.0, 2_000.0, 40_000.0, 90_000.0, 1e6, 1e8] {
+            let lambda = stable_weight(span);
+            assert!(lambda < 1.0, "span {span}: weight {lambda}");
+            assert!(
+                (1.0 - lambda) * 100.0 * span < lambda,
+                "span {span}: weight {lambda} lets the span outweigh a dekacalorie"
+            );
+        }
+        // Past the span `1 − 2⁻²³` covers, that weight would not do.
+        let span = 90_000.0;
+        assert!((END_EPSILON) * 100.0 * span >= 1.0 - END_EPSILON);
+        assert!(stable_weight(span) > 1.0 - END_EPSILON);
     }
 }

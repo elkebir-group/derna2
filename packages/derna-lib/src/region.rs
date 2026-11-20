@@ -447,11 +447,38 @@ pub(crate) struct PairConstraint {
     classes: [Option<Enforcement>; 6],
     /// Resolved absolute window `[lo, hi)` and its enforcement, when active.
     window: Option<(u32, u32, Enforcement)>,
+    /// Each position's endpoint code (see [`code_of`]), one byte per position
+    /// up to the end of the classified CDS or of the window, whichever is
+    /// later. Every position past it is in the 3′ UTR and outside the window,
+    /// so it carries [`TAIL`] and is not stored.
+    codes: Arc<[u8]>,
+    /// The class-and-window verdict for every pair of endpoint codes, row-major
+    /// in the 5′ endpoint's code, filled once from `classes` and `window`.
+    /// Those two fields are fixed at construction, so the table is never stale.
+    verdicts: [Verdict; CODES * CODES],
     /// The positional half — `None` when no positional constraint was given, so
     /// the class-only paths pay nothing for it.
     mask: Option<Arc<PairMask>>,
     /// Fast path: skip the whole constraint when the table and the mask are inert.
     active: bool,
+}
+
+/// How many endpoint codes [`code_of`] distinguishes: three regions, each
+/// inside or outside the accessibility window.
+const CODES: usize = 6;
+
+/// The code of a 3′ UTR position outside the window, which every position
+/// past [`PairConstraint::codes`] carries.
+const TAIL: u8 = 4;
+
+/// Everything the class table and the window can say about position `p`, as
+/// one index: its region (`0` 5′ UTR, `1` CDS, `2` 3′ UTR) times two, plus one
+/// inside the window `[lo, hi)`. A pair's class-and-window verdict is a
+/// function of its two endpoints' codes alone, which is what lets
+/// [`PairConstraint::verdict`] read it from a table of [`CODES`]² entries.
+fn code_of(p: u32, cds_start: u32, cds_end: u32, (lo, hi): (u32, u32)) -> u8 {
+    let region = u8::from(p >= cds_start) + u8::from(p >= cds_end);
+    region * 2 + u8::from(p >= lo && p < hi)
 }
 
 impl PairConstraint {
@@ -463,6 +490,8 @@ impl PairConstraint {
             cds_end: 0,
             classes: [None; 6],
             window: None,
+            codes: Arc::from([]),
+            verdicts: [Verdict::Allow; CODES * CODES],
             mask: None,
             active: false,
         }
@@ -498,13 +527,58 @@ impl PairConstraint {
             let hi = cds_start + w.downstream;
             (lo, hi, w.enforcement)
         });
-        Self {
+        let span = window.map_or((0, 0), |(lo, hi, _)| (lo, hi));
+        let stored = cds_end.max(span.1);
+        let mut constraint = Self {
             cds_start,
             cds_end,
             classes: rc.classes,
             window,
+            codes: (0..stored)
+                .map(|p| code_of(p, cds_start, cds_end, span))
+                .collect(),
+            verdicts: [Verdict::Allow; CODES * CODES],
             mask: None,
             active: !rc.is_inert(),
+        };
+        for a in 0..CODES {
+            for b in 0..CODES {
+                constraint.verdicts[a * CODES + b] = constraint.verdict_of_codes(a, b);
+            }
+        }
+        constraint
+    }
+
+    /// Position `p`'s endpoint code: one byte read, or [`TAIL`] past the
+    /// stored positions.
+    #[inline]
+    fn code(&self, p: u32) -> usize {
+        usize::from(self.codes.get(p as usize).copied().unwrap_or(TAIL))
+    }
+
+    /// The class-and-window verdict for a pair whose endpoints carry codes `a`
+    /// and `b`: a hard forbid from either dominates, and soft penalties sum.
+    fn verdict_of_codes(&self, a: usize, b: usize) -> Verdict {
+        const REGIONS: [Region; 3] = [Region::Utr5, Region::Cds, Region::Utr3];
+        let mut penalty = 0i32;
+        let class = PairClass::of(REGIONS[a / 2], REGIONS[b / 2]);
+        if let Some(enf) = self.classes[class as usize] {
+            match enf {
+                Enforcement::Forbid => return Verdict::Forbid,
+                Enforcement::Penalize(w) => penalty += w.0,
+            }
+        }
+        let in_window = a % 2 == 1 || b % 2 == 1;
+        if let Some((_, _, enf)) = self.window.filter(|_| in_window) {
+            match enf {
+                Enforcement::Forbid => return Verdict::Forbid,
+                Enforcement::Penalize(w) => penalty += w.0,
+            }
+        }
+        if penalty != 0 {
+            Verdict::Penalize(Energy(penalty))
+        } else {
+            Verdict::Allow
         }
     }
 
@@ -554,6 +628,10 @@ impl PairConstraint {
     /// The positional half is hard-only by construction: a soft *forbid* is the
     /// class table's penalty, and D6 defers soft variants of the positional
     /// grammar entirely.
+    ///
+    /// The class-and-window half is one read of a table filled at construction,
+    /// keyed on each endpoint's region and window membership; the positional
+    /// mask, keyed on the positions themselves, is consulted first.
     pub(crate) fn verdict(&self, i: u32, j: u32) -> Verdict {
         if !self.active {
             return Verdict::Allow;
@@ -561,26 +639,7 @@ impl PairConstraint {
         if self.mask.as_ref().is_some_and(|m| !m.allows(i, j)) {
             return Verdict::Forbid;
         }
-        let mut penalty = 0i32;
-        // The pair's class: two index compares and a table lookup.
-        if let Some(enf) = self.classes[self.class_of(i, j) as usize] {
-            match enf {
-                Enforcement::Forbid => return Verdict::Forbid,
-                Enforcement::Penalize(w) => penalty += w.0,
-            }
-        }
-        // Accessibility window: either endpoint inside the window.
-        if let Some((_, _, enf)) = self.window.filter(|_| self.in_window(i, j)) {
-            match enf {
-                Enforcement::Forbid => return Verdict::Forbid,
-                Enforcement::Penalize(w) => penalty += w.0,
-            }
-        }
-        if penalty != 0 {
-            Verdict::Penalize(Energy(penalty))
-        } else {
-            Verdict::Allow
-        }
+        self.verdicts[self.code(i) * CODES + self.code(j)]
     }
 }
 
@@ -742,6 +801,66 @@ mod tests {
             PairClass::ALL.iter().filter(|c| c.is_crossing()).count(),
             PairClass::CROSSING.len()
         );
+    }
+
+    /// The verdict computed directly from the class table and the window, pair
+    /// by pair, for checking the table [`PairConstraint::verdict`] reads.
+    fn direct_verdict(c: &PairConstraint, i: u32, j: u32) -> Verdict {
+        if !c.active {
+            return Verdict::Allow;
+        }
+        let mut penalty = 0i32;
+        let enforcements = [
+            c.classes[c.class_of(i, j) as usize],
+            c.window.filter(|_| c.in_window(i, j)).map(|(_, _, e)| e),
+        ];
+        for enf in enforcements.into_iter().flatten() {
+            match enf {
+                Enforcement::Forbid => return Verdict::Forbid,
+                Enforcement::Penalize(w) => penalty += w.0,
+            }
+        }
+        if penalty != 0 {
+            Verdict::Penalize(Energy(penalty))
+        } else {
+            Verdict::Allow
+        }
+    }
+
+    #[test]
+    fn the_verdict_table_agrees_with_the_direct_verdict_on_every_pair() {
+        let soft = |w| Enforcement::Penalize(Energy(w));
+        let tables = [
+            RegionConstraints::default(),
+            RegionConstraints::no_clamp(Enforcement::Forbid),
+            RegionConstraints::symmetric_isolation(soft(50))
+                .with_window(AccessibilityWindow::hard(2, 3)),
+            RegionConstraints::full_mutual_isolation(soft(30))
+                .with(PairClass::CdsCds, soft(7))
+                .with_window(AccessibilityWindow {
+                    upstream: 9,
+                    downstream: 2,
+                    enforcement: soft(11),
+                }),
+            RegionConstraints::five_prime_isolation(Enforcement::Forbid)
+                .with_cds_suffix(3)
+                .with_window(AccessibilityWindow::hard(1, 1)),
+        ];
+        let dfa = dfa_with_utr("MKV", 5, 7);
+        let mut penalized = 0;
+        for rc in tables {
+            let constraint = PairConstraint::new(&rc, &dfa);
+            for i in 0..dfa.seq_len {
+                for j in (i + 1)..dfa.seq_len {
+                    let v = constraint.verdict(i, j);
+                    assert_eq!(v, direct_verdict(&constraint, i, j), "{rc:?} ({i}, {j})");
+                    penalized += usize::from(matches!(v, Verdict::Penalize(_)));
+                }
+            }
+        }
+        // Summed penalties are among the verdicts compared, so the soft half of
+        // the table is exercised and not only its allow/forbid half.
+        assert!(penalized > 0);
     }
 
     #[test]

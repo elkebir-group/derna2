@@ -1967,6 +1967,20 @@ impl AwareSide<'_> {
         }
     }
 
+    /// [`Self::term`] for the multi-loop list `M` (or `M2`) at `on` keyed
+    /// `mk`: `Some(None)` where no motif-free design passes through it, and
+    /// `None` where the side keeps no lists.
+    fn span_term(&self, on: Node, mk: &MKey, m2: bool) -> Option<Option<SideTerm>> {
+        match self {
+            Self::Zero(chain) => Some(
+                chain
+                    .around(mk.inner.node(), mk.q_inner, on, mk.q_outer)
+                    .map(|around| SideTerm::Fixed(-100.0 * around)),
+            ),
+            Self::Pass(pass) => pass.span_term(on, mk, m2).map(Some),
+        }
+    }
+
     /// A floor on every motif-free design through `pair`, closing into outer
     /// node `o`, at this side's weight; `None` where the side does not cover
     /// the pair.
@@ -2053,6 +2067,60 @@ impl AwareChord<'_> {
             _ => {}
         }
         PairLines::Hold(lines)
+    }
+
+    /// [`Self::pair_lines`] for the multi-loop list `M` (or `M2`) from
+    /// `inner` in automaton state `q_inner` to `on` in `q_outer`, without a
+    /// pair floor; `None` where a side keeps no lists, so the chord says
+    /// nothing about them.
+    ///
+    /// A list's outside at a side's weight floors every completion of its
+    /// points there, as a closed pair's does, so the same lines hold.
+    pub(crate) fn span_lines(
+        &self,
+        (inner, q_inner, on, q_outer, m2): (Node, u32, Node, u32, bool),
+        lambda: f64,
+        ceiling: f64,
+    ) -> Option<PairLines> {
+        let mk = MKey {
+            inner: inner.into(),
+            q_inner,
+            q_outer,
+        };
+        let Some(near) = self.near.span_term(on, &mk, m2)? else {
+            return Some(PairLines::Out);
+        };
+        let mut lines = SmallVec::new();
+        let Some((far_side, w)) = self.far else {
+            match near {
+                SideTerm::Fixed(v) => lines.push((lambda, ceiling - v)),
+                SideTerm::Above(c) if c > ceiling + BOUND_SLACK => return Some(PairLines::Out),
+                SideTerm::Above(_) => {}
+            }
+            return Some(PairLines::Hold(lines));
+        };
+        let Some(far) = far_side.span_term(on, &mk, m2)? else {
+            return Some(PairLines::Out);
+        };
+        let (l_near, l_far) = (self.near.lambda(), far_side.lambda());
+        match (near, far) {
+            (SideTerm::Fixed(a), SideTerm::Fixed(b)) => {
+                lines.push((lambda, ceiling - w * a - (1.0 - w) * b));
+            }
+            (SideTerm::Fixed(a), SideTerm::Above(c)) if w > 0.0 => {
+                lines.push((l_near, (ceiling - (1.0 - w) * c) / w - a));
+            }
+            (SideTerm::Above(c), SideTerm::Fixed(b)) if w < 1.0 => {
+                lines.push((l_far, (ceiling - w * c) / (1.0 - w) - b));
+            }
+            (SideTerm::Above(c), SideTerm::Above(d))
+                if w * c + (1.0 - w) * d > ceiling + BOUND_SLACK =>
+            {
+                return Some(PairLines::Out);
+            }
+            _ => {}
+        }
+        Some(PairLines::Hold(lines))
     }
 
     fn chord(&self, read: impl Fn(&AwareSide<'_>) -> Option<f64>) -> Option<f64> {

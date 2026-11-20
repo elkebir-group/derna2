@@ -58,6 +58,18 @@
 //! detects; it is settled before the fold, by comparing the ceiling against the
 //! achievable minimum ([`Bounds::resolve`]).
 //!
+//! # The exact credit beside the window
+//!
+//! Where a ceiling is given, each cell's completion is by default also credited
+//! with its exact cost to go ([`crate::cost_to_go::Outside`]), and the larger of
+//! the two admissible credits is used. That credit *can* empty a cell — every
+//! cell whose best molecule misses the ceiling — and an emptied cell is never
+//! composed, which is where most of a bounded fold's time and memory goes. The
+//! recovered (MFE, CAI) points are the same under either credit. Where several
+//! derivations tie on a point, the two can keep different ones, so the emitted
+//! sequences can differ while the front does not. [`Bounds::without_exact_credit`]
+//! applies the window alone.
+//!
 //! # The one unsound direction
 //!
 //! All of the above rests on `optimum` being no higher than the true minimum
@@ -151,7 +163,7 @@ impl Bounds {
         ceiling: None,
         credit_offset: Energy(0),
         credit_offset_scope: CreditScope::Everywhere,
-        exact_credit: false,
+        exact_credit: true,
         filter_offset: Some(Energy(0)),
         filter_offset_at: None,
         floor_cut: false,
@@ -171,24 +183,40 @@ impl Bounds {
     }
 
     /// Credit each cell's completion with its exact cost to go
-    /// ([`crate::cost_to_go::Outside`]) wherever one exists, instead of the
-    /// window alone.
+    /// ([`crate::cost_to_go::Outside`]) wherever one exists, beside the window.
     ///
-    /// The answer is the same either way; both credits are admissible and the
-    /// larger is used. What differs is what can be discarded. The window can
-    /// never empty a cell, since a cell's own best point is within any window of
-    /// itself; the exact credit empties every cell whose best molecule misses
-    /// the ceiling, and an emptied cell is never composed. The price is one
-    /// scalar `λ = 1` fold and one backward pass before the front fold starts.
-    ///
-    /// A credit offset applies to the exact credit exactly as to the window, so
-    /// the exactness tests' deliberate inadmissibility reaches both.
+    /// This is the default, so the call changes nothing on a box built by
+    /// [`Bounds::with_ceiling`] or taken from [`Bounds::UNBOUNDED`]; it undoes a
+    /// [`Bounds::without_exact_credit`] and keeps existing callers compiling.
     pub fn with_exact_credit(mut self) -> Self {
         self.exact_credit = true;
         self
     }
 
-    /// Whether the exact cost to go is credited where it exists.
+    /// Credit each cell's completion with the window alone, not with its exact
+    /// cost to go.
+    ///
+    /// The answer — the set of (MFE, CAI) points — is the same either way; both
+    /// credits are admissible and, with both, the larger is used. What differs
+    /// is what can be discarded. The window can never empty a cell, since a
+    /// cell's own best point is within any window of itself; the exact credit
+    /// empties every cell whose best molecule misses the ceiling, and an
+    /// emptied cell is never composed. Where several derivations of one point
+    /// tie, the two rules can keep different ones, so the emitted sequences can
+    /// differ. The window alone saves one scalar `λ = 1` fold and one backward
+    /// pass before the front fold starts, and costs every cell the exact credit
+    /// would have emptied.
+    ///
+    /// A credit offset applies to the exact credit exactly as to the window, so
+    /// the exactness tests' deliberate inadmissibility reaches both.
+    pub fn without_exact_credit(mut self) -> Self {
+        self.exact_credit = false;
+        self
+    }
+
+    /// Whether the exact cost to go is credited where it exists. True unless
+    /// [`Bounds::without_exact_credit`] was asked for; it is read only where a
+    /// ceiling is given.
     pub fn exact_credit(&self) -> bool {
         self.exact_credit
     }

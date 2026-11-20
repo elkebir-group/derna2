@@ -85,6 +85,7 @@ impl Fixture {
             constraints,
             config: ScanConfig::default(),
             budget: Duration::from_secs(120),
+            max_regions: None,
             branch_order: Default::default(),
             trajectory: false,
             seed: None,
@@ -268,4 +269,86 @@ fn a_flank_to_flank_table_is_never_cut_its_way_out_of() {
         report.cuts, 0,
         "no pair this table forbids has an endpoint a codon can reach"
     );
+}
+
+/// A cut may not take a position's **last** codon.
+///
+/// `cuttable` offered a position whenever its *current* codon was not already
+/// excluded, which never asked whether a codon would be left. On a residue with
+/// one codon that is true on the first blame, so the cut emptied the position
+/// and the next solve failed — reported as `Exhausted`, a stop on a space the
+/// cuts never examined rather than on the question asked.
+///
+/// `MPPAPPAW` is the recorded instance: a tryptophan at the end, and
+/// `Exhausted` after exactly one cut under every cut rule.
+#[test]
+fn a_cut_never_takes_a_one_codon_residues_only_codon() {
+    let f = Fixture::new("MPPAPPAW", MILD5);
+    // The premise, asserted rather than assumed: without a one-codon residue
+    // there is nothing here for a single cut to empty, and the test is a no-op.
+    let last = *f.aa.last().expect("a residue");
+    assert_eq!(
+        AMINO_ACIDS[last].codons.len(),
+        1,
+        "the last residue has synonyms, so one cut cannot empty it"
+    );
+    for rule in [CutRule::Single, CutRule::All] {
+        let report = cegar_search(&f.inputs(five_prime()), rule).expect("loop runs");
+        assert_ne!(
+            report.outcome,
+            CegarOutcome::Exhausted,
+            "{rule:?} cut its way into an empty space after {} cuts",
+            report.cuts
+        );
+        // And it declines for the documented reason: positions were blamed
+        // inside the coding sequence and none of them had a codon to spare.
+        assert_eq!(report.outcome, CegarOutcome::NoCut);
+        assert!(
+            report.stuck.named > 0 && report.stuck.in_cds > 0,
+            "{rule:?}: NoCut with nothing blamed ({:?}) says the table forbade \
+             nothing, which is a different claim",
+            report.stuck
+        );
+        assert_eq!(
+            report.stuck.cuttable, 0,
+            "{rule:?}: a position had a codon left, so NoCut is the wrong outcome"
+        );
+    }
+}
+
+/// The same guard, on a residue with **four** codons.
+///
+/// The defect is not one-codon residues: `cuttable` re-offers a position every
+/// round as its codon changes, so a four-codon residue is emptied by its fourth
+/// cut exactly as a tryptophan is by its first. `MPPPPPP` is that instance —
+/// four cuts to `Exhausted`, every cut on the same proline, and no one-codon
+/// residue involved other than the start methionine, which is never blamed
+/// here.
+#[test]
+fn a_cut_never_takes_a_multi_codon_residues_last_codon() {
+    let f = Fixture::new("MPPPPPP", MILD5);
+    // The premise: every residue the loop can blame has synonyms, so an empty
+    // position can only be reached by cutting the same one repeatedly.
+    assert!(
+        f.aa[1..].iter().all(|&a| AMINO_ACIDS[a].codons.len() > 1),
+        "a one-codon residue here would make this the previous test again"
+    );
+    for rule in [CutRule::Single, CutRule::All] {
+        let report = cegar_search(&f.inputs(five_prime()), rule).expect("loop runs");
+        assert_ne!(
+            report.outcome,
+            CegarOutcome::Exhausted,
+            "{rule:?} emptied a four-codon residue after {} cuts",
+            report.cuts
+        );
+        // Non-vacuity: the loop has to have spent the position down to its last
+        // codon for the guard to be what stopped it. A run that never cut would
+        // satisfy the assertion above for free.
+        assert!(
+            report.cuts > 0,
+            "{rule:?} never cut, so the guard was never reached"
+        );
+        assert_eq!(report.outcome, CegarOutcome::NoCut);
+        assert_eq!(report.stuck.cuttable, 0);
+    }
 }

@@ -343,7 +343,9 @@ mod tests {
         assert!(seen[1].0 == "waited" && seen[1].1 >= 2, "{seen:?}");
     }
 
-    /// The first error stops the queue and is returned.
+    /// The first error stops the queue and is returned. Each task takes long
+    /// enough that the stop is seen long before the queue could drain, so the
+    /// count of tasks run does not depend on how the host schedules threads.
     #[test]
     fn an_error_stops_the_queue() {
         let ran = AtomicUsize::new(0);
@@ -353,6 +355,7 @@ mod tests {
             if i == 3 {
                 Err(i)
             } else {
+                std::thread::sleep(std::time::Duration::from_millis(20));
                 Ok(())
             }
         });

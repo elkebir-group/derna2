@@ -185,6 +185,24 @@ impl Budget {
         self.deadline
     }
 
+    /// Seconds between the deadline and now, read at the moment the walk
+    /// returns: `None` where the walk was given no deadline, `0.0` where it
+    /// returned at or before one.
+    ///
+    /// A deadline is read between units of work, so a unit already running
+    /// when it passes runs on to its end. This says how far past the
+    /// deadline the walk went, which nothing else in a result reports: a
+    /// wall clock also counts the setup before the deadline was set and the
+    /// writing after the walk returned, so the wall clock less the cap is a
+    /// different quantity.
+    pub(crate) fn overshoot(&self) -> Option<f64> {
+        self.deadline.map(|d| {
+            std::time::Instant::now()
+                .saturating_duration_since(d)
+                .as_secs_f64()
+        })
+    }
+
     fn record(&self, why: u8) {
         if self.sticky {
             let _ = self
@@ -440,6 +458,9 @@ pub(crate) struct End {
     pub timeline: Vec<TaskSpan>,
     /// What stopped the walk short, if anything did.
     pub stopped_by: Option<&'static str>,
+    /// Seconds between the budget's deadline and the queue's end, `None`
+    /// without a deadline ([`Budget::overshoot`]).
+    pub overshoot_s: Option<f64>,
     /// Wall seconds from the queue's start to its end.
     pub wall_s: f64,
 }
@@ -936,6 +957,19 @@ pub(crate) fn run<K: Kernel>(
             budget.spent() || k.probe_would_overrun((a, b), rest, &budget)
         }
         Task::Lone(_) | Task::Fold(_) => budget.spent(),
+        // A grid pass is a scan of the whole lattice and the longest unit of
+        // work a walk takes, so the passes still queued when the budget runs
+        // out are what carries a walk furthest past its deadline. They are
+        // skipped once both ends are known, which is when the ranges their
+        // optima would have split can be reported open between the nearest
+        // weights whose optima are: before that there is no hull to name a
+        // box against, and a pass that is itself an end is one of the two.
+        Task::Grid(_) => {
+            budget.spent()
+                && seeds
+                    .as_ref()
+                    .is_some_and(|s| s.lock().expect("the seeds' lock").ends_known())
+        }
         _ => false,
     };
     let probe = |(a, b): (K::Vertex, K::Vertex),
@@ -1154,11 +1188,22 @@ pub(crate) fn run<K: Kernel>(
             Ok::<(), BeamError>(())
         },
     )?;
-    let walk = walk.into_inner().expect("the walk's lock");
+    let mut walk = walk.into_inner().expect("the walk's lock");
+    // A range no pair was handed out for is as open as a pair handed out and
+    // not settled, and is reported with them: a grid pass that never ran
+    // leaves its weight's optimum unknown, and the range between the nearest
+    // two weights whose optima are known covers everything its pairs would
+    // have. A walk that ran every pass has handed every range out, so this
+    // adds nothing. The checkpoints already report the two together.
+    if let Some(seeds) = &seeds {
+        let unhanded = seeds.lock().expect("the seeds' lock").unhanded();
+        walk.outstanding.extend(unhanded.into_iter().flatten());
+    }
     let stopped_by = budget.reason(!walk.outstanding.is_empty());
     let end = End {
         timeline: timeline.into_inner().expect("the timeline's lock"),
         stopped_by,
+        overshoot_s: budget.overshoot(),
         wall_s: t.elapsed().as_secs_f64(),
     };
     kernel.finish(walk, end, threads)

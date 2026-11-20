@@ -601,3 +601,78 @@ fn a_motif_in_a_fixed_flank_warns_on_stderr_and_still_designs() {
     let point: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
     assert!(point["sequence"].as_str().unwrap().starts_with("ACGUACGU"));
 }
+
+/// Every modular run reports what it wrote and how its points fall over the
+/// gap, whether or not a motif set narrowed them.
+///
+/// The histogram is the only place the distribution is stated rather than
+/// left to be derived: the points' own `gap` fields carry it, but only for a
+/// reader who parses the result file, and a run whose points all sit at one
+/// gap is indistinguishable at a glance from one that spreads over several.
+/// The motif path is the one that most needs it, since a motif set is part of
+/// what decides which gaps are reachable at all — and it is the path the line
+/// was once missing from, while the path without motifs had it.
+///
+/// Both arms assert a non-empty histogram, not merely a line: a run that
+/// returned no point prints `by gap none`, which would satisfy a `contains`
+/// on the label while establishing nothing about the tally.
+#[test]
+fn a_modular_run_reports_its_points_by_gap_with_and_without_motifs() {
+    for motif in [None, Some("GGC")] {
+        let mut args = vec![
+            "front",
+            "--protein",
+            "MPRGLA",
+            "--utr5",
+            "CCGCGG",
+            "--modular",
+            // The stop is a lattice slot, so a run that omits `--stop`
+            // designs one and returns a different front. Pinning it keeps
+            // this cell the one the other modular tests assert on.
+            "--stop",
+            "none",
+        ];
+        if let Some(pattern) = motif {
+            args.extend(["--motif", pattern]);
+        }
+        let out = run(&args);
+        let err = stderr_of(&out);
+        let at = format!("motif {motif:?}");
+        assert!(out.status.success(), "{at}: {err}");
+
+        let line = err
+            .lines()
+            .find(|l| l.starts_with("wrote "))
+            .unwrap_or_else(|| panic!("{at}: no line reporting what was written:\n{err}"));
+        let (count, histogram) = line
+            .trim_start_matches("wrote ")
+            .split_once(" point(s), by gap ")
+            .unwrap_or_else(|| panic!("{at}: {line}"));
+        let count: usize = count.parse().unwrap_or_else(|_| panic!("{at}: {line}"));
+
+        // A tally of nothing would pass a test that only looked for the
+        // label, so the instance is one that returns points and the arms are
+        // held to that.
+        assert!(count > 0, "{at}: {line}");
+        let histogram = histogram.split(" (").next().unwrap();
+        assert_ne!(
+            histogram, "none",
+            "{at}: {count} point(s) but no gap: {line}"
+        );
+        // `0.00×3`, least gap first: every step is a gap and a count.
+        let steps: Vec<&str> = histogram.split_whitespace().collect();
+        assert!(!steps.is_empty(), "{at}: {line}");
+        let total: usize = steps
+            .iter()
+            .map(|s| {
+                let (gap, n) = s.split_once('×').unwrap_or_else(|| panic!("{at}: {s}"));
+                gap.parse::<f64>().unwrap_or_else(|_| panic!("{at}: {s}"));
+                n.parse::<usize>().unwrap_or_else(|_| panic!("{at}: {s}"))
+            })
+            .sum();
+        assert_eq!(
+            total, count,
+            "{at}: the histogram counts every point: {line}"
+        );
+    }
+}

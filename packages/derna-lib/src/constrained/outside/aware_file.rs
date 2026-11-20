@@ -172,6 +172,7 @@ impl AwarePass {
             design,
             outside,
             through,
+            lists: None,
         })
     }
 }

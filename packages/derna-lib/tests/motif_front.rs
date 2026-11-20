@@ -1155,6 +1155,88 @@ fn aware_seeds_keep_the_front() {
     assert!(seeded > 0, "no walk seeded a vertex");
 }
 
+/// Starting each aware pass's ceiling search at the slack seen at the nearest
+/// weight changes the folds the passes take and nothing the walk returns.
+///
+/// On every cell, with every weight's pass also run over the constrained
+/// lattice, the walk with the learned start gives the other's points, designs
+/// and hull vertices, and across the cells the two modes take different
+/// folds: the learned start is not ignored.
+#[test]
+fn a_learned_aware_start_keeps_the_front() {
+    let (params, usage) = (
+        Params::load_default().unwrap(),
+        CodonUsage::load_default().unwrap(),
+    );
+    let designs = |front: &[FrontPoint]| -> Vec<(String, String)> {
+        front
+            .iter()
+            .map(|p| (p.sequence.clone(), p.structure.clone()))
+            .collect()
+    };
+    let longer = Cell {
+        protein: "MFVFLVLLPLVSSQCVNLTTRTQLPPAYTNSFTRGVYYPDK",
+        utr5: "",
+        utr3: "",
+        constraints: RegionConstraints::default(),
+        motifs: &["GGGGG", "CCCCC", "GAAUUC", "GGAUCC"],
+    };
+    let mut cases: Vec<Cell> = cells().into_iter().map(|(c, _)| c).collect();
+    cases.push(longer);
+    let (mut walks, mut differing) = (0, 0);
+    for cell in cases {
+        let spec = MotifFrontSpec {
+            utr5: cell.utr5,
+            utr3: cell.utr3,
+            constraints: cell.constraints,
+            motifs: &cell.placed(),
+            pins: None,
+        };
+        let walk = |learn: bool| {
+            let run = MotifRun {
+                aware_upto: Some(1.0),
+                aware_learn: Some(learn),
+                ..MotifRun::default()
+            };
+            motif_front_walk_run(&params, cell.protein, &usage, &spec, 1, run)
+        };
+        let (Ok(plain), Ok(learned)) = (walk(false), walk(true)) else {
+            continue;
+        };
+        assert_eq!(
+            points(&learned.front),
+            points(&plain.front),
+            "{}",
+            cell.protein
+        );
+        assert_eq!(
+            designs(&learned.front),
+            designs(&plain.front),
+            "{}",
+            cell.protein
+        );
+        assert_eq!(learned.vertices, plain.vertices, "{}", cell.protein);
+        // The aware passes' folds and final margins, in weight order.
+        let shape = |w: &MotifWalk| -> Vec<(usize, u64)> {
+            let mut passes: Vec<_> = w.passes.iter().collect();
+            passes.sort_by(|a, b| a.lambda.total_cmp(&b.lambda));
+            passes
+                .iter()
+                .map(|p| (p.aware_folds, p.aware_margin.to_bits()))
+                .collect()
+        };
+        assert!(
+            shape(&plain).iter().any(|&(folds, _)| folds > 0),
+            "{}: no aware pass was taken",
+            cell.protein
+        );
+        differing += usize::from(shape(&learned) != shape(&plain));
+        walks += 1;
+    }
+    assert!(walks > 1, "too few cells walked: {walks}");
+    assert!(differing > 0, "the learned start changed no cell's folds");
+}
+
 /// A front narrowed from one under fewer motifs is the front walked from the
 /// ends: the same points and hull vertices, each design free of every motif.
 /// Each cell's front under its own motifs is narrowed to that set plus one

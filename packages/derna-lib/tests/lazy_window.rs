@@ -10,7 +10,7 @@
 
 use derna_codon_dp::codon_table::{aa_to_index, AMINO_ACIDS};
 use derna_lib::outside::lazy::window::{
-    adaptation, window_front, window_front_sharing, WindowReport,
+    adaptation, window_front, window_front_sharing, PassCache, WindowReport,
 };
 use derna_lib::outside::lazy::{Build, ExactFold, Verify, Walk};
 use derna_lib::{
@@ -161,6 +161,7 @@ fn wide() -> Verify {
         witness_stop: 1,
         witness_promote: true,
         fold_slots: 1,
+        window_slots: 0,
         handoff_batch: 8,
         fold: ExactFold::SparseCut,
         ..Verify::folds(4)
@@ -183,6 +184,8 @@ struct Coverage {
     tight: usize,
     cut_outside: u64,
     cut_covered: u64,
+    window_deferred: u64,
+    window_copies: u64,
 }
 
 /// Every cut the bound makes has one reason: the derivation's completions
@@ -225,7 +228,7 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
         (min, q(0.3)),
         (q(0.9), max),
     ];
-    for (lo, hi) in windows {
+    for (wi, (lo, hi)) in windows.into_iter().enumerate() {
         let want = pareto(
             all.iter()
                 .filter(|p| p.in_s && p.cai >= lo - CAI_TOL && p.cai <= hi + CAI_TOL),
@@ -260,7 +263,7 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
         };
         // By energy under every walk and check; at two slopes, one with the
         // windowed fold in front of the exact one, and with the energy bound.
-        let configs: [(f64, &[f64], Verify, Walk); 10] = [
+        let configs: [(f64, &[f64], Verify, Walk); 12] = [
             (0.0, &[], Verify::folds(1), Walk::from(Build::Production)),
             (0.0, &[], Verify::folds(1), DEDUP),
             (0.0, &[], wide(), DEDUP),
@@ -270,6 +273,31 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
                 &[],
                 Verify {
                     window: Some((3, 3)),
+                    ..wide()
+                },
+                DEDUP,
+            ),
+            // One windowed fold at a time: the other workers' designs wait
+            // and are offered its structure; then with windowed folds
+            // copying from recent ones as well.
+            (
+                30.0,
+                &[],
+                Verify {
+                    window: Some((3, 3)),
+                    window_slots: 1,
+                    ..wide()
+                },
+                DEDUP,
+            ),
+            (
+                30.0,
+                &[],
+                Verify {
+                    window: Some((3, 3)),
+                    window_slots: 1,
+                    window_reuse: true,
+                    fold_reuse: 8,
                     ..wide()
                 },
                 DEDUP,
@@ -314,6 +342,62 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
             cov.cut += got.stats.bound_cut;
             cov.energy_cut += got.energy_cut;
             cov.closed += got.stats.bound_nodes_closed;
+            cov.window_deferred += got.window_deferred;
+        }
+        // The windowed-fold cache is sized apart from the full-fold one: four
+        // windowed folds kept in front of a full cache at its production size
+        // return the window's whole front, and so does a windowed cache of
+        // none beside the same full cache. With no witnesses every design
+        // reaches a windowed fold, so the small cache is populated, consulted,
+        // and written over, four entries against more designs than that.
+        //
+        // The pair is the equality's own control: the cells copied must be
+        // positive on the first and zero on the second, since the one
+        // difference between them is the windowed cache's size. Without it
+        // the equality would read the same on a cache nothing ever consulted.
+        //
+        // The widest window only (`wi == 0`): it holds every design, so it
+        // folds the most and copies the most, and a run with no witnesses and
+        // 512 folds kept is the costliest configuration in this file.
+        let sizes: &[(usize, bool)] = if wi == 0 {
+            &[(4, true), (0, false)]
+        } else {
+            &[]
+        };
+        for &(size, copies) in sizes {
+            let got = run(
+                &params,
+                &usage,
+                case,
+                (lo, hi, &[]),
+                (30.0, &[]),
+                u64::MAX,
+                Verify {
+                    witnesses: 0,
+                    window: Some((3, 3)),
+                    window_slots: 1,
+                    window_reuse: true,
+                    fold_reuse: 512,
+                    window_reuse_size: Some(size),
+                    ..wide()
+                },
+                DEDUP,
+            );
+            same(&format!("windowed cache of {size}"), &got, &want);
+            cuts_by_reason(&got, cov);
+            cov.cut += got.stats.bound_cut;
+            cov.closed += got.stats.bound_nodes_closed;
+            cov.window_deferred += got.window_deferred;
+            if copies {
+                cov.window_copies += got.window_cells_copied;
+            } else {
+                assert_eq!(
+                    got.window_cells_copied, 0,
+                    "{}: [{lo}, {hi}] a windowed cache of none copied cells, so the size \
+                     the check reads is not the windowed one",
+                    case.protein
+                );
+            }
         }
         // Stand-ins one dekacalorie above every front point dominate nothing
         // the front holds, so the front is unchanged, and every stair the
@@ -527,6 +611,113 @@ fn assert_windows(case: &Case<'_>, cov: &mut Coverage) {
     }
 }
 
+/// Windowed slots change which designs are folded, never the front. With no
+/// witnesses every design reaches a windowed fold, so four workers sharing
+/// one slot leave designs waiting; the front's objectives then match a run
+/// with no slots. Ties may be spelled differently, as at another thread
+/// count, so only the objectives are compared. Some cases' whole range holds
+/// no modular point, so the non-vacuity checks are over all of them.
+#[test]
+fn windowed_slots_change_no_front() {
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let three_class = RegionConstraints::full_mutual_isolation(Enforcement::Forbid);
+    let cases = [
+        Case {
+            protein: "MLRS",
+            utr5: "AAAAAA",
+            utr3: "AAAAAA",
+            constraints: RegionConstraints::symmetric_isolation(Enforcement::Forbid),
+        },
+        Case {
+            protein: "MLRS",
+            utr5: "GGGAUCCG",
+            utr3: "AAAAAAAA",
+            constraints: RegionConstraints::five_prime_isolation(Enforcement::Forbid)
+                .with(PairClass::Utr5Utr3, Enforcement::Forbid),
+        },
+        Case {
+            protein: "MLRS",
+            utr5: "GGGAUC",
+            utr3: "GAUCCC",
+            constraints: three_class,
+        },
+        Case {
+            protein: "GLRSA",
+            utr5: "GGCGC",
+            utr3: "GCGCC",
+            constraints: three_class,
+        },
+    ];
+    let check = |window_slots: usize, window_reuse: bool| Verify {
+        witnesses: 0,
+        window: Some((3, 3)),
+        window_slots,
+        window_reuse,
+        fold_reuse: if window_reuse { 8 } else { 0 },
+        ..wide()
+    };
+    let objectives = |r: &WindowReport| -> Vec<(i32, i64)> {
+        r.front
+            .iter()
+            .map(|p| (p.energy, (p.cai * 1e9).round() as i64))
+            .collect()
+    };
+    let (mut points, mut window_rejects, mut waited) = (0, 0, [0u64; 2]);
+    for case in &cases {
+        let cais: Vec<f64> = enumerate(&params, &usage, case)
+            .iter()
+            .map(|p| p.cai)
+            .collect();
+        let lo = cais.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = cais.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let walk = |verify: Verify| {
+            run(
+                &params,
+                &usage,
+                case,
+                (lo, hi, &[]),
+                (30.0, &[]),
+                u64::MAX,
+                verify,
+                DEDUP,
+            )
+        };
+        let plain = walk(check(0, false));
+        assert!(
+            plain.complete,
+            "{}: the plain walk did not finish",
+            case.protein
+        );
+        points += plain.front.len();
+        window_rejects += plain.window_rejects;
+        for (i, reuse) in [false, true].into_iter().enumerate() {
+            let slotted = walk(check(1, reuse));
+            assert!(
+                slotted.complete,
+                "{}: the slotted walk did not finish",
+                case.protein
+            );
+            assert_eq!(
+                objectives(&slotted),
+                objectives(&plain),
+                "{}: one windowed slot (reuse {reuse}) changed the front",
+                case.protein
+            );
+            waited[i] += slotted.window_deferred;
+        }
+    }
+    eprintln!(
+        "front points {points}, windowed rejections {window_rejects}, designs that waited {waited:?}"
+    );
+    assert!(points > 0, "no case's front held a point");
+    assert!(window_rejects > 0, "no windowed fold rejected a design");
+    assert!(
+        waited.iter().all(|&w| w > 0),
+        "no design waited for the one windowed slot: {waited:?}"
+    );
+}
+
 /// A cut held by the caller is built into once and then reused: every window
 /// walked with it returns exactly the front a walk building its own cut
 /// returns, and only the first walk pays for the build.
@@ -575,6 +766,7 @@ fn a_shared_cut_changes_no_window_front() {
             wide(),
             DEDUP,
             (Some(&shared), 0),
+            None,
             None,
         )
         .expect("the walk runs")
@@ -759,6 +951,18 @@ fn the_window_front_is_the_enumerated_front() {
     assert!(cov.budget_stops > 0, "no walk was cut short: {cov:?}");
     assert!(cov.capped > 0, "no walk ended at its cap: {cov:?}");
     assert!(cov.resumed > 0, "no walk was resumed: {cov:?}");
+    assert!(
+        cov.window_copies > 0,
+        "no windowed fold copied a cell from the four-entry windowed cache, so the fronts \
+         it returned say nothing about it: {cov:?}"
+    );
+    // Designs this small rarely wait for a windowed slot: each windowed fold
+    // is too quick for two to overlap. `windowed_slots_change_no_front` is
+    // the case built so that they do.
+    eprintln!(
+        "designs that waited for a windowed slot: {}",
+        cov.window_deferred
+    );
 }
 
 /// A window whose time is spent before its setup ends stops there: no
@@ -806,4 +1010,147 @@ fn a_spent_budget_stops_the_window_in_its_setup() {
     assert_eq!(got.open, [(got.cai_min, got.cai_max)], "{got:?}");
     assert_eq!(got.stats.stopped, "seconds", "{got:?}");
     assert!(got.stopped_in_setup, "{got:?}");
+}
+
+/// Walks of one molecule at one slope repeat the energy bound's weights bit
+/// for bit: a cache held by the caller computes each pass once, not once per
+/// walk, and the front each walk returns is the front a walk taking every
+/// pass afresh returns. The pass at the walk's own weight is the exception: it
+/// keeps its tables for the walk, so it is taken afresh each time.
+#[test]
+fn a_pass_cache_computes_each_weight_once_and_changes_no_front() {
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let case = Case {
+        protein: "GLRSA",
+        utr5: "GGCGC",
+        utr3: "GCGCC",
+        constraints: RegionConstraints::full_mutual_isolation(Enforcement::Forbid),
+    };
+    let all = enumerate(&params, &usage, &case);
+    let mut cais: Vec<f64> = all.iter().map(|p| p.cai).collect();
+    cais.sort_by(f64::total_cmp);
+    let q = |f: f64| cais[((cais.len() - 1) as f64 * f) as usize];
+    let cache = PassCache::default();
+    let walk = |lo: f64, hi: f64, passes: Option<&PassCache>| {
+        window_front_sharing(
+            &params,
+            case.protein,
+            &usage,
+            &full_sets(case.protein),
+            case.utr5,
+            case.utr3,
+            case.constraints,
+            ScanConfig::default(),
+            (lo, hi),
+            30.0,
+            &[],
+            &ENERGY,
+            u64::MAX,
+            f64::INFINITY,
+            wide(),
+            DEDUP,
+            (None, 0),
+            passes,
+            None,
+        )
+        .expect("the walk runs")
+        .expect("a lattice")
+    };
+    let key = |r: &WindowReport| -> Vec<(i32, String)> {
+        r.front
+            .iter()
+            .map(|p| (p.energy, p.sequence.clone()))
+            .collect()
+    };
+    let mut seen = 0;
+    for (n, (lo, hi)) in [(q(0.0), q(1.0)), (q(0.5), q(1.0)), (q(0.25), q(0.75))]
+        .into_iter()
+        .enumerate()
+    {
+        let fresh = walk(lo, hi, None);
+        let cached = walk(lo, hi, Some(&cache));
+        assert_eq!(key(&fresh), key(&cached), "window [{lo}, {hi}]");
+        assert_eq!(fresh.energy_cut, cached.energy_cut, "window [{lo}, {hi}]");
+        assert_eq!(fresh.complete, cached.complete);
+        let now = cache.computed();
+        if n == 0 {
+            // Every weight, and the walk's own slope when no weight is it.
+            assert!(now >= ENERGY.len() as u64, "{now} passes computed");
+        } else {
+            assert_eq!(now - seen, 1, "walk {n} computed {} passes", now - seen);
+        }
+        seen = now;
+    }
+}
+
+/// Walks of one molecule at one slope share one production scan: a cache held
+/// by the caller runs the scan once however many windows are walked, a walk at
+/// another slope scans again, and the fronts are those of walks sharing
+/// nothing. The count is of scans run, so a cache that was ignored (every walk
+/// scanning for itself) fails it where an output comparison would not; the
+/// last leg shows the count moves when a scan is run.
+#[test]
+fn a_pass_cache_runs_the_production_scan_once_per_slope() {
+    let params = Params::load_default().expect("params");
+    let usage = CodonUsage::load_default().expect("usage");
+    let case = Case {
+        protein: "GLRSA",
+        utr5: "GGCGC",
+        utr3: "GCGCC",
+        constraints: RegionConstraints::full_mutual_isolation(Enforcement::Forbid),
+    };
+    let all = enumerate(&params, &usage, &case);
+    let mut cais: Vec<f64> = all.iter().map(|p| p.cai).collect();
+    cais.sort_by(f64::total_cmp);
+    let q = |f: f64| cais[((cais.len() - 1) as f64 * f) as usize];
+    let windows = [(q(0.0), q(1.0)), (q(0.5), q(1.0)), (q(0.25), q(0.75))];
+    let walk = |(lo, hi): (f64, f64), mu: f64, energy: &[f64], passes: Option<&PassCache>| {
+        window_front_sharing(
+            &params,
+            case.protein,
+            &usage,
+            &full_sets(case.protein),
+            case.utr5,
+            case.utr3,
+            case.constraints,
+            ScanConfig::default(),
+            (lo, hi),
+            mu,
+            &[],
+            energy,
+            u64::MAX,
+            f64::INFINITY,
+            wide(),
+            DEDUP,
+            (None, 0),
+            passes,
+            None,
+        )
+        .expect("the walk runs")
+        .expect("a lattice")
+    };
+    let key = |r: &WindowReport| -> Vec<(i32, String)> {
+        r.front
+            .iter()
+            .map(|p| (p.energy, p.sequence.clone()))
+            .collect()
+    };
+    // With the energy bound's passes (the scan is the pass at the walk's own
+    // weight) and without (the walk's scan is taken ahead of the walk).
+    for energy in [&ENERGY[..], &[]] {
+        let cache = PassCache::default();
+        for (n, &w) in windows.iter().enumerate() {
+            let fresh = walk(w, 30.0, energy, None);
+            let shared = walk(w, 30.0, energy, Some(&cache));
+            assert_eq!(key(&fresh), key(&shared), "window {w:?}");
+            assert_eq!(fresh.complete, shared.complete);
+            assert_eq!(cache.scans(), 1, "walk {n} scanned again");
+        }
+        // Another slope is another weight: a scan, and the first one is gone.
+        walk(windows[0], 31.0, energy, Some(&cache));
+        assert_eq!(cache.scans(), 2, "a new slope scans");
+        walk(windows[0], 31.0, energy, Some(&cache));
+        assert_eq!(cache.scans(), 2);
+    }
 }

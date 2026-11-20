@@ -140,7 +140,7 @@ fn tied_in(
         UtrProfile::inert(),
         || Err(BeamError::Infeasible),
         Prune::None,
-        Bounds::with_ceiling(Ceiling::Absolute(energy)).with_exact_credit(),
+        Bounds::with_ceiling(Ceiling::Absolute(energy)),
         1,
         Some(&band),
     )?;

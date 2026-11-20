@@ -201,6 +201,66 @@ fn a_budget_returns_front_points_and_names_what_is_open() {
     assert!(point_lo > whole_lo, "the open boxes were not needed");
 }
 
+/// A grid pass is the longest unit of work a walk takes, and the passes
+/// still queued when the time budget runs out are what carries a walk
+/// furthest past its deadline: a budget read between units cannot interrupt
+/// one, so each pass left in the queue would run whole. They are skipped
+/// once both ends are known — before that there is no hull to name a box
+/// against — and the ranges their optima would have split are reported open
+/// between the nearest weights whose optima are known, so nothing the walk
+/// did not reach goes unsaid.
+#[test]
+fn a_spent_time_budget_leaves_the_grid_passes_it_has_not_taken() {
+    let passes = |w: &derna_lib::WalkedFront| {
+        w.timeline
+            .iter()
+            .filter(|s| s.kind == derna_lib::TaskKind::Grid)
+            .count()
+    };
+    let whole = walk(WalkBudget::default());
+    assert!(whole.stopped_by.is_none(), "{:?}", whole.stopped_by);
+    // A grid of one pass would leave a stopped walk no pass to skip, and the
+    // comparison below would pass on a walk that skipped nothing.
+    assert!(
+        passes(&whole) > 1,
+        "the whole walk took {} grid pass(es)",
+        passes(&whole)
+    );
+
+    let stopped = walk(WalkBudget {
+        max_secs: Some(1e-6),
+        ..WalkBudget::default()
+    });
+    assert_eq!(stopped.stopped_by, Some("time"));
+    assert!(
+        passes(&stopped) < passes(&whole),
+        "a walk whose budget was spent before its first pass took all {} of them",
+        passes(&whole)
+    );
+
+    // What the skipped passes would have covered is open, and every point
+    // the whole front holds and this one does not lies in one of its boxes:
+    // a skipped pass must widen a box, never drop a range from the answer.
+    assert!(!stopped.open.is_empty());
+    let here = common::front_objectives(&stopped.front);
+    let holds = |mfe: i32| here.iter().any(|p| p.mfe == mfe);
+    let inside = |mfe: i32| {
+        stopped.open.iter().any(|(a, b)| {
+            let (lo, hi) = (
+                (a.mfe_kcal_mol * 100.0).round() as i32,
+                (b.mfe_kcal_mol * 100.0).round() as i32,
+            );
+            lo <= mfe && mfe <= hi
+        })
+    };
+    for point in common::front_objectives(&whole.front) {
+        assert!(
+            holds(point.mfe) || inside(point.mfe),
+            "{point:?} is missing from the stopped front and from every box it left open"
+        );
+    }
+}
+
 /// A memory cap below what the process already holds stops the walk too, and
 /// says so: the two budgets are read by the same check and reported apart.
 ///
@@ -250,8 +310,26 @@ fn a_resumed_walk_returns_the_whole_front() {
     );
     assert!(resumed.stopped_by.is_none(), "{:?}", resumed.stopped_by);
     assert!(resumed.open.is_empty(), "{:?}", resumed.open);
-    // No end was folded: the hull came from the file.
-    assert_eq!(resumed.sweep_scans, stopped.open.len());
+    // No end was folded: the hull came from the file. Counting the sweep's
+    // scans says so only while every box resumed is a pair of adjacent grid
+    // optima needing one scan each; a budget spent before its passes were
+    // taken leaves one wide box instead, and the resume bisects it. The
+    // timeline says what the count stood in for.
+    assert_eq!(
+        resumed
+            .timeline
+            .iter()
+            .filter(|s| s.kind == derna_lib::TaskKind::End)
+            .count(),
+        0,
+        "a resumed walk folded an end"
+    );
+    assert!(
+        resumed.sweep_scans >= stopped.open.len(),
+        "{} scan(s) for {} box(es)",
+        resumed.sweep_scans,
+        stopped.open.len()
+    );
     // And the hull it reports is the whole walk's, the ends it was handed
     // among them, so a caller reading `on_hull` from a resumed front sees the
     // same vertices as from a front walked in one run.

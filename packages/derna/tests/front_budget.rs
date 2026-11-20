@@ -103,6 +103,46 @@ fn a_budgeted_plain_front_says_what_it_left_open() {
     assert!(point_lo > whole_lo, "the open boxes were not needed");
 }
 
+/// A time budget is read between units of work, so a unit already running
+/// when the deadline passes runs on to its end and the walk returns late.
+/// `overshoot_s` is how late, and it is what tells a run that stopped at its
+/// deadline from one that stopped long past it: both say `stopped_by: time`,
+/// and the wall clock cannot separate them, since it also counts the setup
+/// before the deadline was set and the writing after the walk returned.
+#[test]
+fn a_front_says_how_far_past_its_deadline_it_ran() {
+    // No deadline is not a zero: a walk given none overran nothing, and one
+    // that returned inside its deadline reads 0.0 below.
+    let whole = front_file(&[], &scratch("overshoot-none.jsonl"));
+    assert_eq!(whole.header["overshoot_s"], serde_json::Value::Null);
+
+    // A deadline that passes before the first unit of work finishes. The
+    // ends and the grid are folded whatever the budget says, so the walk
+    // returns past the deadline and the field carries how far.
+    let late = front_file(
+        &["--max-secs", "0.000001"],
+        &scratch("overshoot-late.jsonl"),
+    );
+    assert_eq!(late.header["stopped_by"], "time");
+    let over = late.header["overshoot_s"]
+        .as_f64()
+        .expect("a budgeted walk records its overshoot");
+    assert!(
+        over > 0.0,
+        "a walk whose deadline passed in its first unit of work reports no overshoot: {over}"
+    );
+
+    // The same field on a walk that finished inside its deadline, which is
+    // the comparison the field exists to make.
+    let roomy = front_file(&["--max-secs", "600"], &scratch("overshoot-roomy.jsonl"));
+    assert_eq!(roomy.header["complete"], true);
+    assert_eq!(
+        roomy.header["overshoot_s"].as_f64(),
+        Some(0.0),
+        "a walk that returned inside its deadline reports an overshoot"
+    );
+}
+
 /// A stopped front is not a front to build on: the modular
 /// search would certify its designs against a front still missing points.
 /// A plain `front` would write a stopped walk out again without what it solved
@@ -179,6 +219,60 @@ fn a_budget_reaches_the_search_on_a_front_that_is_read_back() {
     let read = show::read(Some(&out)).unwrap();
     assert_eq!(read.header["modular_front"], true);
     assert_eq!(read.header["max_secs"], 600.0);
+    // `overshoot_s` is the search's here, for the same reason `max_secs` is:
+    // one name for one quantity, whichever phase the budget governed. How
+    // far past a deadline a search runs is asserted below, on a deadline
+    // short enough that it must; here the budget is generous, and on a
+    // loaded machine a generous budget is not a budget the run finishes
+    // inside.
+    let over = read.header["overshoot_s"]
+        .as_f64()
+        .expect("a budgeted search records its overshoot");
+    assert!(over >= 0.0, "{over}");
+}
+
+/// The search's own overrun, read the same way as the walk's: a deadline
+/// that passes inside the first unit of work is returned past, and the field
+/// says by how much.
+///
+/// The budget governs the search here and the walk is not run at all, so the
+/// field is the search's — one name for one quantity, whichever phase
+/// `--max-secs` governed in the run that wrote the file.
+#[test]
+fn a_modular_search_says_how_far_past_its_deadline_it_ran() {
+    let whole = scratch("so-overshoot-front.jsonl");
+    front_file(&["--forbid", "5-cds,cds-3"], &whole);
+    let out = scratch("so-overshoot.jsonl");
+    let argv = words(&[
+        "--protein",
+        PROTEIN,
+        "--utr5",
+        UTR5,
+        "--utr3",
+        UTR3,
+        "--forbid",
+        "5-cds,cds-3",
+        "--front-from",
+        whole.to_str().unwrap(),
+        "--modular",
+        // Shorter than the first point's check, so the deadline passes
+        // inside the first unit of work whatever the machine is doing.
+        "--max-secs",
+        "0.001",
+        "--threads",
+        "2",
+        "--out",
+        out.to_str().unwrap(),
+    ]);
+    front::run(&front::parse(argv).unwrap()).unwrap();
+    let read = show::read(Some(&out)).unwrap();
+    let over = read.header["overshoot_s"]
+        .as_f64()
+        .expect("a budgeted search records its overshoot");
+    assert!(
+        over > 0.0,
+        "a search whose deadline passed in its first unit of work reports no overshoot: {over}"
+    );
 }
 
 /// The search's give-up policy is in the header, so an absent `gave_up` can be

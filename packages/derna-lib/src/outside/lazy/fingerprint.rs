@@ -8,23 +8,23 @@
 //! derivation, where spelling the sequence is O(length), and it depends only
 //! on the sequence (and the pairs), not on how the tree splits it.
 //!
-//! The sequence half is 128 bits. Equal sequences always fingerprint equal;
-//! two different sequences fingerprint equal only if two independent 64-bit
-//! sums of pseudo-random keys both agree. The walk keys its design set by it,
-//! so a collision would pass over a design as already seen. Over `D` designs
-//! that has probability about `D² / 2¹²⁹`: under 2·10⁻²¹ at a billion designs.
-//! Debug builds check every fingerprint against the spelled sequence.
+//! The sequence lane is 64 bits. Equal sequences always fingerprint equal;
+//! two different sequences can fingerprint equal too, so a fingerprint only
+//! says where two derivations *may* spell the same thing. The walk keeps one
+//! fingerprint per derivation, and wherever two agree it spells both
+//! derivations and compares them before treating one as a repeat
+//! ([`super::Forest::same_spelling`]): a collision costs that spelling and
+//! never passes over a design.
 //!
 //! Builds with debug assertions also carry a lane over the pairs, which only
 //! counts duplicate `(sequence, structure)` molecules — a check on the walk,
-//! not something it needs. Release builds leave it out: the walk keeps one
-//! fingerprint per derivation, and the lane was a third of it.
+//! not something it needs. Release builds leave it out.
 
-/// A derivation's fingerprint: two 64-bit lanes over its sequence and, with
+/// A derivation's fingerprint: a 64-bit lane over its sequence and, with
 /// debug assertions, one over its pairs.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(super) struct Fingerprint {
-    seq: [u64; 2],
+    seq: u64,
     #[cfg(debug_assertions)]
     pairs: u64,
 }
@@ -36,8 +36,7 @@ fn mix(mut z: u64) -> u64 {
     z ^ (z >> 31)
 }
 
-const LANE_A: u64 = 0x9e37_79b9_7f4a_7c15;
-const LANE_B: u64 = 0xd1b5_4a32_d192_ed03;
+const LANE_SEQ: u64 = 0x9e37_79b9_7f4a_7c15;
 #[cfg(debug_assertions)]
 const LANE_PAIRS: u64 = 0x8cb9_2ba7_2f3d_8dd7;
 
@@ -46,7 +45,7 @@ impl Fingerprint {
     pub(super) fn spelled(pos: u32, nuc: u8) -> Self {
         let x = (u64::from(pos) << 2) | u64::from(nuc);
         Self {
-            seq: [mix(x ^ LANE_A), mix(x ^ LANE_B)],
+            seq: mix(x ^ LANE_SEQ),
             #[cfg(debug_assertions)]
             pairs: 0,
         }
@@ -56,7 +55,7 @@ impl Fingerprint {
     #[cfg_attr(not(debug_assertions), allow(unused_variables))]
     pub(super) fn pair(i: u32, j: u32) -> Self {
         Self {
-            seq: [0, 0],
+            seq: 0,
             #[cfg(debug_assertions)]
             pairs: mix(((u64::from(i) << 32) | u64::from(j)) ^ LANE_PAIRS),
         }
@@ -65,27 +64,39 @@ impl Fingerprint {
     /// The fingerprint of two disjoint parts together.
     pub(super) fn with(self, other: Self) -> Self {
         Self {
-            seq: [
-                self.seq[0].wrapping_add(other.seq[0]),
-                self.seq[1].wrapping_add(other.seq[1]),
-            ],
+            seq: self.seq.wrapping_add(other.seq),
             #[cfg(debug_assertions)]
             pairs: self.pairs.wrapping_add(other.pairs),
         }
     }
 
-    /// The sequence alone.
-    pub(super) fn design(self) -> u128 {
-        (u128::from(self.seq[0]) << 64) | u128::from(self.seq[1])
+    /// The sequence alone. Equal for equal sequences; equal for different
+    /// ones only by collision.
+    pub(super) fn design(self) -> u64 {
+        self.seq
     }
 
     /// Sequence and pairs together. It only counts duplicate molecules, so a
     /// collision would miscount one, never pass over a design.
     #[cfg(debug_assertions)]
     pub(super) fn molecule(self) -> u128 {
-        let a = self.seq[0] ^ mix(self.pairs);
-        let b = self.seq[1].wrapping_add(self.pairs);
-        (u128::from(a) << 64) | u128::from(b)
+        (u128::from(self.seq) << 64) | u128::from(self.pairs)
+    }
+
+    /// The fingerprint with its sequence lane cut to its low `bits` bits, so
+    /// that a test can make distinct sequences collide at will. The low bits
+    /// of a wrapping sum are the wrapping sum of the low bits, so cutting a
+    /// composed fingerprint equals composing cut parts.
+    #[cfg(test)]
+    pub(super) fn truncated(self, bits: u32) -> Self {
+        let mask = if bits >= 64 {
+            u64::MAX
+        } else {
+            (1u64 << bits) - 1
+        };
+        let mut cut = self;
+        cut.seq &= mask;
+        cut
     }
 }
 
@@ -115,5 +126,25 @@ mod tests {
         assert_eq!(paired.design(), all.design());
         #[cfg(debug_assertions)]
         assert_ne!(paired.molecule(), all.molecule());
+    }
+
+    /// Cutting the lane commutes with composing, so a walk that cuts every
+    /// fingerprint it composes holds the cut of the true one everywhere.
+    #[test]
+    fn a_truncated_fingerprint_composes_like_the_full_one() {
+        let parts: Vec<Fingerprint> = (0..9)
+            .map(|p| Fingerprint::spelled(p * 7, (p % 4) as u8))
+            .collect();
+        for bits in [0, 1, 3, 17, 63, 64] {
+            let cut_then_sum = parts
+                .iter()
+                .fold(Fingerprint::default(), |a, &b| a.with(b.truncated(bits)))
+                .truncated(bits);
+            let sum_then_cut = parts
+                .iter()
+                .fold(Fingerprint::default(), |a, &b| a.with(b))
+                .truncated(bits);
+            assert_eq!(cut_then_sum, sum_then_cut, "{bits} bits");
+        }
     }
 }

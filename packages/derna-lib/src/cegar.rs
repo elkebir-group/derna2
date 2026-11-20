@@ -24,14 +24,22 @@
 //! `O(m)` rounds against a partition tree that is exponential in the worst
 //! case. What buys the bound is exactly what forfeits optimality.
 //!
-//! **A cut does not always exist, for two different reasons.** A reinstated
-//! pair contributes a cuttable position only where an endpoint lies inside the
-//! CDS; a pair with both endpoints in given flank sequence cannot be spelled
+//! **A cut does not always exist, and the reasons are worth separating.** A
+//! reinstated pair contributes a cuttable position only where an endpoint lies
+//! inside the CDS; a pair with both endpoints in given flank sequence cannot be spelled
 //! away by any codon assignment, and the loop reports [`CegarOutcome::NoCut`].
 //! That is a property of the arrangement, and the partitioning search meets the
 //! same wall as an empty modular set.
 //!
-//! The second reason is a limit of this loop rather than of the problem. Cuts
+//! A position can also be blamed and still not be cuttable, because the codon
+//! standing at it is the last one it has left: excluding that would empty the
+//! position, and the next solve would fail on a space the cuts never examined.
+//! Such a round produces no cut either, and [`StuckDetail`] is what tells the
+//! two apart — `in_cds == 0` is the arrangement refusing, `in_cds > 0` with
+//! `cuttable == 0` is this loop having spent the positions it had. Unlike the
+//! first, this one says nothing about the molecule.
+//!
+//! The last reason is a limit of this loop rather than of the problem. Cuts
 //! are read off the *recovered* free structure, and free optima are routinely
 //! co-optimal, so a design can be violating by energy while the traceback hands
 //! back one of the clean structures at that energy. Then no pair is named,
@@ -96,6 +104,14 @@ pub enum CegarOutcome {
     Modular,
     /// A counterexample with no cuttable endpoint — every reinstated pair lies
     /// wholly inside given sequence. No codon assignment reaches it.
+    ///
+    /// It has a second cause, which the counts in [`StuckDetail`] separate.
+    /// A blamed position whose current codon is the last one it has left is not
+    /// cuttable either — excluding it would empty the position — so a round can
+    /// name pairs inside the coding sequence and still produce no cut. Then
+    /// `named > 0, in_cds > 0, cuttable == 0`, against `in_cds == 0` for the
+    /// arrangement refusing. The second is the loop having spent what it could
+    /// cut, and unlike the first it says nothing about the molecule.
     NoCut,
     /// The design is violating by energy and the traceback named no forbidden
     /// pair, so there is nothing to cut *on*. Free optima are routinely
@@ -107,6 +123,12 @@ pub enum CegarOutcome {
     /// The cuts emptied some position's codon set. Says nothing about whether
     /// a modular design exists: the cuts are not a partition, so what they
     /// removed was never examined.
+    ///
+    /// A codon cut cannot reach this, because a cut that would empty a position
+    /// is refused and the round reports [`CegarOutcome::NoCut`] instead. What
+    /// remains is [`CutRule::Junction`], whose cut is a forbidden window rather
+    /// than a codon exclusion and can make the restricted problem infeasible
+    /// without any single position running out.
     Exhausted,
     /// The budget ran out while still cutting — wall-clock or the round cap,
     /// which say the same thing about the answer: the loop had not finished, so
@@ -430,6 +452,14 @@ fn junction_window(pos: usize, cds: CdsWindow, seq_len: usize) -> Option<MotifWi
 /// nothing here. A position whose current codon is already excluded is dropped
 /// too — it cannot be excluded twice, and re-cutting it would spend a round
 /// without shrinking anything.
+///
+/// A position whose current codon is the **last one it has left** is dropped as
+/// well, by [`a_codon_would_remain`]. Cutting it would empty the position and
+/// the next solve would fail, which the loop reports as
+/// [`CegarOutcome::Exhausted`] — a stop on a space the cuts never examined,
+/// rather than on the question asked. Where this leaves nothing to cut the loop
+/// reports [`CegarOutcome::NoCut`] with `cuttable == 0`, which is what
+/// [`StuckDetail`] documents as the loop having spent the positions it had.
 fn cuttable(
     inputs: &SearchInputs<'_>,
     reinstated: &[(usize, usize)],
@@ -451,6 +481,9 @@ fn cuttable(
             if excluded[position].contains(&codons[position]) {
                 continue;
             }
+            if !a_codon_would_remain(inputs, excluded, position) {
+                continue;
+            }
             out.push(position);
             if rule == CutRule::Single {
                 return out;
@@ -458,6 +491,33 @@ fn cuttable(
         }
     }
     out
+}
+
+/// Whether excluding the design's current codon at `position` would leave the
+/// position with a codon to spell.
+///
+/// [`solve`] builds each position's alphabet as its residue's codons minus the
+/// exclusions and returns `None` when any of them is empty, which the loop
+/// reports as [`CegarOutcome::Exhausted`]. A cut that empties a position
+/// therefore ends the loop on a space the cuts never examined — and it is not
+/// a cut on a one-codon residue alone: it is the **last remaining** codon at
+/// any residue, which a four-codon residue reaches on its fourth cut just as a
+/// tryptophan reaches it on its first.
+///
+/// Callers reach this only after establishing that the current codon is not
+/// already excluded, so one remaining codon means that one *is* the current
+/// codon and cutting it empties the position.
+fn a_codon_would_remain(
+    inputs: &SearchInputs<'_>,
+    excluded: &[Vec<[u8; 3]>],
+    position: usize,
+) -> bool {
+    AMINO_ACIDS[inputs.aa[position]]
+        .codons
+        .iter()
+        .filter(|c| !excluded[position].contains(&c.nuc))
+        .nth(1)
+        .is_some()
 }
 
 /// The CDS codons a design spells, in the codon table's encoding.

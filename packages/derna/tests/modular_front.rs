@@ -1302,6 +1302,227 @@ fn a_search_is_not_resumed_within_another_epsilon() {
     }
 }
 
+/// Run the cell under `extra`, resuming the search at `from`; the result or
+/// the refusal.
+fn resume_search_with(
+    out: &std::path::Path,
+    from: &std::path::Path,
+    extra: &[&str],
+) -> derna_cli::Result<()> {
+    let mut argv: Vec<String> = [
+        "front",
+        "--protein",
+        "MPRGLA",
+        "--utr5",
+        "CCGCGG",
+        "--stop",
+        "none",
+        "--modular",
+        "--force",
+        "--out",
+        out.to_str().unwrap(),
+        "--resume-search",
+        from.to_str().unwrap(),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    argv.extend(extra.iter().map(|s| s.to_string()));
+    derna_cli::run(argv)
+}
+
+/// The designs a progress file records as found, each from the first coding
+/// nucleotide on: the 6-nucleotide 5′ flank every run here is given spells
+/// CGC itself, and no codon assignment can remove it.
+///
+/// A pattern is forbidden wherever it reaches the coding sequence, including
+/// from inside the flank, so dropping the whole flank under-counts the
+/// occurrences a design is answerable for. That is the safe direction here:
+/// what is read from it is only that a set of designs holds something a motif
+/// run may not emit.
+fn found_cds_in(progress: &std::path::Path) -> Vec<String> {
+    std::fs::read_to_string(progress)
+        .unwrap_or_else(|e| panic!("no search record at {}: {e}", progress.display()))
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter_map(|v| v["found"].as_str().map(|s| s["CCGCGG".len()..].to_string()))
+        .collect()
+}
+
+/// A pattern the cell's motif-free front spells inside its coding sequence,
+/// and which it can also be designed without: the two conditions a motif has
+/// to meet for a cross-set resume to be a resume that would have admitted
+/// something forbidden.
+const MOTIF: &str = "GGC";
+
+/// A search's progress names the motif set its designs were admitted under,
+/// so one search's progress is not resumed into a search under another set.
+///
+/// A design a progress file records as found is merged into the resuming
+/// search's working set and never put through the motif test again, so a
+/// motif-free search's progress carried into a motif run returns designs that
+/// spell the forbidden pattern. The other direction loses points instead: a
+/// motif run's band clamps the resuming run's open regions below designs the
+/// motif-free run admits. Both are refused.
+///
+/// A pin is part of the same name, and refused the same way: it restricts
+/// what a position may spell, so a design found without it is not one a
+/// pinned run may emit either.
+///
+/// The molecule, the flanks and the epsilon are the same on both sides, so
+/// nothing but the constraint can be what the refusal reads — the message is
+/// asserted to name it. The arm that must be accepted is the next test.
+#[test]
+fn a_search_is_not_resumed_under_another_motif_set_or_pins() {
+    let plain_out = scratch("motif-identity-plain");
+    let plain_progress = std::path::PathBuf::from(format!("{}.search.jsonl", plain_out.display()));
+    let _ = std::fs::remove_file(&plain_progress);
+    checkpointed(&plain_out, &[]);
+
+    // Non-vacuity: the motif-free search found designs the motif run may not
+    // emit. Without them the refusal would protect nothing on this cell, and
+    // the test would pass on a guard that reads the wrong field. A guard that
+    // does not read the motif set accepts this resume, and the run then
+    // returns three points, two of them these, each marked `certified`.
+    let forbidden: Vec<String> = found_cds_in(&plain_progress)
+        .into_iter()
+        .filter(|cds| cds.contains(MOTIF))
+        .collect();
+    assert!(
+        !forbidden.is_empty(),
+        "the motif-free search found no design spelling {MOTIF} in its coding sequence, \
+         so carrying it into a --motif {MOTIF} run would admit nothing forbidden"
+    );
+
+    let into_motif = scratch("motif-identity-into-motif");
+    let e = resume_search_with(&into_motif, &plain_progress, &["--motif", MOTIF])
+        .expect_err("a motif-free search resumed under a motif")
+        .to_string();
+    assert!(e.contains("motifs"), "{e}");
+    assert!(e.contains(&plain_progress.display().to_string()), "{e}");
+
+    // And back the other way, which loses points rather than spelling one.
+    let motif_out = scratch("motif-identity-motif");
+    let motif_progress = std::path::PathBuf::from(format!("{}.search.jsonl", motif_out.display()));
+    let _ = std::fs::remove_file(&motif_progress);
+    checkpointed(&motif_out, &["--motif", MOTIF]);
+    let into_plain = scratch("motif-identity-into-plain");
+    let e = resume_search_with(&into_plain, &motif_progress, &[])
+        .expect_err("a motif search resumed with no motif")
+        .to_string();
+    assert!(e.contains("motifs"), "{e}");
+
+    // And the same motif set under a pin the search that wrote the file did
+    // not have.
+    let into_pinned = scratch("motif-identity-into-pinned");
+    let e = resume_search_with(
+        &into_pinned,
+        &motif_progress,
+        &["--motif", MOTIF, "--pin", "15:U"],
+    )
+    .expect_err("an unpinned search resumed under a pin")
+    .to_string();
+    assert!(e.contains("pins"), "{e}");
+
+    for f in [
+        &plain_out,
+        &into_motif,
+        &motif_out,
+        &into_plain,
+        &into_pinned,
+    ] {
+        let _ = std::fs::remove_file(f);
+        let _ = std::fs::remove_file(format!("{}.search.jsonl", f.display()));
+    }
+}
+
+/// The control the refusal above needs: a search under the same motif set is
+/// resumed, and a set given in another order is the same set.
+///
+/// Without this arm a guard that refused every resume would satisfy the
+/// refusal test, and so would one comparing the motif list as written rather
+/// than as a set.
+#[test]
+fn a_search_is_resumed_under_the_same_motif_set_in_any_order() {
+    let out = scratch("motif-identity-same");
+    let progress = std::path::PathBuf::from(format!("{}.search.jsonl", out.display()));
+    let _ = std::fs::remove_file(&progress);
+    let first = checkpointed(&out, &["--motif", "CGC", "--motif", "GUA"]);
+    let found = found_cds_in(&progress).len();
+    assert!(found > 0, "the search under two motifs found nothing");
+
+    // The same two patterns, written the other way round.
+    let again_out = scratch("motif-identity-reordered");
+    resume_search_with(&again_out, &progress, &["--motif", "GUA", "--motif", "CGC"])
+        .expect("the same motif set in another order");
+    let again = read_lines(&again_out);
+    assert_eq!(
+        again[0]["resumed_search"]["found"].as_u64(),
+        Some(found as u64),
+        "{}",
+        again[0]
+    );
+    assert_eq!(designs(&again[1..]), designs(&first[1..]));
+
+    for f in [&out, &again_out] {
+        let _ = std::fs::remove_file(f);
+        let _ = std::fs::remove_file(format!("{}.search.jsonl", f.display()));
+    }
+}
+
+/// A progress file that does not record a motif set is not resumed, whether
+/// it names a run without one or names no run at all.
+///
+/// Such a file predates the field. It reads exactly alike whether the search
+/// that wrote it ran under no motif or under motifs it never recorded, so
+/// reading its silence as *no motifs* would admit the second into a motif
+/// run — the trap the field exists to close. The file is refused and the run
+/// says how to start over.
+#[test]
+fn a_search_that_records_no_motif_set_is_not_resumed() {
+    let out = scratch("motif-identity-unversioned");
+    let progress = std::path::PathBuf::from(format!("{}.search.jsonl", out.display()));
+    let _ = std::fs::remove_file(&progress);
+    checkpointed(&out, &["--motif", "CGC"]);
+    let whole = read_lines(&progress);
+    assert!(whole[0]["run"]["motifs"].is_array(), "{}", whole[0]);
+
+    // As a derna that recorded only the molecule wrote it.
+    let older = scratch("motif-identity-older-file");
+    let mut lines = whole.clone();
+    for field in [
+        "motifs",
+        "motif_window",
+        "motif_scopes",
+        "motifs_in_fixed_flanks",
+        "pins",
+    ] {
+        lines[0]["run"].as_object_mut().unwrap().remove(field);
+    }
+    let text: String = lines.iter().map(|l| format!("{l}\n")).collect();
+    std::fs::write(&older, &text).unwrap();
+    let resumed = scratch("motif-identity-from-older");
+    let e = resume_search_with(&resumed, &older, &["--motif", "CGC"])
+        .expect_err("a progress file recording no motif set")
+        .to_string();
+    assert!(e.contains("does not record the motifs"), "{e}");
+    assert!(e.contains("--force"), "{e}");
+
+    // And one from before progress files named their run at all.
+    let unnamed = scratch("motif-identity-unnamed-file");
+    let text: String = whole[1..].iter().map(|l| format!("{l}\n")).collect();
+    std::fs::write(&unnamed, &text).unwrap();
+    let e = resume_search_with(&resumed, &unnamed, &["--motif", "CGC"])
+        .expect_err("a progress file naming no run")
+        .to_string();
+    assert!(e.contains("does not record the motifs"), "{e}");
+
+    for f in [&out, &older, &unnamed, &resumed] {
+        let _ = std::fs::remove_file(f);
+        let _ = std::fs::remove_file(format!("{}.search.jsonl", f.display()));
+    }
+}
+
 /// A front within an epsilon goes through `check` and `show` saying so:
 /// `check` carries the epsilon and decides each point's fixed violations
 /// again from its own fold, and `show` prints the epsilon and how many

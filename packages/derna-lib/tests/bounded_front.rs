@@ -32,6 +32,11 @@
 //! exterior would demonstrate nothing about the tables where the difficulty
 //! lives. So the tests check the drop reaches all four multiloop-interior
 //! tables on the cases they run.
+//!
+//! Every box here is solved with the window rule alone
+//! ([`Bounds::without_exact_credit`]), so what is proven is the window's own
+//! exactness and coverage; the exact cost to go, credited beside the window by
+//! default, has its proof in [`bounded_exact_credit`].
 
 use derna_lib::{
     design_bounded, design_front, design_front_bounded, Bounded, BoundedFront, Bounds, Ceiling,
@@ -47,7 +52,13 @@ use common::{
 /// Solve under `ceiling` and unwrap the feasible answer, failing loudly if the
 /// ceiling turned out to be unreachable.
 fn solve(params: &Params, protein: &str, usage: &CodonUsage, ceiling: Ceiling) -> BoundedFront {
-    solve_with(params, protein, usage, Bounds::with_ceiling(ceiling), 1)
+    solve_with(
+        params,
+        protein,
+        usage,
+        Bounds::with_ceiling(ceiling).without_exact_credit(),
+        1,
+    )
 }
 
 fn solve_with(
@@ -175,7 +186,7 @@ fn the_construction_known_ceilings_hold_for_the_solver() {
             protein,
             &usage,
             Prune::None,
-            Bounds::with_ceiling(Ceiling::Absolute(Energy(corner - 1))),
+            Bounds::with_ceiling(Ceiling::Absolute(Energy(corner - 1))).without_exact_credit(),
             1,
         )
         .unwrap();
@@ -345,7 +356,9 @@ fn a_credit_inflated_by_one_unit_discards_a_design_the_oracle_proves_feasible() 
             &params,
             protein,
             &usage,
-            Bounds::with_ceiling(ceiling).with_credit_offset(Energy(1)),
+            Bounds::with_ceiling(ceiling)
+                .without_exact_credit()
+                .with_credit_offset(Energy(1)),
             1,
         );
         assert!(
@@ -438,7 +451,9 @@ fn the_comparison_notices_a_credit_that_is_modular_only_at_the_exterior() {
             &params,
             protein,
             &usage,
-            Bounds::with_ceiling(ceiling).with_credit_offset_beyond_exterior(Energy(1)),
+            Bounds::with_ceiling(ceiling)
+                .without_exact_credit()
+                .with_credit_offset_beyond_exterior(Energy(1)),
             1,
         );
         assert_ne!(
@@ -462,7 +477,8 @@ fn worker_count_does_not_change_the_bounded_answer() {
     for protein in WIDE_CASES {
         let front = front_objectives(&design_front(&params, protein, &usage).unwrap());
         for point in &front {
-            let bounds = Bounds::with_ceiling(Ceiling::Absolute(Energy(point.mfe)));
+            let bounds =
+                Bounds::with_ceiling(Ceiling::Absolute(Energy(point.mfe))).without_exact_credit();
             let serial = solve_with(&params, protein, &usage, bounds, 1);
             let parallel = solve_with(&params, protein, &usage, bounds, 8);
             assert_eq!(

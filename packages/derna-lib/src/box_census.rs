@@ -658,7 +658,7 @@ mod tests {
             protein,
             &usage,
             Prune::None,
-            Bounds::with_ceiling(Ceiling::AboveOptimum(slack)).with_exact_credit(),
+            Bounds::with_ceiling(Ceiling::AboveOptimum(slack)),
             1,
         )
         .unwrap() else {

@@ -66,6 +66,7 @@ fn energy(point: &FrontPoint) -> i32 {
     (point.mfe_kcal_mol * 100.0).round() as i32
 }
 
+/// A ceiling with the exact credit, which is what a ceiling gets by default.
 fn ceiling(sigma: i32) -> Bounds {
     Bounds::with_ceiling(Ceiling::Absolute(Energy(sigma)))
 }
@@ -78,7 +79,7 @@ fn cases(params: &Params, usage: &CodonUsage) -> Vec<(&'static str, Vec<FrontPoi
         .chain(WIDE_CASES.iter())
         .map(|&p| (p, design_front(params, p, usage).unwrap()))
         .collect();
-    let near = Bounds::with_ceiling(Ceiling::AboveOptimum(MULTILOOP_SLACK)).with_exact_credit();
+    let near = Bounds::with_ceiling(Ceiling::AboveOptimum(MULTILOOP_SLACK));
     out.push((MULTILOOP, bounded(params, MULTILOOP, usage, near).front));
     out
 }
@@ -92,7 +93,7 @@ fn the_filter_changes_no_byte_of_the_bounded_answer() {
     let mut skipped = [0; 3];
     for (protein, front) in cases(&params, &usage) {
         for sigma in front.iter().map(energy) {
-            for bounds in [ceiling(sigma), ceiling(sigma).with_exact_credit()] {
+            for bounds in [ceiling(sigma).without_exact_credit(), ceiling(sigma)] {
                 let on = bounded(&params, protein, &usage, bounds);
                 let off = bounded(&params, protein, &usage, bounds.without_compose_filter());
                 assert_eq!(on.front, off.front, "{protein} at {sigma}: {bounds:?}");
@@ -125,7 +126,7 @@ fn the_filter_changes_no_byte_of_the_box_answer() {
                     cai_floor_log: front[lo].cai_log,
                     lambdas: vec![0.0, 0.3, 0.5, 0.7],
                 };
-                let bounds = ceiling(energy(&front[hi])).with_exact_credit();
+                let bounds = ceiling(energy(&front[hi]));
                 let on = boxed(&params, protein, &usage, bounds, &band);
                 let off = boxed(
                     &params,
@@ -153,10 +154,10 @@ fn the_filter_changes_no_byte_of_the_box_answer() {
 #[test]
 fn a_filter_one_unit_too_tight_loses_the_multiloop_boundary_design() {
     let (params, usage) = fixtures();
-    let near = Bounds::with_ceiling(Ceiling::AboveOptimum(MULTILOOP_SLACK)).with_exact_credit();
+    let near = Bounds::with_ceiling(Ceiling::AboveOptimum(MULTILOOP_SLACK));
     let front = bounded(&params, MULTILOOP, &usage, near).front;
     let boundary = energy(&front[1]);
-    let bounds = ceiling(boundary).with_exact_credit();
+    let bounds = ceiling(boundary);
     let sound = bounded(&params, MULTILOOP, &usage, bounds);
     assert!(sound.front.iter().any(|p| energy(p) == boundary));
     let tight = bounded(
@@ -185,7 +186,7 @@ fn a_corner_or_exterior_filter_one_unit_too_tight_changes_an_answer() {
                 .iter()
                 .map(energy)
             {
-                let bounds = ceiling(sigma).with_exact_credit();
+                let bounds = ceiling(sigma);
                 let sound = bounded(&params, protein, &usage, bounds);
                 let tight = bounds.with_filter_offset_at(table, Energy(1));
                 // Too tight at the exterior can discard the optimum itself,
@@ -219,7 +220,7 @@ fn a_corner_or_exterior_filter_one_unit_too_tight_changes_an_answer() {
 #[test]
 fn worker_count_does_not_change_the_multiloop_answer() {
     let (params, usage) = fixtures();
-    let wide = Bounds::with_ceiling(Ceiling::AboveOptimum(Energy(300)));
+    let wide = Bounds::with_ceiling(Ceiling::AboveOptimum(Energy(300))).without_exact_credit();
     let solve = |band: Option<&BoxSpec>, bounds, threads| {
         let (solved, clock) =
             clock_front(&params, MULTILOOP, &usage, bounds, band, threads).unwrap();
@@ -242,7 +243,7 @@ fn worker_count_does_not_change_the_multiloop_answer() {
         cai_floor_log: front[0].cai_log,
         lambdas: vec![0.5],
     };
-    let bounds = ceiling(energy(&front[front.len() - 1]));
+    let bounds = ceiling(energy(&front[front.len() - 1])).without_exact_credit();
     let (one, eight) = (solve(Some(&band), bounds, 1), solve(Some(&band), bounds, 8));
     assert_eq!(one.front, eight.front);
     assert_eq!(one.dropped, eight.dropped);
